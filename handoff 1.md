@@ -1,3 +1,45 @@
+# BYOK-Vid-Creator — Build Handoff (Phase 1a–1d complete)
+
+## What this app is
+A **desktop-only** (Electron + Vite + React + TS + Tailwind, dark-only) deterministic
+(non-generative) video production tool. It assembles TTS speech + stock video
+(Pixabay/Pexels) + music (Jamendo) + SFX (Freesound) + animated waveforms + viseme
+avatars + subtitles, then renders with **Remotion** (primary) or **FFmpeg-WASM**.
+Target: 8–10 min videos. Dev machine RECOMMENDED spec: 8GB NVIDIA GPU, 32GB RAM.
+Render time up to ~1hr per 10 min is acceptable.
+
+## Locked decisions
+- Deterministic = template/stock-driven, NOT Veo/Sora-style generation.
+- TTS: PRIMARY = Coqui XTTS-v2 (local). FALLBACK = Azure Speech. TEST = Piper.
+  Edge/ElevenLabs/Voxtral DROPPED. No SSML phoneme accent hacks (caused bad
+  pauses); accent/expression via post-processing LATER, once local model runs.
+- Scene chunking LLM: GLM 5.2 via NVIDIA provider.
+- FPS: user choice 10 / 24 / 30 (default 24).
+- Language focus: Greek (primary) + English. Chirp Greek noted but not in core stack.
+- Storage: local disk (Google Drive = UI stub, "future feature", from day 1).
+- Visemes: 9-cell sprite sheet (Neutral, Ah, Ee, Oh, Oo, MBP, FV, L, Ch/Sh),
+  1024x1024 source PNG per head, shrinkable. Text-driven phoneme mapping
+  (no speaker audio provided). <95% sync fidelity acceptable.
+- UI aesthetic: charcoal rough metal + thick clear-plastic tactile controls.
+  Priority order: STABILITY > FUNCTION > OUTPUT QUALITY > UI WOW.
+- Credits: You.com, Opus 4.8, Hermes agent, Google Flow. Live at
+  https://BYOK-Vid-Creator.stravelakis.com + GitHub. README is LIVE.
+
+## Files done so far
+- root: package.json, tailwind.config.js, vite.config.ts, tsconfig.json (root!)
+- src/store/types.ts, defaults.ts, useProjectStore.ts
+- src/store/settingsTypes.ts, useSettingsStore.ts (persisted API keys/defaults)
+
+## NEXT (phase 1e)
+Build visual panels: RenderSettings dashboard + BackendSettings (API keys),
+in charcoal-metal/clear-plastic style. Then canvas + waveform renderer.
+
+## Workflow rule
+Non-coder user. ALWAYS give FULL-FILE replacements, tagged EDIT or CREATE.
+NEVER say "append". No inline "// add this here" snippets.
+
+
+
 2
 
 📄 HANDOFF DOC (paste this into a fresh chat to continue without the image load)
