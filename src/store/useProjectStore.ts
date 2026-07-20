@@ -21,4 +21,31 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
   setBgRelevancy: (v) => set({ bgRelevancy: v }),
 
   reset: () => set(defaultProject),
-}));
+
+// --- add to existing ProjectState interface ---
+fps: 10 | 24 | 30;
+setFps: (fps: 10 | 24 | 30) => void;
+
+speakers: SpeakerConfig[];
+updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
+
+// --- add SpeakerConfig type ---
+export interface SpeakerConfig {
+  id: string;
+  label: string;              // "Male Dog" / "Female"
+  sheetUrl: string;
+  bgOpacity: number;          // default 0
+  borderOpacity: number;      // default 1
+  bgColor: string;
+  borderColor: string;
+  x: number; y: number; size: number; // canvas position
+}
+
+// --- add to store impl ---
+fps: 24,
+setFps: (fps) => set({ fps }),
+speakers: [],
+updateSpeaker: (id, patch) => set((s) => ({
+  speakers: s.speakers.map(sp => sp.id === id ? { ...sp, ...patch } : sp),
+})),
+
