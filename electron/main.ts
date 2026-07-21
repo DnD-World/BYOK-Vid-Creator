@@ -3,27 +3,14 @@ import path from "node:path";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 
-// ---------------------------------------------------------------------------
-// BYOK-Vid-Creator — Electron Main Process
-// Responsibilities:
-//   1. Create the app window (dark, frameless-ready, context-isolated).
-//   2. Securely store/read BYOK API keys via OS-level encryption (safeStorage).
-//   3. Bridge file dialogs + local render-output storage to the renderer.
-//   4. Provide a place (stubbed) for the render pipeline to report progress.
-// ---------------------------------------------------------------------------
-
 const isDev = !app.isPackaged;
 
-// Where we keep encrypted secrets + rendered files.
 const userDir = () => app.getPath("userData");
 const keysFile = () => path.join(userDir(), "byok.secrets.enc");
 const outputDir = () => path.join(userDir(), "renders");
 
 let mainWindow: BrowserWindow | null = null;
 
-// ---------------------------------------------------------------------------
-// Secure key storage helpers
-// ---------------------------------------------------------------------------
 type KeyStore = Record<string, string>;
 
 async function readKeyStore(): Promise<KeyStore> {
@@ -31,7 +18,6 @@ async function readKeyStore(): Promise<KeyStore> {
     if (!fs.existsSync(keysFile())) return {};
     const raw = await fsp.readFile(keysFile());
     if (!safeStorage.isEncryptionAvailable()) {
-      // Fallback: file was written in plaintext JSON (only if OS crypto missing).
       return JSON.parse(raw.toString("utf-8"));
     }
     const decrypted = safeStorage.decryptString(raw);
@@ -48,14 +34,10 @@ async function writeKeyStore(store: KeyStore): Promise<void> {
     const enc = safeStorage.encryptString(json);
     await fsp.writeFile(keysFile(), enc);
   } else {
-    // Last-resort fallback so the app still runs; warned in the UI.
     await fsp.writeFile(keysFile(), Buffer.from(json, "utf-8"));
   }
 }
 
-// ---------------------------------------------------------------------------
-// Window
-// ---------------------------------------------------------------------------
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1600,
@@ -67,16 +49,15 @@ function createWindow() {
     autoHideMenuBar: true,
     title: "BYOK-Vid-Creator",
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,   // REQUIRED for contextBridge
+      preload: path.join(__dirname, "../preload/preload.mjs"),
+      contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,           // preload needs Node built-ins (fs paths via IPC only)
+      sandbox: false,
     },
   });
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
 
-  // Open external links in the real browser, not inside the app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
@@ -94,12 +75,8 @@ function createWindow() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// IPC — Secure keys
-// ---------------------------------------------------------------------------
 ipcMain.handle("keys:list", async () => {
   const store = await readKeyStore();
-  // Never return the actual secrets — only which providers are configured.
   return Object.keys(store);
 });
 
@@ -126,9 +103,6 @@ ipcMain.handle("keys:encryptionAvailable", async () => {
   return safeStorage.isEncryptionAvailable();
 });
 
-// ---------------------------------------------------------------------------
-// IPC — File dialogs & storage
-// ---------------------------------------------------------------------------
 ipcMain.handle("dialog:openFile", async (_e, filters?: Electron.FileFilter[]) => {
   const res = await dialog.showOpenDialog(mainWindow!, {
     properties: ["openFile"],
@@ -166,18 +140,10 @@ ipcMain.handle("storage:writeFile", async (_e, filePath: string, data: ArrayBuff
   return true;
 });
 
-// ---------------------------------------------------------------------------
-// IPC — Render pipeline (stub; the real worker lands in a later phase)
-// The renderer calls render:start; main streams render:progress events back.
-// ---------------------------------------------------------------------------
 ipcMain.handle("render:start", async (_e, _job: unknown) => {
-  // Placeholder: acknowledge job. Real Remotion/FFmpeg spawn added later.
   return { ok: true, jobId: Date.now().toString(36) };
 });
 
-// ---------------------------------------------------------------------------
-// App lifecycle
-// ---------------------------------------------------------------------------
 app.whenReady().then(() => {
   createWindow();
   app.on("activate", () => {
