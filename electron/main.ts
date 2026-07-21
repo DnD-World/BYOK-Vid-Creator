@@ -1,42 +1,14 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import path from "node:path";
-import fs from "node:fs";
 import fsp from "node:fs/promises";
+import * as keyStore from "./keyStore";
 
 const isDev = !app.isPackaged;
 
 const userDir = () => app.getPath("userData");
-const keysFile = () => path.join(userDir(), "byok.secrets.enc");
 const outputDir = () => path.join(userDir(), "renders");
 
 let mainWindow: BrowserWindow | null = null;
-
-type KeyStore = Record<string, string>;
-
-async function readKeyStore(): Promise<KeyStore> {
-  try {
-    if (!fs.existsSync(keysFile())) return {};
-    const raw = await fsp.readFile(keysFile());
-    if (!safeStorage.isEncryptionAvailable()) {
-      return JSON.parse(raw.toString("utf-8"));
-    }
-    const decrypted = safeStorage.decryptString(raw);
-    return JSON.parse(decrypted) as KeyStore;
-  } catch {
-    return {};
-  }
-}
-
-async function writeKeyStore(store: KeyStore): Promise<void> {
-  await fsp.mkdir(userDir(), { recursive: true });
-  const json = JSON.stringify(store);
-  if (safeStorage.isEncryptionAvailable()) {
-    const enc = safeStorage.encryptString(json);
-    await fsp.writeFile(keysFile(), enc);
-  } else {
-    await fsp.writeFile(keysFile(), Buffer.from(json, "utf-8"));
-  }
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -75,32 +47,32 @@ function createWindow() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Key vault IPC — all reads/writes go through electron/keyStore.ts, the
+// single source of truth for encrypted key storage. Nothing in the renderer
+// ever sees or persists a raw key outside this channel.
+// ---------------------------------------------------------------------------
+
 ipcMain.handle("keys:list", async () => {
-  const store = await readKeyStore();
-  return Object.keys(store);
+  return keyStore.listKeys();
 });
 
 ipcMain.handle("keys:get", async (_e, provider: string) => {
-  const store = await readKeyStore();
-  return store[provider] ?? null;
+  return keyStore.getKey(provider);
 });
 
 ipcMain.handle("keys:set", async (_e, provider: string, value: string) => {
-  const store = await readKeyStore();
-  store[provider] = value;
-  await writeKeyStore(store);
-  return true;
+  const result = await keyStore.setKey(provider, value);
+  return result.ok;
 });
 
 ipcMain.handle("keys:delete", async (_e, provider: string) => {
-  const store = await readKeyStore();
-  delete store[provider];
-  await writeKeyStore(store);
-  return true;
+  const result = await keyStore.deleteKey(provider);
+  return result.ok;
 });
 
 ipcMain.handle("keys:encryptionAvailable", async () => {
-  return safeStorage.isEncryptionAvailable();
+  return keyStore.encryptionAvailable();
 });
 
 ipcMain.handle("dialog:openFile", async (_e, filters?: Electron.FileFilter[]) => {
