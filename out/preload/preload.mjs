@@ -24,6 +24,10 @@ const api = {
       ipcRenderer.on("render:progress", listener);
       return () => ipcRenderer.removeListener("render:progress", listener);
     }
+  },
+  tts: {
+    listPiperVoices: (voicesDir) => ipcRenderer.invoke("tts:listPiperVoices", voicesDir),
+    synthesizePiper: (pythonPath, onnxPath, text) => ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text)
   }
 };
 contextBridge.exposeInMainWorld("byok", api);

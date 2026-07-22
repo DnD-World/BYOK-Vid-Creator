@@ -4,6 +4,7 @@ import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { WaveformRenderer } from "./components/canvas/WaveformRenderer";
 import BackendPanel from "./components/settings/BackendPanel";
 import { useProjectStore } from "./store/useProjectStore";
+import { useVoicesStore } from "./store/useVoicesStore";
 import { VISEME } from "./lib/visemes/visemeMap";
 import type { Fps, WaveformConfig } from "./store/types";
 
@@ -30,6 +31,8 @@ export default function App() {
   const speakers = useProjectStore((s) => s.speakers);
   const addSpeaker = useProjectStore((s) => s.addSpeaker);
   const removeSpeaker = useProjectStore((s) => s.removeSpeaker);
+  const updateSpeaker = useProjectStore((s) => s.updateSpeaker);
+  const voices = useVoicesStore((s) => s.voices);
   const waveform = useProjectStore((s) => s.waveform);
   const setWaveform = useProjectStore((s) => s.setWaveform);
 
@@ -169,15 +172,35 @@ export default function App() {
               {speakers.map((sp) => (
                 <div
                   key={sp.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2"
+                  className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 space-y-1.5"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: sp.borderColor }} />
-                    <span className="text-sm text-zinc-200">{sp.label}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: sp.borderColor }} />
+                      <span className="text-sm text-zinc-200">{sp.label}</span>
+                    </div>
+                    <button onClick={() => removeSpeaker(sp.id)} className="text-zinc-500 hover:text-red-400 text-xs">
+                      ✕
+                    </button>
                   </div>
-                  <button onClick={() => removeSpeaker(sp.id)} className="text-zinc-500 hover:text-red-400 text-xs">
-                    ✕
-                  </button>
+                  {voices.length > 0 ? (
+                    <select
+                      value={sp.voiceId ?? ""}
+                      onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
+                      className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-2 py-1 text-xs text-zinc-300 outline-none focus:border-amber-500"
+                    >
+                      <option value="">No voice assigned</option>
+                      {voices.map((v) => (
+                        <option key={v.id} value={v.onnxPath}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-[10px] text-zinc-600">
+                      Scan for voices in Backend Settings to assign one.
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

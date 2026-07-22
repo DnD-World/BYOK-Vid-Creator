@@ -10,4 +10,6 @@ export interface BackendDefaults {
   defaultTransition: "fade_zoom" | "glitch" | "cut";
   storageTarget: "local"; // "gdrive" reserved (future)
   azureRegion: string;    // e.g. "eastus" — not secret, but Azure Speech needs it
+  piperPythonPath: string; // e.g. "python3" or a full path to your python executable
+  piperVoicesDir: string;  // folder containing your installed .onnx voice models
 }

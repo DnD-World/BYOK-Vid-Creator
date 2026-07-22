@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import path from "node:path";
 import fsp from "node:fs/promises";
 import * as keyStore from "./keyStore";
+import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 
 const isDev = !app.isPackaged;
 
@@ -114,6 +115,30 @@ ipcMain.handle("storage:writeFile", async (_e, filePath: string, data: ArrayBuff
 
 ipcMain.handle("render:start", async (_e, _job: unknown) => {
   return { ok: true, jobId: Date.now().toString(36) };
+});
+
+// ---------------------------------------------------------------------------
+// TTS — Piper (Phase 2, step 1). One engine per handler, matching the
+// renderer-facing shape in preload.ts, so adding XTTS-v2 later is additive
+// rather than a rewrite.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// TTS — Piper (Phase 2, step 1). Persistent per-voice HTTP servers, spawned
+// lazily and kept warm. Matches the renderer-facing shape in preload.ts, so
+// adding XTTS-v2 later is additive rather than a rewrite.
+// ---------------------------------------------------------------------------
+
+ipcMain.handle("tts:listPiperVoices", async (_e, voicesDir: string) => {
+  return listPiperVoices(voicesDir);
+});
+
+ipcMain.handle("tts:synthesizePiper", async (_e, pythonPath: string, onnxPath: string, text: string) => {
+  return synthesizeWithPiper(pythonPath, onnxPath, text);
+});
+
+app.on("will-quit", () => {
+  shutdownAllPiperServers();
 });
 
 app.whenReady().then(() => {

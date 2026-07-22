@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useTemplatesStore } from "../../store/useTemplatesStore";
+import TtsTestPanel from "./TtsTestPanel";
 
 const PROVIDERS = [
   { id: "nvidia", label: "NVIDIA (GLM 5.2 — scene chunking)", required: true },
@@ -133,6 +134,8 @@ export default function BackendPanel() {
           </div>
         );
       })}
+
+      <TtsTestPanel />
 
       <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 space-y-3">
         <h3 className="label-lit font-display uppercase tracking-[0.18em] text-xs">

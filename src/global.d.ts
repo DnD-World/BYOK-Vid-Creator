@@ -26,6 +26,14 @@ declare global {
           cb: (payload: { jobId: string; pct: number; note?: string }) => void
         ) => () => void;
       };
+      tts: {
+        listPiperVoices: (voicesDir: string) => Promise<{ id: string; name: string; onnxPath: string }[]>;
+        synthesizePiper: (
+          pythonPath: string,
+          onnxPath: string,
+          text: string
+        ) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
+      };
     };
   }
 }

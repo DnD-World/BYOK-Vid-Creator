@@ -30,6 +30,7 @@ export interface SpeakerConfig {
   x: number;
   y: number;
   size: number;          // diameter in px on canvas
+  voiceId?: string;      // assigned Piper voice's onnxPath, if any
 }
 
 export interface ProjectState {

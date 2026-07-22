@@ -25,6 +25,8 @@ export const useSettingsStore = create<SettingsState>()(
         defaultTransition: "fade_zoom",
         storageTarget: "local",
         azureRegion: "",
+        piperPythonPath: "python3",
+        piperVoicesDir: "",
       },
       setDefault: (k, v) =>
         set((s) => ({ defaults: { ...s.defaults, [k]: v } })),

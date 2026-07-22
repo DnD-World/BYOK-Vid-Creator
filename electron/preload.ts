@@ -49,6 +49,17 @@ const api = {
       return () => ipcRenderer.removeListener("render:progress", listener);
     },
   },
+
+  tts: {
+    listPiperVoices: (voicesDir: string): Promise<{ id: string; name: string; onnxPath: string }[]> =>
+      ipcRenderer.invoke("tts:listPiperVoices", voicesDir),
+    synthesizePiper: (
+      pythonPath: string,
+      onnxPath: string,
+      text: string
+    ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
+      ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text),
+  },
 };
 
 contextBridge.exposeInMainWorld("byok", api);
