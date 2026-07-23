@@ -13,6 +13,10 @@ interface SettingsState {
     k: K,
     v: BackendDefaults[K]
   ) => void;
+  /** Hex string, e.g. "#e8a24a". Drives the --accent-*-rgb CSS variables
+   *  applied in App.tsx, which every accent-* Tailwind class reads from. */
+  accentColor: string;
+  setAccentColor: (hex: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -30,6 +34,9 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setDefault: (k, v) =>
         set((s) => ({ defaults: { ...s.defaults, [k]: v } })),
+
+      accentColor: "#e8a24a",
+      setAccentColor: (hex) => set({ accentColor: hex }),
     }),
     { name: "byok-settings" } // saved to localStorage, survives restarts
   )

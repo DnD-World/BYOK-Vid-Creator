@@ -4,7 +4,9 @@ import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { WaveformRenderer } from "./components/canvas/WaveformRenderer";
 import BackendPanel from "./components/settings/BackendPanel";
 import { useProjectStore } from "./store/useProjectStore";
+import { useSettingsStore } from "./store/useSettingsStore";
 import { useVoicesStore } from "./store/useVoicesStore";
+import { deriveAccentShades } from "./lib/color/deriveShades";
 import { VISEME } from "./lib/visemes/visemeMap";
 import type { Fps, WaveformConfig } from "./store/types";
 
@@ -35,8 +37,19 @@ export default function App() {
   const voices = useVoicesStore((s) => s.voices);
   const waveform = useProjectStore((s) => s.waveform);
   const setWaveform = useProjectStore((s) => s.setWaveform);
+  const accentColor = useSettingsStore((s) => s.accentColor);
 
   const isPortrait = render.format === "9:16";
+
+  // Recolor every accent-* class + glow effect live, including on first
+  // mount (so a previously chosen color persists across restarts).
+  useEffect(() => {
+    const { base, bright, deep } = deriveAccentShades(accentColor);
+    const root = document.documentElement.style;
+    root.setProperty("--accent-rgb", base);
+    root.setProperty("--accent-bright-rgb", bright);
+    root.setProperty("--accent-deep-rgb", deep);
+  }, [accentColor]);
 
   // The waveform SVG needs real pixel dimensions of the aspect-locked slot,
   // which CSS aspect-ratio computes at layout time — so track it via
@@ -63,7 +76,7 @@ export default function App() {
           <span className="label-etched hidden sm:inline">Deterministic Video Studio</span>
           <button
             onClick={() => setView(view === "canvas" ? "settings" : "canvas")}
-            className="label-etched rounded-lg border border-zinc-700 px-3 py-1.5 hover:border-amber-500 hover:text-amber-400"
+            className="label-etched rounded-lg border border-zinc-700 px-3 py-1.5 hover:border-accent hover:text-accent-bright"
           >
             {view === "canvas" ? "⚙ Backend Settings" : "← Back to Canvas"}
           </button>
@@ -163,7 +176,7 @@ export default function App() {
           <section>
             <div className="label-etched mb-2 flex items-center justify-between">
               <span>Speakers</span>
-              <button onClick={addSpeaker} className="text-amber-400 hover:text-amber-300 text-xs">
+              <button onClick={addSpeaker} className="text-accent-bright hover:text-accent-bright text-xs">
                 + Add
               </button>
             </div>
@@ -187,7 +200,7 @@ export default function App() {
                     <select
                       value={sp.voiceId ?? ""}
                       onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
-                      className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-2 py-1 text-xs text-zinc-300 outline-none focus:border-amber-500"
+                      className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-2 py-1 text-xs text-zinc-300 outline-none focus:border-accent"
                     >
                       <option value="">No voice assigned</option>
                       {voices.map((v) => (

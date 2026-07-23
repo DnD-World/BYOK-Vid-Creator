@@ -13,11 +13,13 @@ export default {
           600: "#26262b",
           500: "#33333a",
         },
-        // Amber/copper glow (from your inspiration renders)
-        amber: {
-          DEFAULT: "#e8a24a",
-          bright: "#ffc57a",
-          deep: "#b06d23",
+        // Accent glow — reads live CSS variables (set in index.css / by the
+        // Appearance color picker) instead of a fixed hex, so switching the
+        // color at runtime actually recolors every accent-* utility class.
+        accent: {
+          DEFAULT: "rgb(var(--accent-rgb) / <alpha-value>)",
+          bright: "rgb(var(--accent-bright-rgb) / <alpha-value>)",
+          deep: "rgb(var(--accent-deep-rgb) / <alpha-value>)",
         },
         speaker1: "#e8a24a",
         speaker2: "#4ac2e8",
@@ -34,7 +36,8 @@ export default {
         // Raised plastic key
         plastic:
           "0 2px 3px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.4)",
-        glow: "0 0 12px rgba(232,162,74,0.55), 0 0 2px rgba(255,197,122,0.9)",
+        // Also CSS-var-driven so the glow recolors with the chosen accent
+        glow: "0 0 12px rgb(var(--accent-rgb) / 0.55), 0 0 2px rgb(var(--accent-bright-rgb) / 0.9)",
       },
     },
   },

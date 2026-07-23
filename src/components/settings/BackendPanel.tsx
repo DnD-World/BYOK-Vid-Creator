@@ -21,6 +21,8 @@ export default function BackendPanel() {
 
   const azureRegion = useSettingsStore((s) => s.defaults.azureRegion);
   const setDefault = useSettingsStore((s) => s.setDefault);
+  const accentColor = useSettingsStore((s) => s.accentColor);
+  const setAccentColor = useSettingsStore((s) => s.setAccentColor);
 
   const render = useProjectStore((s) => s.render);
   const fps = useProjectStore((s) => s.fps);
@@ -58,8 +60,25 @@ export default function BackendPanel() {
       <p className="text-xs text-zinc-500">
         Keys are encrypted with your OS keychain and never leave this machine.
       </p>
+
+      <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 space-y-2">
+        <h3 className="label-lit font-display uppercase tracking-[0.18em] text-xs">
+          Appearance
+        </h3>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={accentColor}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="h-8 w-8 rounded-md border border-zinc-700 bg-transparent p-0"
+          />
+          <span className="text-xs text-zinc-500">
+            Accent color — recolors glows, highlights, and active states everywhere
+          </span>
+        </div>
+      </div>
       {!encryptionAvailable && (
-        <p className="text-xs text-amber-400 border border-amber-900/50 bg-amber-950/30 rounded-lg px-3 py-2">
+        <p className="text-xs text-accent-bright border border-accent-deep/40 bg-accent-deep/10 rounded-lg px-3 py-2">
           Your OS keychain isn't available, so keys are being saved to a
           local file instead of encrypted storage. They still never leave
           this machine, but consider unlocking your OS keychain for
@@ -82,7 +101,7 @@ export default function BackendPanel() {
               <span className="text-sm text-zinc-200">
                 {p.label}
                 {p.future && (
-                  <span className="ml-2 rounded bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-400">
+                  <span className="ml-2 rounded bg-accent-deep/25 px-2 py-0.5 text-[10px] text-accent-bright">
                     COMING SOON
                   </span>
                 )}
@@ -101,11 +120,11 @@ export default function BackendPanel() {
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, [p.id]: e.target.value }))
                   }
-                  className="flex-1 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+                  className="flex-1 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
                 />
                 <button
                   onClick={() => save(p.id)}
-                  className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-black hover:bg-amber-500"
+                  className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-bright"
                 >
                   Save
                 </button>
@@ -127,7 +146,7 @@ export default function BackendPanel() {
                   placeholder="Azure region (e.g. eastus)"
                   value={azureRegion}
                   onChange={(e) => setDefault("azureRegion", e.target.value)}
-                  className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+                  className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
                 />
               </div>
             )}
@@ -152,7 +171,7 @@ export default function BackendPanel() {
             placeholder="Template name…"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
-            className="flex-1 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+            className="flex-1 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
           />
           <button
             onClick={() => {
@@ -161,7 +180,7 @@ export default function BackendPanel() {
               saveTemplate(name, { render, fps, waveform, speakers });
               setTemplateName("");
             }}
-            className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-black hover:bg-amber-500"
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-bright"
           >
             Save Current
           </button>
@@ -185,7 +204,7 @@ export default function BackendPanel() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => loadSnapshot(tpl)}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-amber-500 hover:text-amber-400"
+                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-accent hover:text-accent-bright"
                   >
                     Load
                   </button>

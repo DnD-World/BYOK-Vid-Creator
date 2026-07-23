@@ -72,20 +72,20 @@ export default function TtsTestPanel() {
           placeholder="Python executable (e.g. python3, or a full path)…"
           value={piperPythonPath}
           onChange={(e) => setDefault("piperPythonPath", e.target.value)}
-          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
         />
         <input
           type="text"
           placeholder="Folder containing your .onnx voice models…"
           value={piperVoicesDir}
           onChange={(e) => setDefault("piperVoicesDir", e.target.value)}
-          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
         />
         <div className="flex items-center gap-3">
           <button
             onClick={runScan}
             disabled={scanning || !piperVoicesDir}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-amber-500 hover:text-amber-400 disabled:opacity-50"
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-accent hover:text-accent-bright disabled:opacity-50"
           >
             {scanning ? "Scanning…" : "Scan for Voices"}
           </button>
@@ -99,7 +99,7 @@ export default function TtsTestPanel() {
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
-            className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500"
+            className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
           >
             {voices.map((v) => (
               <option key={v.id} value={v.onnxPath}>
@@ -115,12 +115,12 @@ export default function TtsTestPanel() {
           value={testText}
           onChange={(e) => setTestText(e.target.value)}
           rows={2}
-          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500 resize-none"
+          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent resize-none"
         />
         <button
           onClick={runSynthesize}
           disabled={synthesizing || !selectedVoice}
-          className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-black hover:bg-amber-500 disabled:opacity-40"
+          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-bright disabled:opacity-40"
         >
           {synthesizing ? "Synthesizing…" : "Synthesize & Play"}
         </button>

@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Default accent = amber. Overridden at runtime (as "R G B" triples) by
+     the Appearance color picker in Backend Settings — every accent-* class
+     and the .label-lit / glow effects below read these, so changing the
+     picker recolors the whole app live, no rebuild needed. */
+  --accent-rgb: 232 162 74;        /* #e8a24a */
+  --accent-bright-rgb: 255 197 122; /* #ffc57a */
+  --accent-deep-rgb: 176 109 35;    /* #b06d23 */
+}
+
 @layer base {
   html, body, #root { height: 100%; }
   body {
@@ -60,7 +70,7 @@
     text-shadow: 0 1px 0 rgba(0,0,0,0.8);
   }
   .label-lit {
-    color: #ffc57a;
-    text-shadow: 0 0 8px rgba(232,162,74,0.6);
+    color: rgb(var(--accent-bright-rgb));
+    text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.6);
   }
 }
