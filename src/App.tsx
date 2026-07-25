@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { PlasticButton } from "./components/ui/PlasticButton";
+import { HudButton } from "./components/ui/HudButton";
 import { Toggle } from "./components/ui/Toggle";
 import { Slider } from "./components/ui/Slider";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
@@ -22,6 +22,17 @@ const WAVEFORM_BEHAVIORS: { id: WaveformConfig["behavior"]; label: string }[] = 
   { id: "dual-plus-music", label: "Dual+Music" },
   { id: "triple", label: "Triple" },
 ];
+
+/** Two corner-bracket accents — the recurring HUD-panel detail. Drop this
+ *  inside any element with position:relative that uses .panel-hud. */
+function HudCorners() {
+  return (
+    <>
+      <span className="hud-corner tl" />
+      <span className="hud-corner br" />
+    </>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState<"canvas" | "settings">("canvas");
@@ -69,16 +80,19 @@ export default function App() {
 
   return (
     <div className="h-full w-full flex flex-col bg-metal-900 text-neutral-200">
+      <div className="scanlines" />
+
       {/* Top bar */}
-      <header className="panel-metal m-3 px-6 py-3 flex items-center justify-between">
-        <h1 className="font-display uppercase tracking-[0.25em] text-lg label-lit">
+      <header className="panel-hud relative m-3 px-6 py-3 flex items-center justify-between">
+        <HudCorners />
+        <h1 className="font-display font-semibold uppercase tracking-[0.25em] text-xl label-lit">
           BYOK-Vid-Creator
         </h1>
         <div className="flex items-center gap-4">
           <span className="label-etched hidden sm:inline">Deterministic Video Studio</span>
           <button
             onClick={() => setView(view === "canvas" ? "settings" : "canvas")}
-            className="label-etched rounded-lg border border-zinc-700 px-3 py-1.5 hover:border-accent hover:text-accent-bright"
+            className="label-etched px-3 py-1.5 border border-accent/30 hover:border-accent hover:text-accent-bright"
           >
             {view === "canvas" ? "⚙ Backend Settings" : "← Back to Canvas"}
           </button>
@@ -87,14 +101,15 @@ export default function App() {
 
       <div className="flex flex-1 gap-3 px-3 pb-3 min-h-0">
         {/* LEFT RAIL */}
-        <aside className="panel-metal w-72 p-5 flex flex-col gap-7 overflow-y-auto">
+        <aside className="panel-hud relative w-80 p-5 flex flex-col gap-7 overflow-y-auto">
+          <HudCorners />
           <section>
             <div className="label-etched mb-2">Frame Rate</div>
             <div className="flex gap-2">
               {FPS_OPTIONS.map((f) => (
-                <PlasticButton key={f} active={fps === f} onClick={() => setFps(f)}>
+                <HudButton key={f} active={fps === f} onClick={() => setFps(f)}>
                   {f}
-                </PlasticButton>
+                </HudButton>
               ))}
             </div>
           </section>
@@ -102,18 +117,18 @@ export default function App() {
           <section>
             <div className="label-etched mb-2">Aspect Ratio</div>
             <div className="flex gap-2">
-              <PlasticButton
+              <HudButton
                 active={render.format === "9:16"}
                 onClick={() => setRender({ format: "9:16", width: 1080, height: 1920 })}
               >
                 9:16
-              </PlasticButton>
-              <PlasticButton
+              </HudButton>
+              <HudButton
                 active={render.format === "16:9"}
                 onClick={() => setRender({ format: "16:9", width: 1920, height: 1080 })}
               >
                 16:9
-              </PlasticButton>
+              </HudButton>
             </div>
           </section>
 
@@ -121,9 +136,9 @@ export default function App() {
             <div className="label-etched mb-2">Waveform Style</div>
             <div className="flex flex-wrap gap-2">
               {WAVEFORM_STYLES.map((s) => (
-                <PlasticButton key={s} active={waveform.style === s} onClick={() => setWaveform({ style: s })}>
+                <HudButton key={s} active={waveform.style === s} onClick={() => setWaveform({ style: s })}>
                   {s}
-                </PlasticButton>
+                </HudButton>
               ))}
             </div>
           </section>
@@ -132,16 +147,16 @@ export default function App() {
             <div className="label-etched mb-2">Waveform Position</div>
             <div className="flex flex-wrap gap-2">
               {WAVEFORM_POSITIONS.map((p) => (
-                <PlasticButton key={p} active={waveform.position === p} onClick={() => setWaveform({ position: p })}>
+                <HudButton key={p} active={waveform.position === p} onClick={() => setWaveform({ position: p })}>
                   {p}
-                </PlasticButton>
+                </HudButton>
               ))}
             </div>
           </section>
 
           <section>
             <div className="label-etched mb-2">Waveform Shape</div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <Slider
                 label="Size"
                 value={waveform.scale}
@@ -211,33 +226,33 @@ export default function App() {
             <div className="label-etched mb-2">Waveform Mode</div>
             <div className="flex flex-wrap gap-2">
               {WAVEFORM_BEHAVIORS.map((b) => (
-                <PlasticButton
+                <HudButton
                   key={b.id}
                   active={waveform.behavior === b.id}
                   onClick={() => setWaveform({ behavior: b.id })}
                 >
                   {b.label}
-                </PlasticButton>
+                </HudButton>
               ))}
             </div>
           </section>
 
           <section>
             <div className="label-etched mb-2">Waveform Colors</div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               {([
                 ["colorA", "Speaker A"],
                 ["colorB", "Speaker B"],
                 ["colorMusic", "Music"],
               ] as const).map(([key, label]) => (
-                <label key={key} className="flex flex-col items-center gap-1">
+                <label key={key} className="flex flex-col items-center gap-1.5">
                   <input
                     type="color"
                     value={waveform[key]}
                     onChange={(e) => setWaveform({ [key]: e.target.value } as Partial<WaveformConfig>)}
-                    className="h-7 w-7 rounded-md border border-zinc-700 bg-transparent p-0"
+                    className="h-8 w-8 border border-accent/30 bg-transparent p-0"
                   />
-                  <span className="text-[10px] text-zinc-500">{label}</span>
+                  <span className="text-sm text-neutral-400">{label}</span>
                 </label>
               ))}
             </div>
@@ -246,23 +261,23 @@ export default function App() {
           <section>
             <div className="label-etched mb-2 flex items-center justify-between">
               <span>Speakers</span>
-              <button onClick={addSpeaker} className="text-accent-bright hover:text-accent-bright text-xs">
+              <button onClick={addSpeaker} className="text-accent-bright hover:text-accent text-sm">
                 + Add
               </button>
             </div>
             <div className="flex flex-col gap-2">
-              {speakers.length === 0 && <p className="text-xs text-zinc-600">No speakers yet.</p>}
+              {speakers.length === 0 && <p className="text-sm text-neutral-500">No speakers yet.</p>}
               {speakers.map((sp) => (
                 <div
                   key={sp.id}
-                  className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 space-y-1.5"
+                  className="border border-accent/25 bg-metal-800/60 px-3 py-2.5 space-y-2"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: sp.borderColor }} />
-                      <span className="text-sm text-zinc-200">{sp.label}</span>
+                      <span className="text-base text-neutral-200">{sp.label}</span>
                     </div>
-                    <button onClick={() => removeSpeaker(sp.id)} className="text-zinc-500 hover:text-red-400 text-xs">
+                    <button onClick={() => removeSpeaker(sp.id)} className="text-neutral-500 hover:text-red-400 text-sm">
                       ✕
                     </button>
                   </div>
@@ -270,7 +285,7 @@ export default function App() {
                     <select
                       value={sp.voiceId ?? ""}
                       onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
-                      className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-2 py-1 text-xs text-zinc-300 outline-none focus:border-accent"
+                      className="w-full bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
                     >
                       <option value="">No voice assigned</option>
                       {voices.map((v) => (
@@ -280,7 +295,7 @@ export default function App() {
                       ))}
                     </select>
                   ) : (
-                    <p className="text-[10px] text-zinc-600">
+                    <p className="text-sm text-neutral-500">
                       Scan for voices in Backend Settings to assign one.
                     </p>
                   )}
@@ -292,10 +307,11 @@ export default function App() {
 
         {/* CENTER: preview canvas or backend settings */}
         <main
-          className={`panel-metal flex-1 p-6 min-h-0 ${
+          className={`panel-hud relative flex-1 p-6 min-h-0 ${
             view === "settings" ? "overflow-hidden" : "grid place-items-center"
           }`}
         >
+          <HudCorners />
           {view === "settings" ? (
             <div className="w-full h-full">
               <BackendPanel />

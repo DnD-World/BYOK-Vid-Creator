@@ -9,13 +9,14 @@ interface Props {
   format?: (v: number) => string;
 }
 
-/** A labeled range slider — the default for any continuous value. */
+/** A labeled range slider with an oval fader-cap thumb — the default for
+ *  any continuous value. */
 export function Slider({ label, value, min, max, step = 0.01, onChange, format }: Props) {
   return (
     <label className="block">
-      <div className="flex items-center justify-between mb-1">
-        <span className="label-etched text-xs">{label}</span>
-        <span className="text-[10px] text-zinc-500">{format ? format(value) : value.toFixed(2)}</span>
+      <div className="flex items-center justify-between mb-2">
+        <span className="label-etched text-sm">{label}</span>
+        <span className="text-sm text-accent-bright/80 font-mono">{format ? format(value) : value.toFixed(2)}</span>
       </div>
       <input
         type="range"
@@ -24,7 +25,7 @@ export function Slider({ label, value, min, max, step = 0.01, onChange, format }
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-accent"
+        className="hud-slider w-full"
       />
     </label>
   );

@@ -56,11 +56,9 @@ export default function TtsTestPanel() {
   };
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 space-y-3">
-      <h3 className="label-lit font-display uppercase tracking-[0.18em] text-xs">
-        Local TTS Test (Piper)
-      </h3>
-      <p className="text-xs text-zinc-500">
+    <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
+      <h3 className="label-lit text-sm">Local TTS Test (Piper)</h3>
+      <p className="text-sm text-neutral-400">
         Proves the full pipeline — start a persistent Piper server, get
         audio, play it — before wiring in XTTS-v2. First synthesis per voice
         is slower (server warm-up); after that it's fast.
@@ -72,34 +70,34 @@ export default function TtsTestPanel() {
           placeholder="Python executable (e.g. python3, or a full path)…"
           value={piperPythonPath}
           onChange={(e) => setDefault("piperPythonPath", e.target.value)}
-          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
+          className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
         />
         <input
           type="text"
           placeholder="Folder containing your .onnx voice models…"
           value={piperVoicesDir}
           onChange={(e) => setDefault("piperVoicesDir", e.target.value)}
-          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
+          className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
         />
         <div className="flex items-center gap-3">
           <button
             onClick={runScan}
             disabled={scanning || !piperVoicesDir}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-accent hover:text-accent-bright disabled:opacity-50"
+            className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-50"
           >
             {scanning ? "Scanning…" : "Scan for Voices"}
           </button>
           {voices.length > 0 && (
-            <span className="text-xs text-emerald-400">{voices.length} voice(s) found</span>
+            <span className="text-sm text-emerald-400">{voices.length} voice(s) found</span>
           )}
-          {scanError && <span className="text-xs text-red-400">{scanError}</span>}
+          {scanError && <span className="text-sm text-red-400">{scanError}</span>}
         </div>
 
         {voices.length > 0 && (
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
-            className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
+            className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
           >
             {voices.map((v) => (
               <option key={v.id} value={v.onnxPath}>
@@ -110,26 +108,26 @@ export default function TtsTestPanel() {
         )}
       </div>
 
-      <div className="space-y-2 pt-2 border-t border-zinc-800">
+      <div className="space-y-2 pt-2 border-t border-accent/15">
         <textarea
           value={testText}
           onChange={(e) => setTestText(e.target.value)}
           rows={2}
-          className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent resize-none"
+          className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent resize-none"
         />
         <button
           onClick={runSynthesize}
           disabled={synthesizing || !selectedVoice}
-          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-bright disabled:opacity-40"
+          className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
         >
           {synthesizing ? "Synthesizing…" : "Synthesize & Play"}
         </button>
-        {synthError && <p className="text-xs text-red-400 whitespace-pre-wrap">{synthError}</p>}
+        {synthError && <p className="text-sm text-red-400 whitespace-pre-wrap">{synthError}</p>}
         {audioUrl && (
           <div className="space-y-1">
             <audio src={audioUrl} controls autoPlay className="w-full" />
             {durationMs !== null && (
-              <p className="text-[10px] text-zinc-500">Duration: {(durationMs / 1000).toFixed(2)}s</p>
+              <p className="text-sm text-neutral-500">Duration: {(durationMs / 1000).toFixed(2)}s</p>
             )}
           </div>
         )}

@@ -9,8 +9,22 @@ original planning history — this covers everything since.
 Phase 1g (app shell, canvas preview, waveform renderer, saved templates) is
 complete. Phase 2 (TTS) is in progress: the Piper pipeline architecture is
 built and confirmed working end-to-end on Ak's actual machine (see "Piper
-setup" below). XTTS-v2 has not been started yet. A visual-design pass is
-now underway using real reference material (see "Reference materials").
+setup" below). XTTS-v2 has not been started yet.
+
+**The visual direction pivoted and is now finalized and implemented.** The
+original thick-clear-plastic/industrial-matte-metal direction (see the old
+"Immediate next step" content, now superseded, kept further down for
+history) proved too hard to nail well with the tools at hand. Ak explicitly
+decided to switch rather than keep fighting it: **amber sci-fi cyberpunk**
+— angular clip-path corners, thin glowing lines instead of thick material
+mass, corner-bracket HUD details, a scanline overlay. This is genuinely
+easier to build well than the plastic direction (CSS is naturally good at
+glow/transparency/angular cuts; faking photoreal material depth is not).
+The full component system for this is built — see "Visual system"
+below — and confirmed by Ak via an iterative HTML mockup before being
+ported into the real app (two rounds: the toggle went through a rocker-
+switch attempt that didn't land, then a two-position slide-switch that
+did).
 
 Repo uses a real git workflow now — Ak provides a session-scoped fine-grained
 GitHub PAT (Contents: read/write, single repo, short expiry) when he wants
@@ -61,6 +75,55 @@ back to giving Ak full files to paste via the GitHub web editor.
   `Slider.tsx` — stated preference is toggles first, sliders second, knobs
   third, before plain buttons, for any new control going forward. A metal
   **Knob** component has not been built yet.
+
+## Visual system — amber cyberpunk (finalized, implemented)
+
+Fonts: **Rajdhani** (display/headings) + **Share Tech Mono** (labels/mono
+text) via Google Fonts — loaded in `index.html`. Note: Rajdhani was
+referenced in `tailwind.config.js` since early on but the actual font link
+was never added, so it silently fell back to system-ui the whole time
+until this pass fixed it.
+
+Base font size is explicitly set to 16px on `body`, and every previously-
+small text size (`text-xs`, `text-[10px]`, `text-[11px]`) across the app
+was bumped to `text-sm`/`text-base` — **Ak has a standing preference for
+larger, more readable text throughout this app's UI. Do not introduce
+small text sizes going forward.**
+
+Key CSS classes (all in `src/index.css`):
+- `.scanlines` — fixed, full-viewport repeating-gradient overlay, applied
+  once at the app root in `App.tsx`.
+- `.panel-hud` — the angular replacement for the old rounded `.panel-metal`.
+  Corners cut via `clip-path` (controlled by the `--cut` CSS var, currently
+  14px), amber-tinted border, diagonal gradient overlay via `::before`.
+- `.hud-corner.tl` / `.hud-corner.br` — corner-bracket accents, dropped as
+  two child `<span>`s (see the `HudCorners` helper component in `App.tsx`)
+  inside any `.panel-hud`.
+- `.hud-btn` / `.hud-btn-active` — angular button, used by `HudButton.tsx`
+  (renamed from `PlasticButton.tsx` — the old name would mislead now).
+- `.hud-slider` — targets a **real native `<input type="range">`**'s
+  `::-webkit-slider-thumb`/`::-moz-range-thumb` and
+  `::-webkit-slider-runnable-track`/`::-moz-range-track` to get the oval
+  fader-cap look, deliberately keeping native drag/keyboard behavior
+  instead of reimplementing pointer tracking in JS. Used by `Slider.tsx`.
+- `Toggle.tsx` — hand-built two-position slide switch (not a CSS class,
+  inline-styled since it needs per-instance on/off state) using the same
+  oval-cap visual language as the slider, snapping between two end
+  positions rather than moving freely. This replaced an earlier tilting-
+  rocker-switch attempt that didn't read well in the mockup round.
+- All of the above read color from the existing `--accent-*-rgb` CSS
+  variables, so the Appearance color picker still recolors everything live
+  — the pivot didn't touch that system, just the shapes built on top of it.
+
+Still not built: a metal rotary **Knob** component. Control-type
+preference remains toggles first, sliders second, knobs third, buttons
+last, for anything new.
+
+A standalone HTML mockup (`cyberpunk-mockup.html`, iterated live with Ak
+before porting into real components) was used to confirm this direction
+cheaply — it was shared via chat, not committed to the repo, so it won't
+be found here if searched for; the finalized result is what's actually in
+the app now.
 
 ## Piper setup — confirmed working configuration
 
@@ -117,7 +180,9 @@ literal specs):
   in a build step).
 
 **Exact-target component references** (specific, buildable-against, not
-just mood):
+just mood) — **NOTE: these describe the thick-clear-plastic/industrial-
+matte-metal direction, which was superseded by the amber cyberpunk pivot.
+Kept for history/provenance, not the active target.**:
 - `Metal_Texture_09.jpg`, `Metal_Texture_11.jpg` — real seamless-ish dark
   grunge/brushed-metal photo textures from Envato Elements, meant to be
   used as actual background-image assets (not CSS-gradient approximations)
@@ -149,10 +214,10 @@ just mood):
   amber backlit text, one showing a subtle glass-reflection duplicate of
   the text below it.
 
-**Feedback already given on corners/shape**: Ak wants sharper, more
-strictly-angled corners — less rounded than the current CSS (which uses
-12–14px border-radius throughout). The reference buttons/panels read as
-more precisely machined, not soft/friendly-rounded.
+**Feedback on corners/shape — resolved.** Ak wanted sharper, more
+strictly-angled corners than the original rounded CSS (12–14px
+border-radius). This is what the amber-cyberpunk pivot's `clip-path`
+angular-cut approach directly delivers — implemented, not just noted.
 
 ## Stated priorities (in order)
 
@@ -165,9 +230,9 @@ more precisely machined, not soft/friendly-rounded.
    before any real packaging happens.)
 2. **Engaging/wow-factor video output** to compensate for not using
    generative video (Veo/Sora) — the waveform work matters a lot here.
-3. **UI** — heavy thick angled plastic buttons, industrial-grunge matte
-   dark metal, metal knobs/sliders, nothing generic — but as CSS/UI
-   styling only, explicitly not a 3D game/engine.
+3. **UI** — as CSS/UI styling only, explicitly not a 3D game/engine.
+   Direction is amber sci-fi cyberpunk (see "Visual system" above), nothing
+   generic. Larger, readable text throughout — no small font sizes.
 4. Control-type preference for anything new: **toggles first, sliders
    second, knobs third, buttons last.**
 
@@ -177,24 +242,22 @@ on LinkedIn as a custom-solution example for clients. He's explicitly fine
 with delays in exchange for quality — don't rush the visual pass just to
 show progress.
 
-## Immediate next step (was in progress when this was written)
+## Immediate next step (superseded — kept for history)
 
-Port `upload-button-material-study-v2.html`'s CSS technique into a real
-`AcrylicButton` (or similar) React component:
-- Keep the layered-gradient/backdrop-blur/mask-border/noise-texture
-  technique, but wire the amber color through the existing `--accent-*-rgb`
-  CSS variables instead of hardcoding it, so the switchable accent color
-  still works.
-- Sharpen corners significantly from the current 12–14px radius.
-- Apply the real `Metal_Texture_09.jpg` / `Metal_Texture_11.jpg` images as
-  actual background-image assets for panel surfaces (`.panel-metal`),
-  replacing the current pure-CSS-gradient approximation.
-- Still needed after that: a metal rotary Knob component (SVG-based,
-  indicator line + amber glow, texture-backed), and restyling
-  `Slider`/`Toggle` to match the recessed-track/glowing-fill/metal-thumb
-  look from the "VOLUME"/"OPTIONS" reference images.
+*The section below described porting the thick-clear-plastic material
+study into a real component. That whole direction was abandoned in favor
+of the amber cyberpunk pivot — see "Visual system" above for what actually
+got built instead. Original text kept here only so the reasoning trail
+isn't lost:*
+
+> Port `upload-button-material-study-v2.html`'s CSS technique into a real
+> `AcrylicButton` (or similar) React component, apply the real metal
+> texture photos as backgrounds, sharpen corners, build a metal knob.
 
 ## Other open items (not urgent, just tracked)
+
+- A metal rotary **Knob** component, in the amber-cyberpunk visual
+  language — not built yet.
 
 - "Saved templates" feature exists (render + waveform + speakers), but
   doesn't yet cover backend defaults.

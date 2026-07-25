@@ -5,11 +5,12 @@
 :root {
   /* Default accent = amber. Overridden at runtime (as "R G B" triples) by
      the Appearance color picker in Backend Settings — every accent-* class
-     and the .label-lit / glow effects below read these, so changing the
-     picker recolors the whole app live, no rebuild needed. */
-  --accent-rgb: 232 162 74;        /* #e8a24a */
+     and the glow effects below read these, so changing the picker recolors
+     the whole app live, no rebuild needed. */
+  --accent-rgb: 232 162 74;         /* #e8a24a */
   --accent-bright-rgb: 255 197 122; /* #ffc57a */
   --accent-deep-rgb: 176 109 35;    /* #b06d23 */
+  --cut: 14px; /* the angular corner-cut size used across panels/buttons/switches */
 }
 
 @layer base {
@@ -17,59 +18,132 @@
   body {
     @apply bg-metal-900 text-neutral-200 font-body antialiased select-none;
     overflow: hidden;
+    font-size: 16px; /* explicit baseline — nothing in this app should read as "small text" */
   }
 }
 
 @layer components {
-  /* Brushed charcoal metal panel */
-  .panel-metal {
-    background:
-      linear-gradient(180deg, #26262b 0%, #16161a 55%, #101013 100%);
-    background-blend-mode: overlay;
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 14px;
-    box-shadow:
-      0 8px 24px rgba(0,0,0,0.6),
-      inset 0 1px 0 rgba(255,255,255,0.06);
-    position: relative;
+  /* Fixed, full-viewport scanline overlay — the defining texture of the
+     amber-cyberpunk direction. Applied once at the app root. */
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    background: repeating-linear-gradient(
+      180deg,
+      rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px,
+      transparent 1px, transparent 3px
+    );
+    mix-blend-mode: overlay;
   }
-  /* Fine machined grain */
-  .panel-metal::before {
+
+  /* Angular HUD panel — replaces the old rounded "panel-metal" look.
+     Corners are cut with clip-path, not rounded. */
+  .panel-hud {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 30%), #0c0e12;
+    clip-path: polygon(
+      var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)),
+      calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)
+    );
+    border: 1px solid rgb(var(--accent-rgb) / 0.28);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .panel-hud::before {
     content: "";
-    position: absolute; inset: 0; border-radius: inherit;
-    background-image: repeating-linear-gradient(
-      100deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px);
+    position: absolute; inset: 0;
+    clip-path: inherit;
+    background: linear-gradient(115deg, rgb(var(--accent-rgb) / 0.10), transparent 30%, transparent 70%, rgb(var(--accent-rgb) / 0.10));
+    opacity: 0.5;
     pointer-events: none;
   }
 
-  /* Recessed slot (screens / sliders sit here) */
+  /* Corner bracket accents — drop two of these (top-left + bottom-right)
+     inside any .panel-hud as absolutely-positioned children. */
+  .hud-corner {
+    position: absolute;
+    width: 14px; height: 14px;
+    pointer-events: none;
+  }
+  .hud-corner.tl { top: -1px; left: -1px; border-top: 2px solid rgb(var(--accent-rgb)); border-left: 2px solid rgb(var(--accent-rgb)); }
+  .hud-corner.br { bottom: -1px; right: -1px; border-bottom: 2px solid rgb(var(--accent-rgb)); border-right: 2px solid rgb(var(--accent-rgb)); }
+
+  /* Recessed slot — the video canvas frame sits here. Kept calmer than the
+     chrome around it (no scanline-competing texture) since real content
+     renders inside it. */
   .slot-recessed {
-    background: #0a0a0c;
-    border-radius: 10px;
-    box-shadow: var(--tw-shadow, ) ;
-    @apply shadow-socket;
+    background: #050506;
+    border: 1px solid rgb(var(--accent-rgb) / 0.22);
+    box-shadow: inset 0 0 32px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(0,0,0,0.4);
   }
 
-  /* Clear thick plastic surface — used by tactile controls */
-  .plastic {
-    background: linear-gradient(
-      160deg,
-      rgba(255,255,255,0.14) 0%,
-      rgba(255,255,255,0.04) 30%,
-      rgba(0,0,0,0.25) 100%);
-    backdrop-filter: blur(2px);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    @apply shadow-plastic;
+  /* Angular HUD button. */
+  .hud-btn {
+    position: relative;
+    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.10), rgb(var(--accent-rgb) / 0.02));
+    border: 1px solid rgb(var(--accent-rgb) / 0.35);
+    clip-path: polygon(
+      10px 0, 100% 0, 100% calc(100% - 10px),
+      calc(100% - 10px) 100%, 0 100%, 0 10px
+    );
+    text-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.55);
+    transition: box-shadow 0.2s, background 0.2s;
+  }
+  .hud-btn:hover {
+    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.18), rgb(var(--accent-rgb) / 0.05));
+    box-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.35), inset 0 0 12px rgb(var(--accent-rgb) / 0.12);
+  }
+  .hud-btn-active {
+    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.26), rgb(var(--accent-rgb) / 0.08));
+    box-shadow: 0 0 18px rgb(var(--accent-rgb) / 0.5), inset 0 0 14px rgb(var(--accent-rgb) / 0.18);
   }
 
-  /* Amber engraved label text (like ENG / EXPORT etc.) */
-  .label-etched {
-    @apply font-display uppercase tracking-[0.18em] text-[11px];
-    color: #7c7c86;
-    text-shadow: 0 1px 0 rgba(0,0,0,0.8);
+  /* Oval fader-cap slider — a real native <input type="range"> underneath,
+     restyled via the thumb/track pseudo-elements so drag + keyboard control
+     keep working for free instead of reimplementing pointer tracking. */
+  .hud-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    background: transparent;
+  }
+  .hud-slider::-webkit-slider-runnable-track {
+    height: 3px;
+    background: rgb(var(--accent-rgb) / 0.15);
+  }
+  .hud-slider::-moz-range-track {
+    height: 3px;
+    background: rgb(var(--accent-rgb) / 0.15);
+  }
+  .hud-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 22px;
+    margin-top: -9.5px;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #2c2f35, #111318 50%, #0a0b0d);
+    border: 1px solid rgb(var(--accent-rgb));
+    box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.5), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -3px 5px rgba(0,0,0,.6);
+    cursor: grab;
+  }
+  .hud-slider::-moz-range-thumb {
+    width: 15px;
+    height: 22px;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #2c2f35, #111318 50%, #0a0b0d);
+    border: 1px solid rgb(var(--accent-rgb));
+    box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.5), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -3px 5px rgba(0,0,0,.6);
+    cursor: grab;
+  }
+
+  /* Engraved label text — technical mono, wide tracking, readable size. */  .label-etched {
+    @apply font-mono uppercase tracking-[0.2em] text-sm;
+    color: #a89a89;
   }
   .label-lit {
+    @apply font-mono uppercase tracking-[0.2em] text-sm;
     color: rgb(var(--accent-bright-rgb));
     text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.6);
   }

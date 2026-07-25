@@ -54,31 +54,27 @@ export default function BackendPanel() {
 
   return (
     <div className="p-6 space-y-4 overflow-y-auto h-full">
-      <h2 className="label-lit font-display uppercase tracking-[0.18em] text-sm">
-        API Keys & Backend
-      </h2>
-      <p className="text-xs text-zinc-500">
+      <h2 className="label-lit text-base">API Keys &amp; Backend</h2>
+      <p className="text-sm text-neutral-400">
         Keys are encrypted with your OS keychain and never leave this machine.
       </p>
 
-      <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 space-y-2">
-        <h3 className="label-lit font-display uppercase tracking-[0.18em] text-xs">
-          Appearance
-        </h3>
+      <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-2">
+        <h3 className="label-lit text-sm">Appearance</h3>
         <div className="flex items-center gap-3">
           <input
             type="color"
             value={accentColor}
             onChange={(e) => setAccentColor(e.target.value)}
-            className="h-8 w-8 rounded-md border border-zinc-700 bg-transparent p-0"
+            className="h-9 w-9 border border-accent/30 bg-transparent p-0"
           />
-          <span className="text-xs text-zinc-500">
+          <span className="text-sm text-neutral-400">
             Accent color — recolors glows, highlights, and active states everywhere
           </span>
         </div>
       </div>
       {!encryptionAvailable && (
-        <p className="text-xs text-accent-bright border border-accent-deep/40 bg-accent-deep/10 rounded-lg px-3 py-2">
+        <p className="text-sm text-accent-bright border border-accent-deep/40 bg-accent-deep/10 px-3 py-2">
           Your OS keychain isn't available, so keys are being saved to a
           local file instead of encrypted storage. They still never leave
           this machine, but consider unlocking your OS keychain for
@@ -91,23 +87,23 @@ export default function BackendPanel() {
         return (
           <div
             key={p.id}
-            className={`rounded-xl border p-4 ${
+            className={`border p-4 ${
               p.future
-                ? "border-zinc-800 bg-zinc-900/40 opacity-60"
-                : "border-zinc-700 bg-zinc-900/80"
+                ? "border-neutral-800 bg-metal-800/30 opacity-60"
+                : "border-accent/25 bg-metal-800/60"
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-zinc-200">
+              <span className="text-base text-neutral-200">
                 {p.label}
                 {p.future && (
-                  <span className="ml-2 rounded bg-accent-deep/25 px-2 py-0.5 text-[10px] text-accent-bright">
+                  <span className="ml-2 bg-accent-deep/25 px-2 py-0.5 text-sm text-accent-bright">
                     COMING SOON
                   </span>
                 )}
               </span>
               {isSaved && !p.future && (
-                <span className="text-xs text-emerald-400">saved ✓</span>
+                <span className="text-sm text-emerald-400">saved ✓</span>
               )}
             </div>
 
@@ -120,19 +116,13 @@ export default function BackendPanel() {
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, [p.id]: e.target.value }))
                   }
-                  className="flex-1 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
+                  className="flex-1 bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
                 />
-                <button
-                  onClick={() => save(p.id)}
-                  className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-bright"
-                >
+                <button onClick={() => save(p.id)} className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright">
                   Save
                 </button>
                 {isSaved && (
-                  <button
-                    onClick={() => remove(p.id)}
-                    className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:text-red-400"
-                  >
+                  <button onClick={() => remove(p.id)} className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-400 hover:text-red-400">
                     Clear
                   </button>
                 )}
@@ -146,7 +136,7 @@ export default function BackendPanel() {
                   placeholder="Azure region (e.g. eastus)"
                   value={azureRegion}
                   onChange={(e) => setDefault("azureRegion", e.target.value)}
-                  className="w-full rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
+                  className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
                 />
               </div>
             )}
@@ -156,11 +146,9 @@ export default function BackendPanel() {
 
       <TtsTestPanel />
 
-      <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4 space-y-3">
-        <h3 className="label-lit font-display uppercase tracking-[0.18em] text-xs">
-          Saved Templates
-        </h3>
-        <p className="text-xs text-zinc-500">
+      <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
+        <h3 className="label-lit text-sm">Saved Templates</h3>
+        <p className="text-sm text-neutral-400">
           Captures render settings, waveform config, and speaker setup —
           not API keys or backend defaults.
         </p>
@@ -171,7 +159,7 @@ export default function BackendPanel() {
             placeholder="Template name…"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
-            className="flex-1 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-accent"
+            className="flex-1 bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
           />
           <button
             onClick={() => {
@@ -180,37 +168,37 @@ export default function BackendPanel() {
               saveTemplate(name, { render, fps, waveform, speakers });
               setTemplateName("");
             }}
-            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-bright"
+            className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright whitespace-nowrap"
           >
             Save Current
           </button>
         </div>
 
         {Object.keys(templates).length === 0 ? (
-          <p className="text-xs text-zinc-600">No templates saved yet.</p>
+          <p className="text-sm text-neutral-500">No templates saved yet.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {Object.entries(templates).map(([name, tpl]) => (
               <div
                 key={name}
-                className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 py-2"
+                className="flex items-center justify-between border border-accent/20 bg-metal-900/60 px-3 py-2"
               >
                 <div>
-                  <div className="text-sm text-zinc-200">{name}</div>
-                  <div className="text-[10px] text-zinc-600">
+                  <div className="text-base text-neutral-200">{name}</div>
+                  <div className="text-sm text-neutral-500">
                     {new Date(tpl.savedAt).toLocaleString()}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => loadSnapshot(tpl)}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-accent hover:text-accent-bright"
+                    className="hud-btn px-3 py-1.5 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright"
                   >
                     Load
                   </button>
                   <button
                     onClick={() => deleteTemplate(name)}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500 hover:text-red-400"
+                    className="hud-btn px-3 py-1.5 text-sm font-display uppercase tracking-[0.1em] text-neutral-500 hover:text-red-400"
                   >
                     Delete
                   </button>
