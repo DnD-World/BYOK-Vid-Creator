@@ -15,6 +15,8 @@ interface Actions {
   setWaveform: (p: Partial<WaveformConfig>) => void;
   setBgRelevancy: (v: number) => void;
   setFps: (fps: Fps) => void;
+  setScript: (text: string) => void;
+  setLanguage: (lang: string) => void;
   addSpeaker: () => void;
   removeSpeaker: (id: string) => void;
   updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
@@ -37,6 +39,10 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
   setBgRelevancy: (v) => set({ bgRelevancy: v }),
 
   setFps: (fps) => set({ fps }),
+
+  setScript: (text) => set({ script: text }),
+
+  setLanguage: (lang) => set({ language: lang }),
 
   addSpeaker: () =>
     set((s) => {

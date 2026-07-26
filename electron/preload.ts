@@ -78,6 +78,21 @@ const api = {
       }): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
         ipcRenderer.invoke("tts:chatterboxSynthesize", opts),
     },
+
+    generateNarration: (
+      segments: {
+        speakerId: string;
+        speakerLabel: string;
+        text: string;
+        language: string;
+        voiceMode: "predefined" | "clone";
+        predefinedVoiceId?: string;
+        referenceAudioFilename?: string;
+      }[]
+    ): Promise<{
+      filePath: string;
+      segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
+    }> => ipcRenderer.invoke("tts:generateNarration", segments),
   },
 };
 

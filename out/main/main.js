@@ -351,6 +351,72 @@ async function shutdownServer() {
     readyPromise = null;
   }
 }
+function readWavInfo(buf) {
+  const numChannels = buf.readUInt16LE(22);
+  const sampleRate = buf.readUInt32LE(24);
+  const bitsPerSample = buf.readUInt16LE(34);
+  let offset = 12;
+  let dataStart = 44;
+  let dataSize = Math.max(0, buf.length - 44);
+  while (offset < buf.length - 8) {
+    const id = buf.toString("ascii", offset, offset + 4);
+    const size = buf.readUInt32LE(offset + 4);
+    if (id === "data") {
+      dataStart = offset + 8;
+      dataSize = size;
+      break;
+    }
+    offset += 8 + size + size % 2;
+  }
+  return { numChannels, sampleRate, bitsPerSample, dataStart, dataSize };
+}
+function buildWavHeader(dataLength, numChannels, sampleRate, bitsPerSample) {
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const byteRate = sampleRate * blockAlign;
+  const buf = Buffer.alloc(44);
+  buf.write("RIFF", 0, "ascii");
+  buf.writeUInt32LE(36 + dataLength, 4);
+  buf.write("WAVE", 8, "ascii");
+  buf.write("fmt ", 12, "ascii");
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(numChannels, 22);
+  buf.writeUInt32LE(sampleRate, 24);
+  buf.writeUInt32LE(byteRate, 28);
+  buf.writeUInt16LE(blockAlign, 32);
+  buf.writeUInt16LE(bitsPerSample, 34);
+  buf.write("data", 36, "ascii");
+  buf.writeUInt32LE(dataLength, 40);
+  return buf;
+}
+function concatWavBuffers(buffers) {
+  if (buffers.length === 0) {
+    throw new Error("No audio segments to concatenate.");
+  }
+  const infos = buffers.map(readWavInfo);
+  const { numChannels, sampleRate, bitsPerSample } = infos[0];
+  for (const info of infos) {
+    if (info.numChannels !== numChannels || info.sampleRate !== sampleRate || info.bitsPerSample !== bitsPerSample) {
+      throw new Error(
+        "Audio segments have mismatched format (sample rate/channels/bit depth) — can't concatenate directly."
+      );
+    }
+  }
+  const bytesPerSecond = sampleRate * numChannels * (bitsPerSample / 8);
+  const segments = [];
+  const pcmChunks = [];
+  let cursorMs = 0;
+  for (let i = 0; i < buffers.length; i++) {
+    const { dataStart, dataSize } = infos[i];
+    pcmChunks.push(buffers[i].subarray(dataStart, dataStart + dataSize));
+    const durMs = dataSize / bytesPerSecond * 1e3;
+    segments.push({ startMs: cursorMs, endMs: cursorMs + durMs });
+    cursorMs += durMs;
+  }
+  const pcmData = Buffer.concat(pcmChunks);
+  const header = buildWavHeader(pcmData.length, numChannels, sampleRate, bitsPerSample);
+  return { buffer: Buffer.concat([header, pcmData]), segments };
+}
 const isDev = !app.isPackaged;
 const userDir = () => app.getPath("userData");
 const outputDir = () => path$1.join(userDir(), "renders");
@@ -459,6 +525,36 @@ ipcMain.handle("tts:chatterboxListReferenceAudio", async () => {
 });
 ipcMain.handle("tts:chatterboxSynthesize", async (_e, opts) => {
   return synthesize(opts);
+});
+ipcMain.handle("tts:generateNarration", async (_e, segments) => {
+  if (segments.length === 0) {
+    throw new Error("No script segments to generate — check your script matches your speaker labels.");
+  }
+  const buffers = [];
+  for (const seg of segments) {
+    const { audioBuffer } = await synthesize({
+      text: seg.text,
+      language: seg.language,
+      voiceMode: seg.voiceMode,
+      predefinedVoiceId: seg.predefinedVoiceId,
+      referenceAudioFilename: seg.referenceAudioFilename
+    });
+    buffers.push(Buffer.from(audioBuffer));
+  }
+  const { buffer, segments: timing } = concatWavBuffers(buffers);
+  await fsp.mkdir(outputDir(), { recursive: true });
+  const filePath = path$1.join(outputDir(), `narration-${Date.now()}.wav`);
+  await fsp.writeFile(filePath, buffer);
+  return {
+    filePath,
+    segments: segments.map((seg, i) => ({
+      speakerId: seg.speakerId,
+      speakerLabel: seg.speakerLabel,
+      text: seg.text,
+      startMs: timing[i].startMs,
+      endMs: timing[i].endMs
+    }))
+  };
 });
 app.on("will-quit", async (event) => {
   if (isServerRunning()) {

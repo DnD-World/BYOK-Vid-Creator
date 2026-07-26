@@ -335,15 +335,44 @@ isn't lost:*
   language — not built yet.
 
 - "Saved templates" feature exists (render + waveform + speakers), but
-  doesn't yet cover backend defaults.
+  doesn't yet cover backend defaults, script, language, or per-speaker
+  Chatterbox voice assignment. Worth revisiting what "a template" should
+  mean now that narration exists — right now it's still scoped to visual
+  "look" only, deliberately.
 - Dotted 3D wave-plane waveform style — nice-to-have, not started.
 - **Chatterbox Multilingual v3** — implemented (see dedicated section
   above), but not yet tested on Ak's actual machine. The one-time manual
   server setup + Greek synthesis + voice cloning all still need real-world
-  verification, same checkpoint pattern as Piper.
+  verification, same checkpoint pattern as Piper. Ak explicitly accepted
+  this risk ("we have confidence it will work") and asked to keep building
+  rather than pause for that verification first — flagged, not silently
+  assumed.
 - GLM-5.2 scene-chunking via NVIDIA — Ak has a key ready to add in Backend
   Settings; the actual API call isn't wired up yet.
-- Ultimate TTS goal: 2 assigned voices producing one combined audio file
-  that feeds into the video (audio first, then video assembled around it)
-  — not just the current standalone test-panel preview. Now unblocked on
-  the engine side; still needs building.
+- **Narration generation — built.** New third view (Canvas / Narration /
+  Backend Settings toggle in the header). `NarrationPanel.tsx`: per-speaker
+  Chatterbox voice assignment (predefined or clone, reusing the shared
+  `useChatterboxVoicesStore`), a simple "Label: text" per-line script
+  format (`src/lib/narration/parseScript.ts`, case-insensitive label
+  matching, unmatched lines surfaced as warnings rather than silently
+  dropped or thrown), and a "Generate Narration" action that resolves each
+  line to its speaker's assigned voice, synthesizes each segment via
+  Chatterbox, and concatenates them into ONE combined WAV
+  (`electron/audio/concatWav.ts` — requires matching sample rate/channels/
+  bit depth across segments, which holds for consecutive same-engine
+  calls). Per-segment start/end timing within the combined file is
+  returned and displayed — this is deliberately preserved now because
+  Phase 3 (viseme/subtitle alignment) will need it against the combined
+  track, not per-segment files.
+  - `SpeakerConfig` gained `chatterboxVoiceMode` / `chatterboxVoiceRef`
+    (separate from the existing Piper `voiceId` — the two engines address
+    voices completely differently, so these coexist rather than one
+    replacing the other).
+  - `ProjectState` gained `script` and `language` (project-level, not
+    per-speaker — one narration language at a time).
+  - **Not yet tested on Ak's machine** — same unverified status as the
+    Chatterbox engine it depends on.
+  - Still not done: this produces a standalone narration audio file, but
+    it isn't fed into the actual video render/export pipeline yet (Phase
+    6 territory) — that wiring is the next real milestone once narration
+    itself is confirmed working end-to-end.

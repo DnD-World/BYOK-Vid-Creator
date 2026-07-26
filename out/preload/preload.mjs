@@ -34,7 +34,8 @@ const api = {
       listPredefinedVoices: () => ipcRenderer.invoke("tts:chatterboxListPredefinedVoices"),
       listReferenceAudio: () => ipcRenderer.invoke("tts:chatterboxListReferenceAudio"),
       synthesize: (opts) => ipcRenderer.invoke("tts:chatterboxSynthesize", opts)
-    }
+    },
+    generateNarration: (segments) => ipcRenderer.invoke("tts:generateNarration", segments)
   }
 };
 contextBridge.exposeInMainWorld("byok", api);

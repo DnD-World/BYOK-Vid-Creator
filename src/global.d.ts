@@ -47,6 +47,20 @@ declare global {
             seed?: number;
           }) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
         };
+        generateNarration: (
+          segments: {
+            speakerId: string;
+            speakerLabel: string;
+            text: string;
+            language: string;
+            voiceMode: "predefined" | "clone";
+            predefinedVoiceId?: string;
+            referenceAudioFilename?: string;
+          }[]
+        ) => Promise<{
+          filePath: string;
+          segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
+        }>;
       };
     };
   }

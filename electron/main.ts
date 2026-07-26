@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import * as chatterbox from "./tts/chatterboxEngine";
+import { concatWavBuffers } from "./audio/concatWav";
 
 const isDev = !app.isPackaged;
 
@@ -158,6 +159,49 @@ ipcMain.handle("tts:chatterboxListReferenceAudio", async () => {
 
 ipcMain.handle("tts:chatterboxSynthesize", async (_e, opts: chatterbox.SynthesizeOptions) => {
   return chatterbox.synthesize(opts);
+});
+
+// ---------------------------------------------------------------------------
+// Narration generation — the actual Phase 2 goal: turn a resolved list of
+// (speaker, text, voice) segments into ONE combined audio file, with each
+// segment's timing preserved for later viseme/subtitle sync. Script parsing
+// and speaker->voice resolution happen in the renderer (it's the one with
+// the project state); this just executes synthesis + concatenation.
+// ---------------------------------------------------------------------------
+
+ipcMain.handle("tts:generateNarration", async (_e, segments: chatterbox.NarrationSegmentInput[]) => {
+  if (segments.length === 0) {
+    throw new Error("No script segments to generate — check your script matches your speaker labels.");
+  }
+
+  const buffers: Buffer[] = [];
+  for (const seg of segments) {
+    const { audioBuffer } = await chatterbox.synthesize({
+      text: seg.text,
+      language: seg.language,
+      voiceMode: seg.voiceMode,
+      predefinedVoiceId: seg.predefinedVoiceId,
+      referenceAudioFilename: seg.referenceAudioFilename,
+    });
+    buffers.push(Buffer.from(audioBuffer));
+  }
+
+  const { buffer, segments: timing } = concatWavBuffers(buffers);
+
+  await fsp.mkdir(outputDir(), { recursive: true });
+  const filePath = path.join(outputDir(), `narration-${Date.now()}.wav`);
+  await fsp.writeFile(filePath, buffer);
+
+  return {
+    filePath,
+    segments: segments.map((seg, i) => ({
+      speakerId: seg.speakerId,
+      speakerLabel: seg.speakerLabel,
+      text: seg.text,
+      startMs: timing[i].startMs,
+      endMs: timing[i].endMs,
+    })),
+  };
 });
 
 app.on("will-quit", async (event) => {

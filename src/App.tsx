@@ -5,6 +5,7 @@ import { Slider } from "./components/ui/Slider";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { WaveformRenderer } from "./components/canvas/WaveformRenderer";
 import BackendPanel from "./components/settings/BackendPanel";
+import NarrationPanel from "./components/settings/NarrationPanel";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { useVoicesStore } from "./store/useVoicesStore";
@@ -35,7 +36,7 @@ function HudCorners() {
 }
 
 export default function App() {
-  const [view, setView] = useState<"canvas" | "settings">("canvas");
+  const [view, setView] = useState<"canvas" | "settings" | "narration">("canvas");
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
 
@@ -88,13 +89,31 @@ export default function App() {
         <h1 className="font-display font-semibold uppercase tracking-[0.25em] text-xl label-lit">
           BYOK-Vid-Creator
         </h1>
-        <div className="flex items-center gap-4">
-          <span className="label-etched hidden sm:inline">Deterministic Video Studio</span>
+        <div className="flex items-center gap-3">
+          <span className="label-etched hidden sm:inline mr-2">Deterministic Video Studio</span>
           <button
-            onClick={() => setView(view === "canvas" ? "settings" : "canvas")}
-            className="label-etched px-3 py-1.5 border border-accent/30 hover:border-accent hover:text-accent-bright"
+            onClick={() => setView("canvas")}
+            className={`label-etched px-3 py-1.5 border ${
+              view === "canvas" ? "border-accent text-accent-bright" : "border-accent/30 hover:border-accent hover:text-accent-bright"
+            }`}
           >
-            {view === "canvas" ? "⚙ Backend Settings" : "← Back to Canvas"}
+            Canvas
+          </button>
+          <button
+            onClick={() => setView("narration")}
+            className={`label-etched px-3 py-1.5 border ${
+              view === "narration" ? "border-accent text-accent-bright" : "border-accent/30 hover:border-accent hover:text-accent-bright"
+            }`}
+          >
+            Narration
+          </button>
+          <button
+            onClick={() => setView("settings")}
+            className={`label-etched px-3 py-1.5 border ${
+              view === "settings" ? "border-accent text-accent-bright" : "border-accent/30 hover:border-accent hover:text-accent-bright"
+            }`}
+          >
+            ⚙ Backend Settings
           </button>
         </div>
       </header>
@@ -305,16 +324,20 @@ export default function App() {
           </section>
         </aside>
 
-        {/* CENTER: preview canvas or backend settings */}
+        {/* CENTER: preview canvas, narration, or backend settings */}
         <main
           className={`panel-hud relative flex-1 p-6 min-h-0 ${
-            view === "settings" ? "overflow-hidden" : "grid place-items-center"
+            view === "canvas" ? "grid place-items-center" : "overflow-hidden"
           }`}
         >
           <HudCorners />
           {view === "settings" ? (
             <div className="w-full h-full">
               <BackendPanel />
+            </div>
+          ) : view === "narration" ? (
+            <div className="w-full h-full">
+              <NarrationPanel />
             </div>
           ) : (
             <div

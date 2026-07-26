@@ -45,6 +45,16 @@ export interface Voice {
   label: string;
 }
 
+export interface NarrationSegmentInput {
+  speakerId: string;
+  speakerLabel: string;
+  text: string;
+  language: string;
+  voiceMode: "predefined" | "clone";
+  predefinedVoiceId?: string;
+  referenceAudioFilename?: string;
+}
+
 let serverProcess: ChildProcess | null = null;
 let serverPort = 8004;
 let readyPromise: Promise<void> | null = null;

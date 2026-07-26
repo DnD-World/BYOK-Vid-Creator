@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
-
-interface Voice {
-  id: string;
-  label: string;
-}
+import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 
 const LANGUAGES = [
   { code: "el", label: "Greek" },
@@ -17,18 +13,22 @@ const LANGUAGES = [
  * synthesizes, plays back) before wiring it into actual scene narration.
  * Electron owns the server's lifecycle here (Ak's explicit choice), so
  * starting it is a real "please wait" operation, not instant like Piper.
+ * Voice lists live in useChatterboxVoicesStore so the per-speaker voice
+ * picker (in App.tsx) sees the same data without a separate fetch.
  */
 export default function ChatterboxTestPanel() {
   const installPath = useSettingsStore((s) => s.defaults.chatterboxInstallPath);
   const port = useSettingsStore((s) => s.defaults.chatterboxPort);
   const setDefaultFn = useSettingsStore((s) => s.setDefault);
 
+  const predefinedVoices = useChatterboxVoicesStore((s) => s.predefinedVoices);
+  const referenceFiles = useChatterboxVoicesStore((s) => s.referenceFiles);
+  const serverRunning = useChatterboxVoicesStore((s) => s.serverRunning);
+  const refreshVoices = useChatterboxVoicesStore((s) => s.refresh);
+
   const [starting, setStarting] = useState(false);
-  const [running, setRunning] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  const [predefinedVoices, setPredefinedVoices] = useState<Voice[]>([]);
-  const [referenceFiles, setReferenceFiles] = useState<Voice[]>([]);
   const [voiceMode, setVoiceMode] = useState<"predefined" | "clone">("predefined");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [language, setLanguage] = useState("el");
@@ -45,13 +45,8 @@ export default function ChatterboxTestPanel() {
     setStartError(null);
     try {
       await window.byok.tts.chatterbox.ensureRunning({ installPath, port });
-      setRunning(true);
-      const [voices, refs] = await Promise.all([
-        window.byok.tts.chatterbox.listPredefinedVoices(),
-        window.byok.tts.chatterbox.listReferenceAudio(),
-      ]);
-      setPredefinedVoices(voices);
-      setReferenceFiles(refs);
+      await refreshVoices();
+      const voices = useChatterboxVoicesStore.getState().predefinedVoices;
       if (voices.length > 0) setSelectedVoice(voices[0].id);
     } catch (e: any) {
       setStartError(e?.message ?? String(e));
@@ -115,14 +110,14 @@ export default function ChatterboxTestPanel() {
             disabled={starting || !installPath}
             className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
           >
-            {starting ? "Starting… (can take a while first run)" : running ? "Restart Server" : "Start Server"}
+            {starting ? "Starting… (can take a while first run)" : serverRunning ? "Restart Server" : "Start Server"}
           </button>
-          {running && <span className="text-sm text-emerald-400">running ✓</span>}
+          {serverRunning && <span className="text-sm text-emerald-400">running ✓</span>}
         </div>
         {startError && <p className="text-sm text-red-400 whitespace-pre-wrap">{startError}</p>}
       </div>
 
-      {running && (
+      {serverRunning && (
         <div className="space-y-3 pt-2 border-t border-accent/15">
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-base text-neutral-300">

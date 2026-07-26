@@ -38,7 +38,9 @@ export interface SpeakerConfig {
   x: number;
   y: number;
   size: number;          // diameter in px on canvas
-  voiceId?: string;      // assigned Piper voice's onnxPath, if any
+  voiceId?: string;      // assigned Piper voice's onnxPath, if any (test-tier engine)
+  chatterboxVoiceMode?: "predefined" | "clone"; // production-tier engine voice assignment
+  chatterboxVoiceRef?: string; // predefined_voice_id or reference_audio_filename, depending on mode above
 }
 
 export interface ProjectState {
@@ -47,4 +49,6 @@ export interface ProjectState {
   bgRelevancy: number;   // 0 = fewer/longer, 1 = many/fast
   fps: Fps;
   speakers: SpeakerConfig[];
+  script: string;        // raw "Label: text" per line narration script
+  language: string;      // narration language code, e.g. "el", "en"
 }

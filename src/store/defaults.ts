@@ -27,4 +27,6 @@ export const defaultProject: ProjectState = {
   bgRelevancy: 0.5,
   fps: 24,
   speakers: [],
+  script: "",
+  language: "el",
 };
