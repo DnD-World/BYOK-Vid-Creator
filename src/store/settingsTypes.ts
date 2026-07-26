@@ -4,7 +4,7 @@
 // This file only holds non-secret backend configuration.
 
 export interface BackendDefaults {
-  ttsPrimary: "coqui-xtts-v2" | "azure";
+  ttsPrimary: "chatterbox-multilingual" | "azure";
   ttsFallback: "piper";
   llmScenePlanner: "glm-5.2";
   defaultTransition: "fade_zoom" | "glitch" | "cut";
@@ -12,4 +12,6 @@ export interface BackendDefaults {
   azureRegion: string;    // e.g. "eastus" — not secret, but Azure Speech needs it
   piperPythonPath: string; // e.g. "python3" or a full path to your python executable
   piperVoicesDir: string;  // folder containing your installed .onnx voice models
+  chatterboxInstallPath: string; // folder containing the devnen/Chatterbox-TTS-Server install (server.py)
+  chatterboxPort: number;        // default 8004
 }

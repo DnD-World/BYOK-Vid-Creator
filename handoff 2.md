@@ -7,9 +7,11 @@ original planning history — this covers everything since.
 ## Where things stand
 
 Phase 1g (app shell, canvas preview, waveform renderer, saved templates) is
-complete. Phase 2 (TTS) is in progress: the Piper pipeline architecture is
-built and confirmed working end-to-end on Ak's actual machine (see "Piper
-setup" below). XTTS-v2 has not been started yet.
+complete. Phase 2 (TTS) is well underway: Piper's pipeline architecture is
+built and confirmed working on Ak's actual machine (see "Piper setup"
+below), and the real quality/cloning engine — **Chatterbox Multilingual
+v3**, not XTTS-v2 — is now implemented too (see "TTS engine switch:
+XTTS-v2 → Chatterbox Multilingual v3" below for why).
 
 **The visual direction pivoted and is now finalized and implemented.** The
 original thick-clear-plastic/industrial-matte-metal direction (see the old
@@ -144,8 +146,81 @@ from plain Command Prompt instead, or use the venv's python.exe by full path
 directly without "activating" anything.
 
 Ak has 3 Greek voices + all English UK/US Piper voices installed already.
-Voice cloning is understood correctly as an XTTS-v2 capability, not
-something Piper can do.
+Voice cloning is a Chatterbox Multilingual v3 capability now (was
+originally scoped as XTTS-v2 — see the TTS engine switch section above),
+not something Piper can do.
+
+## TTS engine switch: XTTS-v2 → Chatterbox Multilingual v3
+
+The original plan (locked in `handoff 1.md`) was Coqui XTTS-v2. Before
+writing any integration code, two blocking problems were found and
+verified via web search, not assumed from training data:
+
+1. **XTTS-v2 has never supported Greek.** Its fixed 17-language list
+   (English, Spanish, French, German, Italian, Portuguese, Polish,
+   Turkish, Russian, Dutch, Czech, Arabic, Chinese, Japanese, Hungarian,
+   Korean, Hindi) does not include Greek — one of this app's two core
+   languages. This alone made it a non-starter regardless of anything
+   else.
+2. **XTTS-v2's license (CPML) requires a paid commercial license for
+   revenue-generating use.** Conflicts directly with Ak's stated plan to
+   showcase/sell this as a client solution.
+
+**Replacement: Chatterbox Multilingual v3** (Resemble AI). MIT licensed
+(no commercial restriction), confirmed Greek support (23-language list
+includes Greek explicitly), zero-shot voice cloning from ~5s of reference
+audio, benchmarked by Resemble AI as preferred over ElevenLabs in 63.75%
+of blind A/B comparisons (a vendor claim, but a specific checkable number).
+0.5B parameters (smaller/lighter than XTTS), runs on NVIDIA/AMD/CPU. Ak
+has an RTX 3070 8GB laptop GPU — solid for this, not a CPU-crawl scenario.
+
+**Serving it:** rather than building a persistent-server sidecar from
+scratch (like Piper needed), this uses an existing, actively maintained,
+MIT-licensed self-host wrapper: **devnen/Chatterbox-TTS-Server**
+(FastAPI, OpenAI-compatible API, Web UI, voice management, hot-swappable
+Original/Multilingual/Turbo engines). Default port **8004**.
+
+**Architecture decision — confirmed with Ak, not assumed:** unlike the
+natural inclination (run Chatterbox as its own standalone background app,
+like Ollama or similar local-AI tools), **Ak explicitly chose to have
+Electron auto-start and manage this server's lifecycle** rather than
+running it standalone. `electron/tts/chatterboxEngine.ts` owns this:
+spawns `server.py` from the configured install folder, health-checks
+`/api/model-info` with a generous timeout (model load, including first-run
+multi-GB download, can genuinely take minutes — Piper's tight timeout
+would be wrong here), and on app quit calls `POST /api/unload` to release
+GPU memory cleanly *before* killing the process (via a `will-quit` handler
+that pauses Electron's quit sequence to await this).
+
+**One-time manual setup still required on Ak's machine** before this can
+work (same shape as the Piper/Python-environment lesson): clone
+`devnen/Chatterbox-TTS-Server`, run `start.bat` once (**Portable Mode
+recommended** — it embeds its own Python 3.10 runtime, sidestepping the
+exact multi-environment confusion that caused the Piper Flask/hermes-agent
+mixup), then in the server's own Web UI select "Chatterbox Multilingual"
+once from the engine dropdown so `config.yaml` saves that as the active
+model (`model.repo_id: chatterbox-multilingual`). After that one-time
+step, `BYOK-Vid-Creator` just needs the install folder path (Backend
+Settings → Chatterbox Multilingual panel) and starts the server itself
+from then on.
+
+**API shape used:** `POST /tts` with `{ text, language, voice_mode:
+"predefined"|"clone", predefined_voice_id, reference_audio_filename,
+seed, output_format: "wav", split_text: true }`. Voice/reference file
+listing via `GET /get_predefined_voices` and `GET /get_reference_files`
+(response shapes normalized defensively in `chatterboxEngine.ts` since
+it's a third-party API).
+
+**Shared code note:** WAV duration parsing was pulled out of
+`piperEngine.ts` into `electron/tts/wavUtils.ts` so both engines use one
+implementation — Piper was updated to use it too, not just Chatterbox.
+
+**Not yet done:** actually feeding real script text through this to
+produce output, wiring the 2 assigned speaker voices together into one
+combined file, and updating `BackendDefaults.ttsPrimary` usage anywhere
+else that might still assume the old `"coqui-xtts-v2"` value (it's now
+typed as `"chatterbox-multilingual" | "azure"` — check for stale
+references if anything else touches this type).
 
 ## Reference materials — all in `inspiration looks/`
 
@@ -262,12 +337,13 @@ isn't lost:*
 - "Saved templates" feature exists (render + waveform + speakers), but
   doesn't yet cover backend defaults.
 - Dotted 3D wave-plane waveform style — nice-to-have, not started.
+- **Chatterbox Multilingual v3** — implemented (see dedicated section
+  above), but not yet tested on Ak's actual machine. The one-time manual
+  server setup + Greek synthesis + voice cloning all still need real-world
+  verification, same checkpoint pattern as Piper.
 - GLM-5.2 scene-chunking via NVIDIA — Ak has a key ready to add in Backend
   Settings; the actual API call isn't wired up yet.
-- XTTS-v2 (the real quality TTS engine, with voice cloning) — not started.
-  Piper was step 1 specifically to prove the persistent-sidecar
-  architecture cheaply first; that's now confirmed working, so XTTS-v2 is
-  unblocked whenever it's next in priority order.
 - Ultimate TTS goal: 2 assigned voices producing one combined audio file
   that feeds into the video (audio first, then video assembled around it)
-  — not just the current standalone test-panel preview.
+  — not just the current standalone test-panel preview. Now unblocked on
+  the engine side; still needs building.

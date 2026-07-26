@@ -3,6 +3,7 @@ import path from "node:path";
 import fsp from "node:fs/promises";
 import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
+import * as chatterbox from "./tts/chatterboxEngine";
 
 const isDev = !app.isPackaged;
 
@@ -118,15 +119,9 @@ ipcMain.handle("render:start", async (_e, _job: unknown) => {
 });
 
 // ---------------------------------------------------------------------------
-// TTS — Piper (Phase 2, step 1). One engine per handler, matching the
-// renderer-facing shape in preload.ts, so adding XTTS-v2 later is additive
-// rather than a rewrite.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// TTS — Piper (Phase 2, step 1). Persistent per-voice HTTP servers, spawned
-// lazily and kept warm. Matches the renderer-facing shape in preload.ts, so
-// adding XTTS-v2 later is additive rather than a rewrite.
+// TTS — Piper. Persistent per-voice HTTP servers, spawned lazily and kept
+// warm. Matches the renderer-facing shape in preload.ts, so adding another
+// engine is additive rather than a rewrite (see Chatterbox below).
 // ---------------------------------------------------------------------------
 
 ipcMain.handle("tts:listPiperVoices", async (_e, voicesDir: string) => {
@@ -137,7 +132,44 @@ ipcMain.handle("tts:synthesizePiper", async (_e, pythonPath: string, onnxPath: s
   return synthesizeWithPiper(pythonPath, onnxPath, text);
 });
 
-app.on("will-quit", () => {
+// ---------------------------------------------------------------------------
+// TTS — Chatterbox Multilingual v3. Electron owns this server's lifecycle
+// (Ak's choice — auto-start rather than a standalone background app), so it
+// gets started on first use and shut down cleanly (releasing GPU memory) on
+// app quit, same pattern as Piper's cleanup below.
+// ---------------------------------------------------------------------------
+
+ipcMain.handle("tts:chatterboxEnsureRunning", async (_e, cfg: chatterbox.ChatterboxConfig) => {
+  await chatterbox.ensureServerRunning(cfg);
+  return true;
+});
+
+ipcMain.handle("tts:chatterboxIsRunning", async () => {
+  return chatterbox.isServerRunning();
+});
+
+ipcMain.handle("tts:chatterboxListPredefinedVoices", async () => {
+  return chatterbox.listPredefinedVoices();
+});
+
+ipcMain.handle("tts:chatterboxListReferenceAudio", async () => {
+  return chatterbox.listReferenceAudio();
+});
+
+ipcMain.handle("tts:chatterboxSynthesize", async (_e, opts: chatterbox.SynthesizeOptions) => {
+  return chatterbox.synthesize(opts);
+});
+
+app.on("will-quit", async (event) => {
+  // Give Chatterbox a chance to release GPU memory cleanly before the app
+  // actually exits — Electron's will-quit can be paused for this.
+  if (chatterbox.isServerRunning()) {
+    event.preventDefault();
+    await chatterbox.shutdownServer();
+    shutdownAllPiperServers();
+    app.quit();
+    return;
+  }
   shutdownAllPiperServers();
 });
 

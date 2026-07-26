@@ -27,7 +27,14 @@ const api = {
   },
   tts: {
     listPiperVoices: (voicesDir) => ipcRenderer.invoke("tts:listPiperVoices", voicesDir),
-    synthesizePiper: (pythonPath, onnxPath, text) => ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text)
+    synthesizePiper: (pythonPath, onnxPath, text) => ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text),
+    chatterbox: {
+      ensureRunning: (cfg) => ipcRenderer.invoke("tts:chatterboxEnsureRunning", cfg),
+      isRunning: () => ipcRenderer.invoke("tts:chatterboxIsRunning"),
+      listPredefinedVoices: () => ipcRenderer.invoke("tts:chatterboxListPredefinedVoices"),
+      listReferenceAudio: () => ipcRenderer.invoke("tts:chatterboxListReferenceAudio"),
+      synthesize: (opts) => ipcRenderer.invoke("tts:chatterboxSynthesize", opts)
+    }
   }
 };
 contextBridge.exposeInMainWorld("byok", api);

@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import http from "node:http";
+import { wavDurationMs } from "./wavUtils";
 
 // ---------------------------------------------------------------------------
 // Piper TTS engine — the `piper-tts` Python package's persistent HTTP
@@ -107,28 +108,6 @@ export async function listPiperVoices(voicesDir: string): Promise<PiperVoice[]> 
  * without depending on ffprobe or any external binary. Walks RIFF chunks
  * rather than assuming a fixed 44-byte header.
  */
-function wavDurationMs(buf: Buffer): number {
-  const numChannels = buf.readUInt16LE(22);
-  const sampleRate = buf.readUInt32LE(24);
-  const bitsPerSample = buf.readUInt16LE(34);
-
-  let offset = 12;
-  let dataSize = Math.max(0, buf.length - 44);
-  while (offset < buf.length - 8) {
-    const id = buf.toString("ascii", offset, offset + 4);
-    const size = buf.readUInt32LE(offset + 4);
-    if (id === "data") {
-      dataSize = size;
-      break;
-    }
-    offset += 8 + size + (size % 2);
-  }
-
-  const bytesPerSecond = sampleRate * numChannels * (bitsPerSample / 8);
-  if (!bytesPerSecond) return 0;
-  return Math.round((dataSize / bytesPerSecond) * 1000);
-}
-
 export async function synthesizeWithPiper(
   pythonPath: string,
   onnxPath: string,

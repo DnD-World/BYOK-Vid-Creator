@@ -59,6 +59,25 @@ const api = {
       text: string
     ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
       ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text),
+
+    chatterbox: {
+      ensureRunning: (cfg: { installPath: string; port: number }): Promise<boolean> =>
+        ipcRenderer.invoke("tts:chatterboxEnsureRunning", cfg),
+      isRunning: (): Promise<boolean> => ipcRenderer.invoke("tts:chatterboxIsRunning"),
+      listPredefinedVoices: (): Promise<{ id: string; label: string }[]> =>
+        ipcRenderer.invoke("tts:chatterboxListPredefinedVoices"),
+      listReferenceAudio: (): Promise<{ id: string; label: string }[]> =>
+        ipcRenderer.invoke("tts:chatterboxListReferenceAudio"),
+      synthesize: (opts: {
+        text: string;
+        language: string;
+        voiceMode: "predefined" | "clone";
+        predefinedVoiceId?: string;
+        referenceAudioFilename?: string;
+        seed?: number;
+      }): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
+        ipcRenderer.invoke("tts:chatterboxSynthesize", opts),
+    },
   },
 };
 

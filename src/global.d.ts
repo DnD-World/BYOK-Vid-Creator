@@ -33,6 +33,20 @@ declare global {
           onnxPath: string,
           text: string
         ) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
+        chatterbox: {
+          ensureRunning: (cfg: { installPath: string; port: number }) => Promise<boolean>;
+          isRunning: () => Promise<boolean>;
+          listPredefinedVoices: () => Promise<{ id: string; label: string }[]>;
+          listReferenceAudio: () => Promise<{ id: string; label: string }[]>;
+          synthesize: (opts: {
+            text: string;
+            language: string;
+            voiceMode: "predefined" | "clone";
+            predefinedVoiceId?: string;
+            referenceAudioFilename?: string;
+            seed?: number;
+          }) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
+        };
       };
     };
   }

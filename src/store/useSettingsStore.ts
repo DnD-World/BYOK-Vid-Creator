@@ -23,7 +23,7 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       defaults: {
-        ttsPrimary: "coqui-xtts-v2",
+        ttsPrimary: "chatterbox-multilingual",
         ttsFallback: "piper",
         llmScenePlanner: "glm-5.2",
         defaultTransition: "fade_zoom",
@@ -31,6 +31,8 @@ export const useSettingsStore = create<SettingsState>()(
         azureRegion: "",
         piperPythonPath: "python3",
         piperVoicesDir: "",
+        chatterboxInstallPath: "",
+        chatterboxPort: 8004,
       },
       setDefault: (k, v) =>
         set((s) => ({ defaults: { ...s.defaults, [k]: v } })),

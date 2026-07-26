@@ -3,6 +3,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useTemplatesStore } from "../../store/useTemplatesStore";
 import TtsTestPanel from "./TtsTestPanel";
+import ChatterboxTestPanel from "./ChatterboxTestPanel";
 
 const PROVIDERS = [
   { id: "nvidia", label: "NVIDIA (GLM 5.2 — scene chunking)", required: true },
@@ -143,6 +144,8 @@ export default function BackendPanel() {
           </div>
         );
       })}
+
+      <ChatterboxTestPanel />
 
       <TtsTestPanel />
 

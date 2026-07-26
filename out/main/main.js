@@ -55,9 +55,28 @@ async function deleteKey(provider) {
 function encryptionAvailable() {
   return safeStorage.isEncryptionAvailable();
 }
+function wavDurationMs(buf) {
+  const numChannels = buf.readUInt16LE(22);
+  const sampleRate = buf.readUInt32LE(24);
+  const bitsPerSample = buf.readUInt16LE(34);
+  let offset = 12;
+  let dataSize = Math.max(0, buf.length - 44);
+  while (offset < buf.length - 8) {
+    const id = buf.toString("ascii", offset, offset + 4);
+    const size = buf.readUInt32LE(offset + 4);
+    if (id === "data") {
+      dataSize = size;
+      break;
+    }
+    offset += 8 + size + size % 2;
+  }
+  const bytesPerSecond = sampleRate * numChannels * (bitsPerSample / 8);
+  if (!bytesPerSecond) return 0;
+  return Math.round(dataSize / bytesPerSecond * 1e3);
+}
 const servers = /* @__PURE__ */ new Map();
 let nextPort = 5501;
-function pingServer(port) {
+function pingServer$1(port) {
   return new Promise((resolve) => {
     const req = http.get({ host: "127.0.0.1", port, path: "/", timeout: 800 }, (res) => {
       res.resume();
@@ -70,10 +89,10 @@ function pingServer(port) {
     });
   });
 }
-async function waitUntilReady(port, timeoutMs = 2e4) {
+async function waitUntilReady$1(port, timeoutMs = 2e4) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (await pingServer(port)) return;
+    if (await pingServer$1(port)) return;
     await new Promise((r) => setTimeout(r, 300));
   }
   throw new Error("Piper server didn't come up in time — check the python path and model file.");
@@ -90,7 +109,7 @@ async function getOrStartServer(pythonPath, onnxPath) {
     stderr += d.toString();
   });
   proc.on("exit", () => servers.delete(onnxPath));
-  const handle = { proc, port, ready: waitUntilReady(port) };
+  const handle = { proc, port, ready: waitUntilReady$1(port) };
   servers.set(onnxPath, handle);
   try {
     await handle.ready;
@@ -121,25 +140,6 @@ async function listPiperVoices(voicesDir) {
   }
   await walk(voicesDir);
   return out.sort((a, b) => a.name.localeCompare(b.name));
-}
-function wavDurationMs(buf) {
-  const numChannels = buf.readUInt16LE(22);
-  const sampleRate = buf.readUInt32LE(24);
-  const bitsPerSample = buf.readUInt16LE(34);
-  let offset = 12;
-  let dataSize = Math.max(0, buf.length - 44);
-  while (offset < buf.length - 8) {
-    const id = buf.toString("ascii", offset, offset + 4);
-    const size = buf.readUInt32LE(offset + 4);
-    if (id === "data") {
-      dataSize = size;
-      break;
-    }
-    offset += 8 + size + size % 2;
-  }
-  const bytesPerSecond = sampleRate * numChannels * (bitsPerSample / 8);
-  if (!bytesPerSecond) return 0;
-  return Math.round(dataSize / bytesPerSecond * 1e3);
 }
 async function synthesizeWithPiper(pythonPath, onnxPath, text) {
   const handle = await getOrStartServer(pythonPath, onnxPath);
@@ -174,6 +174,182 @@ async function synthesizeWithPiper(pythonPath, onnxPath, text) {
 function shutdownAllPiperServers() {
   for (const [, handle] of servers) handle.proc.kill();
   servers.clear();
+}
+let serverProcess = null;
+let serverPort = 8004;
+let readyPromise = null;
+async function findPythonExe(installPath) {
+  const portable = path$1.join(installPath, "python_embedded", "python.exe");
+  const venvWin = path$1.join(installPath, "venv", "Scripts", "python.exe");
+  const venvUnix = path$1.join(installPath, "venv", "bin", "python");
+  for (const candidate of [portable, venvWin, venvUnix]) {
+    try {
+      await fsp.access(candidate);
+      return candidate;
+    } catch {
+    }
+  }
+  throw new Error(
+    "Couldn't find a Python environment inside the Chatterbox install folder. Run start.bat / start.sh there once to complete first-time setup."
+  );
+}
+function pingServer(port) {
+  return new Promise((resolve) => {
+    const req = http.get({ host: "127.0.0.1", port, path: "/api/model-info", timeout: 2e3 }, (res) => {
+      res.resume();
+      resolve((res.statusCode ?? 500) < 500);
+    });
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+async function waitUntilReady(port, timeoutMs = 6 * 60 * 1e3) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (await pingServer(port)) return;
+    await new Promise((r) => setTimeout(r, 1e3));
+  }
+  throw new Error(
+    "Chatterbox server didn't become ready in time. First run downloads several GB of model files — check your internet connection and the server's own console window for progress."
+  );
+}
+async function ensureServerRunning(cfg) {
+  if (serverProcess && readyPromise) {
+    return readyPromise;
+  }
+  serverPort = cfg.port || 8004;
+  const pythonExe = await findPythonExe(cfg.installPath);
+  const proc = spawn(pythonExe, ["server.py"], {
+    cwd: cfg.installPath,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let stderr = "";
+  proc.stderr?.on("data", (d) => {
+    stderr += d.toString();
+  });
+  proc.on("exit", () => {
+    serverProcess = null;
+    readyPromise = null;
+  });
+  serverProcess = proc;
+  readyPromise = waitUntilReady(serverPort).catch((e) => {
+    serverProcess = null;
+    readyPromise = null;
+    throw new Error(`${e.message}${stderr ? `
+${stderr.trim().slice(-500)}` : ""}`);
+  });
+  return readyPromise;
+}
+function isServerRunning() {
+  return !!serverProcess;
+}
+async function listPredefinedVoices() {
+  const body = await httpGet(`/get_predefined_voices`);
+  const parsed = JSON.parse(body);
+  const list = Array.isArray(parsed) ? parsed : parsed.voices ?? [];
+  return list.map((v) => ({
+    id: v.filename ?? v.id ?? v.name,
+    label: v.display_name ?? v.label ?? v.filename ?? v.id
+  }));
+}
+async function listReferenceAudio() {
+  const body = await httpGet(`/get_reference_files`);
+  const parsed = JSON.parse(body);
+  const list = Array.isArray(parsed) ? parsed : parsed.files ?? [];
+  return list.map((f) => {
+    const filename = typeof f === "string" ? f : f.filename ?? f.name;
+    return { id: filename, label: filename };
+  });
+}
+async function synthesize(opts) {
+  const payload = JSON.stringify({
+    text: opts.text,
+    language: opts.language,
+    voice_mode: opts.voiceMode,
+    predefined_voice_id: opts.predefinedVoiceId,
+    reference_audio_filename: opts.referenceAudioFilename,
+    seed: opts.seed,
+    output_format: "wav",
+    split_text: true
+  });
+  const buf = await new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: "127.0.0.1",
+        port: serverPort,
+        path: "/tts",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload)
+        },
+        timeout: 12e4
+        // synthesis itself can take a while, especially long text
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          if ((res.statusCode ?? 500) >= 400) {
+            reject(new Error(`Chatterbox server returned ${res.statusCode}: ${Buffer.concat(chunks).toString()}`));
+          } else {
+            resolve(Buffer.concat(chunks));
+          }
+        });
+        res.on("error", reject);
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Chatterbox server timed out responding to a synthesis request."));
+    });
+    req.write(payload);
+    req.end();
+  });
+  return {
+    audioBuffer: new Uint8Array(buf).buffer,
+    durationMs: wavDurationMs(buf)
+  };
+}
+function httpGet(pathName) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ host: "127.0.0.1", port: serverPort, path: pathName, timeout: 1e4 }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+      res.on("error", reject);
+    });
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Request to Chatterbox server timed out."));
+    });
+  });
+}
+async function shutdownServer() {
+  if (!serverProcess) return;
+  try {
+    await new Promise((resolve) => {
+      const req = http.request(
+        { host: "127.0.0.1", port: serverPort, path: "/api/unload", method: "POST", timeout: 3e3 },
+        () => resolve()
+      );
+      req.on("error", () => resolve());
+      req.on("timeout", () => {
+        req.destroy();
+        resolve();
+      });
+      req.end();
+    });
+  } finally {
+    serverProcess.kill();
+    serverProcess = null;
+    readyPromise = null;
+  }
 }
 const isDev = !app.isPackaged;
 const userDir = () => app.getPath("userData");
@@ -268,7 +444,30 @@ ipcMain.handle("tts:listPiperVoices", async (_e, voicesDir) => {
 ipcMain.handle("tts:synthesizePiper", async (_e, pythonPath, onnxPath, text) => {
   return synthesizeWithPiper(pythonPath, onnxPath, text);
 });
-app.on("will-quit", () => {
+ipcMain.handle("tts:chatterboxEnsureRunning", async (_e, cfg) => {
+  await ensureServerRunning(cfg);
+  return true;
+});
+ipcMain.handle("tts:chatterboxIsRunning", async () => {
+  return isServerRunning();
+});
+ipcMain.handle("tts:chatterboxListPredefinedVoices", async () => {
+  return listPredefinedVoices();
+});
+ipcMain.handle("tts:chatterboxListReferenceAudio", async () => {
+  return listReferenceAudio();
+});
+ipcMain.handle("tts:chatterboxSynthesize", async (_e, opts) => {
+  return synthesize(opts);
+});
+app.on("will-quit", async (event) => {
+  if (isServerRunning()) {
+    event.preventDefault();
+    await shutdownServer();
+    shutdownAllPiperServers();
+    app.quit();
+    return;
+  }
   shutdownAllPiperServers();
 });
 app.whenReady().then(() => {
