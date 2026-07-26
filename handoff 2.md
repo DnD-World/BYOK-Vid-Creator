@@ -347,8 +347,22 @@ isn't lost:*
   this risk ("we have confidence it will work") and asked to keep building
   rather than pause for that verification first — flagged, not silently
   assumed.
-- GLM-5.2 scene-chunking via NVIDIA — Ak has a key ready to add in Backend
-  Settings; the actual API call isn't wired up yet.
+- **GLM-5.2 script draft assistant — built**, but scoped differently than
+  the original "scene chunking" idea implied. Rather than inventing a
+  separate "scenes" data structure nothing else uses yet, it generates
+  directly into the same "Label: text" script format `NarrationPanel`
+  already consumes — give it a topic + your speakers, get an editable
+  draft script back, not a new pipeline stage. Model: `z-ai/glm-5.2` via
+  NVIDIA NIM (`https://integrate.api.nvidia.com/v1/chat/completions`,
+  OpenAI-compatible, MIT licensed). `electron/llm/glmScenePlanner.ts`
+  reads the key from the same encrypted vault as everything else. New
+  "Draft Script with GLM-5.2" section at the top of the Narration panel.
+  Confirms overwrite before replacing existing script content. Not yet
+  tested on Ak's machine (needs his NVIDIA key added in Backend Settings
+  first, which he has ready but hadn't pasted in as of this writing).
+  If a real distinct "scenes" concept (with per-scene background/music
+  cues, not just narration text) becomes necessary later, this is the
+  natural place to extend from, not throw away.
 - **Narration generation — built.** New third view (Canvas / Narration /
   Backend Settings toggle in the header). `NarrationPanel.tsx`: per-speaker
   Chatterbox voice assignment (predefined or clone, reusing the shared

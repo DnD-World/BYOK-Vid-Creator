@@ -94,6 +94,15 @@ const api = {
       segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
     }> => ipcRenderer.invoke("tts:generateNarration", segments),
   },
+
+  llm: {
+    draftScript: (opts: {
+      topic: string;
+      speakerLabels: string[];
+      languageName: string;
+      tone?: string;
+    }): Promise<string> => ipcRenderer.invoke("llm:draftScript", opts),
+  },
 };
 
 contextBridge.exposeInMainWorld("byok", api);

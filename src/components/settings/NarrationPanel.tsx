@@ -38,6 +38,33 @@ export default function NarrationPanel() {
   const [result, setResult] = useState<NarrationResult | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
+  const [topic, setTopic] = useState("");
+  const [tone, setTone] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const runDraft = async () => {
+    if (!topic.trim() || speakers.length === 0) return;
+    if (script.trim() && !window.confirm("This will replace your current script. Continue?")) return;
+
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const languageName = LANGUAGES.find((l) => l.code === language)?.label ?? language;
+      const draft = await window.byok.llm.draftScript({
+        topic,
+        speakerLabels: speakers.map((s) => s.label),
+        languageName,
+        tone: tone.trim() || undefined,
+      });
+      setScript(draft);
+    } catch (e: any) {
+      setDraftError(e?.message ?? String(e));
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   const generate = async () => {
     setGenerating(true);
     setGenError(null);
@@ -153,6 +180,36 @@ export default function NarrationPanel() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-2">
+        <h3 className="label-lit text-sm">Draft Script with GLM-5.2</h3>
+        <p className="text-sm text-neutral-400">
+          Optional — describe what the video should be about and get a starting draft in the right
+          format, which you can then edit freely below. Needs an NVIDIA key in Backend Settings.
+        </p>
+        <input
+          type="text"
+          placeholder="Topic, e.g. 'why dogs love belly rubs'…"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          placeholder="Tone (optional), e.g. 'playful', 'informative'…"
+          value={tone}
+          onChange={(e) => setTone(e.target.value)}
+          className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
+        />
+        <button
+          onClick={runDraft}
+          disabled={drafting || !topic.trim() || speakers.length === 0}
+          className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-40"
+        >
+          {drafting ? "Drafting…" : "Generate Draft"}
+        </button>
+        {draftError && <p className="text-sm text-red-400 whitespace-pre-wrap">{draftError}</p>}
       </div>
 
       <textarea

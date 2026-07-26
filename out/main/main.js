@@ -5,6 +5,7 @@ import { promises } from "fs";
 import path from "path";
 import { spawn } from "node:child_process";
 import http from "node:http";
+import https from "node:https";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
@@ -417,6 +418,84 @@ function concatWavBuffers(buffers) {
   const header = buildWavHeader(pcmData.length, numChannels, sampleRate, bitsPerSample);
   return { buffer: Buffer.concat([header, pcmData]), segments };
 }
+const NVIDIA_MODEL = "z-ai/glm-5.2";
+const NVIDIA_HOST = "integrate.api.nvidia.com";
+function stripCodeFences(text) {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```[a-z]*\n([\s\S]*?)\n```$/i);
+  return fenceMatch ? fenceMatch[1].trim() : trimmed;
+}
+async function draftScript(opts) {
+  const apiKey = await getKey("nvidia");
+  if (!apiKey) {
+    throw new Error("No NVIDIA API key saved — add one in Backend Settings first.");
+  }
+  if (opts.speakerLabels.length === 0) {
+    throw new Error("Add at least one speaker before generating a script draft.");
+  }
+  const systemPrompt = [
+    `You write short narration/dialogue scripts in ${opts.languageName}.`,
+    `Output ONLY the script itself, one line per line of speech, formatted exactly as:`,
+    `Label: text`,
+    `Use ONLY these exact speaker labels, spelled exactly as given: ${opts.speakerLabels.join(", ")}.`,
+    `Do not add a title, headers, scene directions, markdown formatting, or any commentary — just the`,
+    `"Label: text" lines themselves, nothing before or after them.`
+  ].join(" ");
+  const userPrompt = [
+    `Topic: ${opts.topic}`,
+    opts.tone ? `Tone: ${opts.tone}` : null
+  ].filter(Boolean).join("\n");
+  const payload = JSON.stringify({
+    model: NVIDIA_MODEL,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    temperature: 0.7,
+    max_tokens: 2048
+  });
+  const body = await new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        host: NVIDIA_HOST,
+        path: "/v1/chat/completions",
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload)
+        },
+        timeout: 6e4
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf-8");
+          if ((res.statusCode ?? 500) >= 400) {
+            reject(new Error(`NVIDIA API returned ${res.statusCode}: ${text}`));
+          } else {
+            resolve(text);
+          }
+        });
+        res.on("error", reject);
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("NVIDIA API request timed out."));
+    });
+    req.write(payload);
+    req.end();
+  });
+  const parsed = JSON.parse(body);
+  const content = parsed?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error("NVIDIA API response didn't include any content — check the raw response if this persists.");
+  }
+  return stripCodeFences(content);
+}
 const isDev = !app.isPackaged;
 const userDir = () => app.getPath("userData");
 const outputDir = () => path$1.join(userDir(), "renders");
@@ -556,6 +635,12 @@ ipcMain.handle("tts:generateNarration", async (_e, segments) => {
     }))
   };
 });
+ipcMain.handle(
+  "llm:draftScript",
+  async (_e, opts) => {
+    return draftScript(opts);
+  }
+);
 app.on("will-quit", async (event) => {
   if (isServerRunning()) {
     event.preventDefault();

@@ -36,6 +36,9 @@ const api = {
       synthesize: (opts) => ipcRenderer.invoke("tts:chatterboxSynthesize", opts)
     },
     generateNarration: (segments) => ipcRenderer.invoke("tts:generateNarration", segments)
+  },
+  llm: {
+    draftScript: (opts) => ipcRenderer.invoke("llm:draftScript", opts)
   }
 };
 contextBridge.exposeInMainWorld("byok", api);

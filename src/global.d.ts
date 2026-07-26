@@ -62,6 +62,14 @@ declare global {
           segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
         }>;
       };
+      llm: {
+        draftScript: (opts: {
+          topic: string;
+          speakerLabels: string[];
+          languageName: string;
+          tone?: string;
+        }) => Promise<string>;
+      };
     };
   }
 }

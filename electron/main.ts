@@ -5,6 +5,7 @@ import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import * as chatterbox from "./tts/chatterboxEngine";
 import { concatWavBuffers } from "./audio/concatWav";
+import { draftScript } from "./llm/glmScenePlanner";
 
 const isDev = !app.isPackaged;
 
@@ -203,6 +204,21 @@ ipcMain.handle("tts:generateNarration", async (_e, segments: chatterbox.Narratio
     })),
   };
 });
+
+// ---------------------------------------------------------------------------
+// GLM-5.2 script draft assistant (NVIDIA NIM). Reads the key from the same
+// encrypted vault as everything else — never touches the renderer.
+// ---------------------------------------------------------------------------
+
+ipcMain.handle(
+  "llm:draftScript",
+  async (
+    _e,
+    opts: { topic: string; speakerLabels: string[]; languageName: string; tone?: string }
+  ) => {
+    return draftScript(opts);
+  }
+);
 
 app.on("will-quit", async (event) => {
   // Give Chatterbox a chance to release GPU memory cleanly before the app
