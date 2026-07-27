@@ -273,6 +273,8 @@ async function synthesize(opts) {
     predefined_voice_id: opts.predefinedVoiceId,
     reference_audio_filename: opts.referenceAudioFilename,
     seed: opts.seed,
+    exaggeration: opts.exaggeration,
+    cfg_weight: opts.cfgWeight,
     output_format: "wav",
     split_text: true
   });
@@ -616,7 +618,9 @@ ipcMain.handle("tts:generateNarration", async (_e, segments) => {
       language: seg.language,
       voiceMode: seg.voiceMode,
       predefinedVoiceId: seg.predefinedVoiceId,
-      referenceAudioFilename: seg.referenceAudioFilename
+      referenceAudioFilename: seg.referenceAudioFilename,
+      exaggeration: seg.exaggeration,
+      cfgWeight: seg.cfgWeight
     });
     buffers.push(Buffer.from(audioBuffer));
   }

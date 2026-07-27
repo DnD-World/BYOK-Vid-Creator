@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useProjectStore } from "../../store/useProjectStore";
+import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 import { parseScript } from "../../lib/narration/parseScript";
 
@@ -27,6 +28,8 @@ export default function NarrationPanel() {
   const setScript = useProjectStore((s) => s.setScript);
   const language = useProjectStore((s) => s.language);
   const setLanguage = useProjectStore((s) => s.setLanguage);
+  const exaggeration = useSettingsStore((s) => s.defaults.chatterboxExaggeration);
+  const cfgWeight = useSettingsStore((s) => s.defaults.chatterboxCfgWeight);
 
   const predefinedVoices = useChatterboxVoicesStore((s) => s.predefinedVoices);
   const referenceFiles = useChatterboxVoicesStore((s) => s.referenceFiles);
@@ -102,6 +105,8 @@ export default function NarrationPanel() {
           voiceMode: sp.chatterboxVoiceMode ?? "predefined",
           predefinedVoiceId: sp.chatterboxVoiceMode === "clone" ? undefined : sp.chatterboxVoiceRef,
           referenceAudioFilename: sp.chatterboxVoiceMode === "clone" ? sp.chatterboxVoiceRef : undefined,
+          exaggeration,
+          cfgWeight,
         };
       });
 

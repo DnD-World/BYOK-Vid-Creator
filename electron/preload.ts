@@ -75,6 +75,8 @@ const api = {
         predefinedVoiceId?: string;
         referenceAudioFilename?: string;
         seed?: number;
+        exaggeration?: number;
+        cfgWeight?: number;
       }): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
         ipcRenderer.invoke("tts:chatterboxSynthesize", opts),
     },
@@ -88,6 +90,8 @@ const api = {
         voiceMode: "predefined" | "clone";
         predefinedVoiceId?: string;
         referenceAudioFilename?: string;
+        exaggeration?: number;
+        cfgWeight?: number;
       }[]
     ): Promise<{
       filePath: string;

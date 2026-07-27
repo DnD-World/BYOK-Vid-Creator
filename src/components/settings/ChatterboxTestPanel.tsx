@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
+import { Knob } from "../ui/Knob";
 
 const LANGUAGES = [
   { code: "el", label: "Greek" },
@@ -19,6 +20,8 @@ const LANGUAGES = [
 export default function ChatterboxTestPanel() {
   const installPath = useSettingsStore((s) => s.defaults.chatterboxInstallPath);
   const port = useSettingsStore((s) => s.defaults.chatterboxPort);
+  const exaggeration = useSettingsStore((s) => s.defaults.chatterboxExaggeration);
+  const cfgWeight = useSettingsStore((s) => s.defaults.chatterboxCfgWeight);
   const setDefaultFn = useSettingsStore((s) => s.setDefault);
 
   const predefinedVoices = useChatterboxVoicesStore((s) => s.predefinedVoices);
@@ -66,6 +69,8 @@ export default function ChatterboxTestPanel() {
         voiceMode,
         predefinedVoiceId: voiceMode === "predefined" ? selectedVoice : undefined,
         referenceAudioFilename: voiceMode === "clone" ? selectedVoice : undefined,
+        exaggeration,
+        cfgWeight,
       });
       const blob = new Blob([audioBuffer], { type: "audio/wav" });
       setAudioUrl(URL.createObjectURL(blob));
@@ -175,6 +180,23 @@ export default function ChatterboxTestPanel() {
               </option>
             ))}
           </select>
+
+          <div className="flex items-center justify-center gap-10 py-2">
+            <Knob
+              label="Exaggeration"
+              value={exaggeration}
+              min={0}
+              max={2}
+              onChange={(v) => setDefaultFn("chatterboxExaggeration", v)}
+            />
+            <Knob
+              label="CFG Weight"
+              value={cfgWeight}
+              min={0}
+              max={1}
+              onChange={(v) => setDefaultFn("chatterboxCfgWeight", v)}
+            />
+          </div>
 
           <textarea
             value={testText}

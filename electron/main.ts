@@ -183,6 +183,8 @@ ipcMain.handle("tts:generateNarration", async (_e, segments: chatterbox.Narratio
       voiceMode: seg.voiceMode,
       predefinedVoiceId: seg.predefinedVoiceId,
       referenceAudioFilename: seg.referenceAudioFilename,
+      exaggeration: seg.exaggeration,
+      cfgWeight: seg.cfgWeight,
     });
     buffers.push(Buffer.from(audioBuffer));
   }

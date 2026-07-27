@@ -33,6 +33,8 @@ export const useSettingsStore = create<SettingsState>()(
         piperVoicesDir: "",
         chatterboxInstallPath: "",
         chatterboxPort: 8004,
+        chatterboxExaggeration: 0.5,
+        chatterboxCfgWeight: 0.5,
       },
       setDefault: (k, v) =>
         set((s) => ({ defaults: { ...s.defaults, [k]: v } })),

@@ -45,6 +45,8 @@ declare global {
             predefinedVoiceId?: string;
             referenceAudioFilename?: string;
             seed?: number;
+            exaggeration?: number;
+            cfgWeight?: number;
           }) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
         };
         generateNarration: (
@@ -56,6 +58,8 @@ declare global {
             voiceMode: "predefined" | "clone";
             predefinedVoiceId?: string;
             referenceAudioFilename?: string;
+            exaggeration?: number;
+            cfgWeight?: number;
           }[]
         ) => Promise<{
           filePath: string;

@@ -38,6 +38,8 @@ export interface SynthesizeOptions {
   predefinedVoiceId?: string;
   referenceAudioFilename?: string;
   seed?: number; // fixed seed helps voice consistency across chunks/sessions
+  exaggeration?: number; // 0-2, voice expressiveness/character
+  cfgWeight?: number;    // 0-1, how closely it follows the reference voice
 }
 
 export interface Voice {
@@ -53,6 +55,8 @@ export interface NarrationSegmentInput {
   voiceMode: "predefined" | "clone";
   predefinedVoiceId?: string;
   referenceAudioFilename?: string;
+  exaggeration?: number;
+  cfgWeight?: number;
 }
 
 let serverProcess: ChildProcess | null = null;
@@ -177,6 +181,8 @@ export async function synthesize(
     predefined_voice_id: opts.predefinedVoiceId,
     reference_audio_filename: opts.referenceAudioFilename,
     seed: opts.seed,
+    exaggeration: opts.exaggeration,
+    cfg_weight: opts.cfgWeight,
     output_format: "wav",
     split_text: true,
   });

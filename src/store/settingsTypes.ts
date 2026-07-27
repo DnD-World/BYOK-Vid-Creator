@@ -14,4 +14,6 @@ export interface BackendDefaults {
   piperVoicesDir: string;  // folder containing your installed .onnx voice models
   chatterboxInstallPath: string; // folder containing the devnen/Chatterbox-TTS-Server install (server.py)
   chatterboxPort: number;        // default 8004
+  chatterboxExaggeration: number; // 0-2, voice expressiveness/character
+  chatterboxCfgWeight: number;    // 0-1, how closely it follows the reference voice
 }
