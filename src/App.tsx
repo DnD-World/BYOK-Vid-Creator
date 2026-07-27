@@ -10,6 +10,7 @@ import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { useVoicesStore } from "./store/useVoicesStore";
 import { deriveAccentShades } from "./lib/color/deriveShades";
+import { useCornerFlare } from "./lib/motion/useCornerFlare";
 import { VISEME } from "./lib/visemes/visemeMap";
 import type { Fps, WaveformConfig } from "./store/types";
 
@@ -25,12 +26,13 @@ const WAVEFORM_BEHAVIORS: { id: WaveformConfig["behavior"]; label: string }[] = 
 ];
 
 /** Two corner-bracket accents — the recurring HUD-panel detail. Drop this
- *  inside any element with position:relative that uses .panel-hud. */
+ *  inside any element with position:relative that uses .panel-hud. Always
+ *  breathes (cheap — two small elements, not the whole panel body). */
 function HudCorners() {
   return (
     <>
-      <span className="hud-corner tl" />
-      <span className="hud-corner br" />
+      <span className="hud-corner tl hud-breathe" />
+      <span className="hud-corner br hud-breathe" />
     </>
   );
 }
@@ -52,6 +54,7 @@ export default function App() {
   const waveform = useProjectStore((s) => s.waveform);
   const setWaveform = useProjectStore((s) => s.setWaveform);
   const accentColor = useSettingsStore((s) => s.accentColor);
+  const motionEnabled = useSettingsStore((s) => s.motionEnabled);
 
   const isPortrait = render.format === "9:16";
 
@@ -64,6 +67,17 @@ export default function App() {
     root.setProperty("--accent-bright-rgb", bright);
     root.setProperty("--accent-deep-rgb", deep);
   }, [accentColor]);
+
+  // Gates the breathing glow / click flash / corner flare CSS effects.
+  // prefers-reduced-motion is handled entirely in CSS and always wins
+  // regardless of this — this is the separate, explicit app-level toggle.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-hud-motion", motionEnabled ? "on" : "off");
+  }, [motionEnabled]);
+
+  const headerFlare = useCornerFlare<HTMLElement>();
+  const asideFlare = useCornerFlare<HTMLElement>();
+  const mainFlare = useCornerFlare<HTMLElement>();
 
   // The waveform SVG needs real pixel dimensions of the aspect-locked slot,
   // which CSS aspect-ratio computes at layout time — so track it via
@@ -84,7 +98,11 @@ export default function App() {
       <div className="scanlines" />
 
       {/* Top bar */}
-      <header className="panel-hud relative m-3 px-6 py-3 flex items-center justify-between">
+      <header
+        ref={headerFlare.ref}
+        onClick={headerFlare.fire}
+        className="panel-hud hud-flare-target relative m-3 px-6 py-3 flex items-center justify-between"
+      >
         <HudCorners />
         <h1 className="font-display font-semibold uppercase tracking-[0.25em] text-xl label-lit">
           BYOK-Vid-Creator
@@ -120,7 +138,11 @@ export default function App() {
 
       <div className="flex flex-1 gap-3 px-3 pb-3 min-h-0">
         {/* LEFT RAIL */}
-        <aside className="panel-hud relative w-80 p-5 flex flex-col gap-7 overflow-y-auto">
+        <aside
+          ref={asideFlare.ref}
+          onClick={asideFlare.fire}
+          className="panel-hud hud-flare-target relative w-80 p-5 flex flex-col gap-7 overflow-y-auto"
+        >
           <HudCorners />
           <section>
             <div className="label-etched mb-2">Frame Rate</div>
@@ -326,7 +348,9 @@ export default function App() {
 
         {/* CENTER: preview canvas, narration, or backend settings */}
         <main
-          className={`panel-hud relative flex-1 p-6 min-h-0 ${
+          ref={mainFlare.ref}
+          onClick={mainFlare.fire}
+          className={`panel-hud hud-flare-target relative flex-1 p-6 min-h-0 ${
             view === "canvas" ? "grid place-items-center" : "overflow-hidden"
           }`}
         >

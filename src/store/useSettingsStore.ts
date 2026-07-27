@@ -17,6 +17,11 @@ interface SettingsState {
    *  applied in App.tsx, which every accent-* Tailwind class reads from. */
   accentColor: string;
   setAccentColor: (hex: string) => void;
+  /** Gates the breathing glow / click flash / corner flare motion effects,
+   *  independent of the OS-level prefers-reduced-motion (which always wins
+   *  regardless of this). Default on. */
+  motionEnabled: boolean;
+  setMotionEnabled: (v: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -41,6 +46,9 @@ export const useSettingsStore = create<SettingsState>()(
 
       accentColor: "#e8a24a",
       setAccentColor: (hex) => set({ accentColor: hex }),
+
+      motionEnabled: true,
+      setMotionEnabled: (v) => set({ motionEnabled: v }),
     }),
     { name: "byok-settings" } // saved to localStorage, survives restarts
   )

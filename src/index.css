@@ -65,9 +65,70 @@
     position: absolute;
     width: 14px; height: 14px;
     pointer-events: none;
+    transition: transform 260ms ease-out, filter 260ms ease-out;
   }
   .hud-corner.tl { top: -1px; left: -1px; border-top: 2px solid rgb(var(--accent-rgb)); border-left: 2px solid rgb(var(--accent-rgb)); }
   .hud-corner.br { bottom: -1px; right: -1px; border-bottom: 2px solid rgb(var(--accent-rgb)); border-right: 2px solid rgb(var(--accent-rgb)); }
+
+  /* ---------------------------------------------------------------------
+     Motion identity — three small, deliberately restrained effects, all
+     gated behind prefers-reduced-motion AND the app's own motion toggle
+     (Backend Settings -> Appearance). Applied to a handful of hero
+     elements (corner brackets, primary buttons) rather than everywhere —
+     dozens of simultaneous filter animations cost real paint performance.
+     Everything reads --accent-*-rgb; nothing here hardcodes a color.
+  --------------------------------------------------------------------- */
+
+  @keyframes hud-breathe {
+    0%, 100% { filter: drop-shadow(0 0 3px rgb(var(--accent-rgb) / 0.45)); }
+    50%      { filter: drop-shadow(0 0 9px rgb(var(--accent-rgb) / 0.9)); }
+  }
+  .hud-breathe {
+    animation: hud-breathe 4.2s ease-in-out infinite;
+  }
+
+  /* Chamfered click flash — an overlay that copies .panel-hud's exact
+     clip-path (via the same --cut variable, so they can never drift out
+     of sync with each other), expands slightly, and fades once. Mounted
+     and removed by the useClickFlash hook, not left in the DOM. */
+  @keyframes hud-flash-anim {
+    0%   { opacity: 0.85; transform: scale(1); }
+    100% { opacity: 0;    transform: scale(1.06); }
+  }
+  .hud-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    border: 1px solid rgb(var(--accent-bright-rgb));
+    box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.75), inset 0 0 8px rgb(var(--accent-rgb) / 0.35);
+    clip-path: polygon(
+      var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)),
+      calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)
+    );
+    animation: hud-flash-anim 480ms ease-out forwards;
+  }
+
+  /* Corner flare on click/focus — brightens + nudges the two existing
+     corner brackets outward, then settles back via the transition already
+     declared on .hud-corner above. */
+  .hud-flare-target.is-flaring .hud-corner {
+    filter: drop-shadow(0 0 8px rgb(var(--accent-bright-rgb)));
+  }
+  .hud-flare-target.is-flaring .hud-corner.tl { transform: translate(-2px, -2px); }
+  .hud-flare-target.is-flaring .hud-corner.br { transform: translate(2px, 2px); }
+
+  /* Accessibility + explicit toggle gate. Priority #1 is stability, and
+     ambient motion is opt-out for a reason. */
+  @media (prefers-reduced-motion: reduce) {
+    .hud-breathe { animation: none; }
+    .hud-flash { animation: none; opacity: 0; }
+  }
+  [data-hud-motion="off"] .hud-breathe { animation: none; }
+  [data-hud-motion="off"] .hud-flash { display: none; }
+  [data-hud-motion="off"] .hud-flare-target.is-flaring .hud-corner {
+    transform: none; filter: none;
+  }
 
   /* Recessed slot — the video canvas frame sits here. Kept calmer than the
      chrome around it (no scanline-competing texture) since real content

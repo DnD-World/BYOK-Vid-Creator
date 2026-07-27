@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useTemplatesStore } from "../../store/useTemplatesStore";
+import { Toggle } from "../ui/Toggle";
 import TtsTestPanel from "./TtsTestPanel";
 import ChatterboxTestPanel from "./ChatterboxTestPanel";
 
@@ -24,6 +25,8 @@ export default function BackendPanel() {
   const setDefault = useSettingsStore((s) => s.setDefault);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
+  const motionEnabled = useSettingsStore((s) => s.motionEnabled);
+  const setMotionEnabled = useSettingsStore((s) => s.setMotionEnabled);
 
   const render = useProjectStore((s) => s.render);
   const fps = useProjectStore((s) => s.fps);
@@ -60,7 +63,7 @@ export default function BackendPanel() {
         Keys are encrypted with your OS keychain and never leave this machine.
       </p>
 
-      <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-2">
+      <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
         <h3 className="label-lit text-sm">Appearance</h3>
         <div className="flex items-center gap-3">
           <input
@@ -73,6 +76,11 @@ export default function BackendPanel() {
             Accent color — recolors glows, highlights, and active states everywhere
           </span>
         </div>
+        <Toggle
+          label="Interface motion (breathing glow & click effects)"
+          checked={motionEnabled}
+          onChange={setMotionEnabled}
+        />
       </div>
       {!encryptionAvailable && (
         <p className="text-sm text-accent-bright border border-accent-deep/40 bg-accent-deep/10 px-3 py-2">
