@@ -6,6 +6,7 @@ import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from ".
 import * as chatterbox from "./tts/chatterboxEngine";
 import { concatWavBuffers } from "./audio/concatWav";
 import { draftScript } from "./llm/glmScenePlanner";
+import { renderVideo, type RenderJob } from "./render/renderVideo";
 
 const isDev = !app.isPackaged;
 
@@ -116,8 +117,33 @@ ipcMain.handle("storage:writeFile", async (_e, filePath: string, data: ArrayBuff
   return true;
 });
 
-ipcMain.handle("render:start", async (_e, _job: unknown) => {
-  return { ok: true, jobId: Date.now().toString(36) };
+// ---------------------------------------------------------------------------
+// Render — Remotion. Progress is pushed back to the renderer on the
+// "render:progress" channel rather than returned, since a render is long
+// running and the UI needs to move while it happens.
+// ---------------------------------------------------------------------------
+
+ipcMain.handle("render:start", async (_e, job: RenderJob) => {
+  const jobId = Date.now().toString(36);
+  const send = (pct: number, note: string) => {
+    // The window can be closed mid-render; dropping the update is correct.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("render:progress", { jobId, pct, note });
+    }
+  };
+
+  try {
+    const result = await renderVideo(job, {
+      projectRoot: app.getAppPath(),
+      outputDir: outputDir(),
+      onProgress: send,
+    });
+    return { ok: true as const, jobId, ...result };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    send(0, `Render failed: ${message}`);
+    return { ok: false as const, jobId, error: message };
+  }
 });
 
 // ---------------------------------------------------------------------------

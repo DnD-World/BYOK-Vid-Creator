@@ -20,14 +20,21 @@
 
     "types": ["node"],
 
-    "baseUrl": ".",
+    // Deliberately NO "baseUrl". With baseUrl set to the project root, any
+    // bare import resolves against root-level folders BEFORE node_modules —
+    // so `import { Composition } from "remotion"` silently resolved to our
+    // own ./remotion/ folder instead of the npm package, and every Remotion
+    // export appeared to not exist. "paths" works without baseUrl on
+    // TypeScript 4.4+ (resolved relative to this file), so the @/ alias is
+    // unaffected. Don't add baseUrl back.
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [
     "src",
     "electron",
+    "remotion",
     "electron.vite.config.ts"
   ]
 }
