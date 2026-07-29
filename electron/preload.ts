@@ -40,8 +40,12 @@ const api = {
   },
 
   render: {
-    start: (job: unknown): Promise<{ ok: boolean; jobId: string }> =>
-      ipcRenderer.invoke("render:start", job),
+    start: (
+      job: unknown
+    ): Promise<
+      | { ok: true; jobId: string; outputPath: string; durationSec: number; frames: number }
+      | { ok: false; jobId: string; error: string }
+    > => ipcRenderer.invoke("render:start", job),
     onProgress: (cb: (payload: { jobId: string; pct: number; note?: string }) => void) => {
       const listener = (_e: unknown, payload: any) => cb(payload);
       ipcRenderer.on("render:progress", listener);

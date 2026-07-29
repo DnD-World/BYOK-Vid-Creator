@@ -6,6 +6,7 @@ import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { WaveformRenderer } from "./components/canvas/WaveformRenderer";
 import BackendPanel from "./components/settings/BackendPanel";
 import NarrationPanel from "./components/settings/NarrationPanel";
+import { RenderBar } from "./components/render/RenderBar";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { useVoicesStore } from "./store/useVoicesStore";
@@ -344,6 +345,8 @@ export default function App() {
               ))}
             </div>
           </section>
+
+          <RenderBar />
         </aside>
 
         {/* CENTER: preview canvas, narration, or backend settings */}

@@ -21,7 +21,18 @@ declare global {
         writeFile: (filePath: string, data: ArrayBuffer) => Promise<boolean>;
       };
       render: {
-        start: (job: unknown) => Promise<{ ok: boolean; jobId: string }>;
+        start: (
+          job: unknown
+        ) => Promise<
+          | {
+              ok: true;
+              jobId: string;
+              outputPath: string;
+              durationSec: number;
+              frames: number;
+            }
+          | { ok: false; jobId: string; error: string }
+        >;
         onProgress: (
           cb: (payload: { jobId: string; pct: number; note?: string }) => void
         ) => () => void;
