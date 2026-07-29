@@ -38,11 +38,12 @@ machine** via a bundled Remotion + FFmpeg pipeline.
 
 ## 🚀 Quick Start
 
-bash
-git clone https://github.com/stravelakis/byok-vid-creator.git
-cd byok-vid-creator
+```bash
+git clone https://github.com/DnD-World/BYOK-Vid-Creator.git
+cd BYOK-Vid-Creator
 npm install
 npm run dev
+```
 
 > Open the Backend Panel → paste your API keys → load the “Dogs & Butterflies” sample project → hit Render.
 > Recommended specs: NVIDIA 8GB GPU · 32GB RAM · ~1 hr render / 10 min video.
