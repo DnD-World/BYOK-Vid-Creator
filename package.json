@@ -13,9 +13,12 @@
     "start": "electron-vite preview"
   },
   "dependencies": {
+    "@remotion/bundler": "^4.0.500",
+    "@remotion/renderer": "^4.0.500",
     "framer-motion": "^11.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "remotion": "^4.0.500",
     "zustand": "^4.5.4"
   },
   "devDependencies": {
