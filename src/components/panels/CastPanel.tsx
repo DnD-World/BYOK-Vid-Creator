@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
 // LEFT PANEL — the cast.
 //
-// One tab per speaker plus a Music tab. Everything that belongs to a sound
-// source lives in its own tab: appearance, position, voice, and that source's
-// waveform. This is what stops speakers stacking vertically forever, which was
-// the main reason the old single rail became unusable.
+// Three sections: Speakers (who they are and how they look), Music, and
+// Waveforms (every track together). Waveforms get their own tab rather than
+// living inside each speaker because tuning them is comparative work — you
+// judge one track against the others, so they need to be side by side.
 //
 // The colour rule worth knowing: a speaker's outline colour IS their waveform
 // colour. There is no second control, because two controls would drift.
@@ -38,20 +38,15 @@ export function CastPanel() {
   const setMusicColor = useProjectStore((s) => s.setMusicColor);
   const voices = useVoicesStore((s) => s.voices);
 
-  const [active, setActive] = useState<string>("music");
+  const [section, setSection] = useState<"speakers" | "music" | "waveforms">("speakers");
+  const [active, setActive] = useState<string>("");
 
-  // Follow the cast: land on a real speaker when one exists, and never leave
-  // the panel pointing at a speaker that has just been deleted.
+  // Never leave the panel pointing at a speaker that has just been deleted.
   useEffect(() => {
-    if (active !== "music" && !speakers.some((s) => s.id === active)) {
-      setActive(speakers[0]?.id ?? "music");
+    if (speakers.length > 0 && !speakers.some((s) => s.id === active)) {
+      setActive(speakers[0].id);
     }
   }, [speakers, active]);
-
-  const tabs = [
-    ...speakers.map((s) => ({ id: s.id, label: s.label })),
-    { id: "music", label: "♪ Music" },
-  ];
 
   const speaker = speakers.find((s) => s.id === active);
 
@@ -64,10 +59,63 @@ export function CastPanel() {
         </button>
       </div>
 
-      <Tabs tabs={tabs} active={active} onChange={setActive} />
+      <Tabs
+        tabs={[
+          { id: "speakers" as const, label: "Speakers" },
+          { id: "music" as const, label: "♪ Music" },
+          { id: "waveforms" as const, label: "Waveforms" },
+        ]}
+        active={section}
+        onChange={setSection}
+      />
+
+      {/* Which speaker the Speakers tab is editing. Only shown when it's
+          relevant, so a single-speaker project has no redundant strip. */}
+      {section === "speakers" && speakers.length > 1 && (
+        <Tabs
+          tabs={speakers.map((s) => ({ id: s.id, label: s.label }))}
+          active={active}
+          onChange={setActive}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-        {active === "music" ? (
+        {section === "waveforms" ? (
+          <>
+            <p className="text-sm text-neutral-500">
+              Every track in one place, so you can tune them against each other
+              instead of hopping between tabs. Each speaker's waveform takes its
+              colour from that speaker's outline.
+            </p>
+            {speakers.map((sp) => (
+              <section key={sp.id} className="space-y-3 border-t border-accent/15 pt-5 first:border-0 first:pt-0">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: sp.borderColor }} />
+                  <span className="label-etched">{sp.label}</span>
+                </div>
+                <WaveformControls
+                  label={`Show ${sp.label}'s waveform`}
+                  value={sp.waveform}
+                  onChange={(patch) => setSpeakerWaveform(sp.id, patch)}
+                />
+              </section>
+            ))}
+            <section className="space-y-3 border-t border-accent/15 pt-5">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-full" style={{ background: musicColor }} />
+                <span className="label-etched">Music</span>
+              </div>
+              <WaveformControls
+                label="Show music waveform"
+                value={musicWaveform}
+                onChange={setMusicWaveform}
+              />
+            </section>
+            {speakers.length === 0 && (
+              <p className="text-sm text-neutral-500">Add a speaker to get a speaker waveform.</p>
+            )}
+          </>
+        ) : section === "music" ? (
           <>
             <div className="flex items-center gap-3">
               <input
@@ -75,16 +123,12 @@ export function CastPanel() {
                 onChange={(e) => setMusicColor(e.target.value)}
                 className="h-9 w-9 border border-accent/30 bg-transparent p-0"
               />
-              <span className="text-sm text-neutral-400">Music waveform colour</span>
+              <span className="text-sm text-neutral-400">Music colour</span>
             </div>
-            <WaveformControls
-              label="Show music waveform"
-              value={musicWaveform}
-              onChange={setMusicWaveform}
-            />
             <p className="text-sm text-neutral-500">
               The music track always animates — music doesn't take turns the way
-              speakers do. Adding actual music files is still to come.
+              speakers do. Its waveform is on the Waveforms tab. Loading actual
+              music files is still to come.
             </p>
           </>
         ) : !speaker ? (
@@ -237,14 +281,6 @@ export function CastPanel() {
               </p>
             </section>
 
-            <section className="space-y-3 border-t border-accent/15 pt-5">
-              <div className="label-etched">Waveform</div>
-              <WaveformControls
-                label={`Show ${speaker.label}'s waveform`}
-                value={speaker.waveform}
-                onChange={(patch) => setSpeakerWaveform(speaker.id, patch)}
-              />
-            </section>
           </>
         )}
       </div>

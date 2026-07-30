@@ -34,9 +34,19 @@ export function SpeakerAvatar({
 }: Props) {
   const col = viseme % 3;
   const row = Math.floor(viseme / 3);
-  const head = size * 0.9; // 90% fill rule
 
-  // No sheet assigned yet is a normal state, not an error — the disk still
+  // The face is clipped to the SAME shape as the frame around it. Leaving this
+  // at a hard 50% meant a square frame still circle-cropped the artwork, which
+  // looked like the shape control was broken.
+  const faceRadius = SHAPE_RADIUS[outlineShape];
+
+  // A circle wastes its corners, so the face is inset to 90% and the ring sits
+  // clear of it. A square frame has no such waste and can run nearly edge to
+  // edge — insetting it there just prints a grey border around the artwork.
+  const fill = outlineShape === "circle" || outlineShape === "none" ? 0.9 : 0.97;
+  const head = size * fill;
+
+  // No sheet assigned yet is a normal state, not an error — the frame still
   // draws, just without a face, so the layout is identical once one is picked.
   const face: CSSProperties = sheetUrl
     ? {
@@ -44,7 +54,7 @@ export function SpeakerAvatar({
         backgroundImage: `url(${sheetUrl})`,
         backgroundSize: `${head * 3}px ${head * 3}px`,
         backgroundPosition: `-${col * head}px -${row * head}px`,
-        borderRadius: "50%",
+        borderRadius: faceRadius,
       }
     : { width: head, height: head };
 

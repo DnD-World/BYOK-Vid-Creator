@@ -116,6 +116,25 @@ good at this point, the app is a success and everything after is upside.
 
 ---
 
+## Phase 1.5 — Usability pass (done)
+
+Not in the original plan; came out of real use once there was something to use.
+
+- **Cast | Scene panels.** LEFT: Speakers / Music / Waveforms. RIGHT: Frame /
+  Subtitles / Render / Presets. The single rail had become unusable.
+- **Waveforms belong to speakers.** Deleted the global config and its `behavior`
+  enum. Colour is derived from the speaker's outline, so the two cannot drift.
+- **Waveforms are actually tweakable**: thickness and smoothing added (the two
+  biggest levers, previously absent), wider ranges, per-track lane offset.
+- **Speaker frames**: circle / rounded / square / none, with separate outline
+  and fill opacity. The face is clipped to the frame's shape — it was hardcoded
+  round, so a square frame still circle-cropped the artwork.
+- **Presets**: Halo / Broadcast / Orbit built-ins plus your own, JSON
+  export/import. A built-in restyles the existing cast rather than replacing it.
+- **Attached audio drives the waveform.** Was narration-only, which was wrong.
+
+---
+
 ## Phase 2 — Backgrounds and music
 
 11. **Background video from Pixabay + Pexels**, fetched by keyword.
@@ -200,6 +219,39 @@ generous. The dotted 3D wave-plane stays unbuilt. Phase 3 #14 is about
 Phases run in order, and Phase 1 ends with a rendered video before Phase 2
 starts. When something new comes up mid-phase, it goes at the bottom of this
 file under Parked — not into the current phase.
+
+## Next chapter — start here
+
+**1. Waveforms are mediocre, and the reason is architectural.** They currently
+animate from a *single loudness number* per frame, spread across the bars by a
+sine-based shape function. Every bar therefore moves together, scaled by volume —
+which is exactly why it reads as cheap. Real visualisers use a **per-band FFT**,
+so bass and treble move independently and the shape means something.
+
+The fix is in `electron/audio/analyzeNarration.ts`: emit N frequency bands per
+frame instead of one RMS value. ~16–32 bands is plenty. The payload grows
+(18000 frames x 24 bands ≈ 430k numbers for a 10-minute video), so it may need
+writing to a JSON file in the render's public dir rather than riding in
+`inputProps`. `shapedAmplitude()` in `lib/waveform/amplitude.ts` then indexes a
+band instead of multiplying a shape. Everything else — the track model, the
+controls, the render path — already supports it.
+
+Worth doing at the same time: peak-hold caps, a rise/fall asymmetry control, and
+mirrored/gradient fills. Those are cheap once real band data exists and are what
+make it look designed rather than generated.
+
+**2. SFX via LocalAI.** The endpoint is confirmed: `POST http://localhost:8080/tts`
+with `{"model": "...", "input": "a dog barking twice"}`. **But neither SFX model
+loads today** — `audio-cpp-stable-audio-sfx` returns *"backend not found:
+audio-cpp"* and `stable-audio-3-small-SFX` returns *"grpc service not ready"*
+(vllm generally doesn't run on Windows). Install the `audio-cpp` backend from
+LocalAI's gallery first; there is nothing to build until a model actually loads.
+Then: generate to a local SFX library folder, browse it, drop clips on a timeline.
+This folds neatly into the Media Library (#12).
+
+**3. Preset-writing skill.** Presets are already plain JSON with import/export,
+so this needs no app changes — a skill interviews the user and emits a preset
+file they import.
 
 ## Parked
 
