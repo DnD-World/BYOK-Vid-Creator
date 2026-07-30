@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HudButton } from "../ui/HudButton";
+import { Toggle } from "../ui/Toggle";
 import { useProjectStore } from "../../store/useProjectStore";
 
 interface RenderResult {
@@ -26,9 +27,24 @@ export function RenderBar() {
   const fps = useProjectStore((s) => s.fps);
   const waveform = useProjectStore((s) => s.waveform);
   const speakers = useProjectStore((s) => s.speakers);
+  const narration = useProjectStore((s) => s.narration);
+  const subtitles = useProjectStore((s) => s.subtitles);
 
   const [durationSec, setDurationSec] = useState(5);
   const [audioPath, setAudioPath] = useState<string | null>(null);
+  const [matchNarration, setMatchNarration] = useState(true);
+
+  // The combined narration's length is the end of its last segment. Rounded up
+  // so the final word is never clipped by a partial second.
+  const narrationSec = narration
+    ? Math.max(1, Math.ceil(Math.max(...narration.segments.map((s) => s.endMs)) / 1000))
+    : null;
+
+  // A hand-picked file always wins — that's the override. Otherwise the most
+  // recent narration is used automatically.
+  const effectiveAudioPath = audioPath ?? narration?.filePath ?? null;
+  const effectiveDuration =
+    matchNarration && narrationSec && !audioPath ? narrationSec : durationSec;
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
   const [note, setNote] = useState("");
@@ -76,15 +92,21 @@ export function RenderBar() {
           borderColor: sp.borderColor,
           bgOpacity: sp.bgOpacity,
           borderOpacity: sp.borderOpacity,
+          // Path, not a URL — main copies the file into the render's public dir.
+          sheetPath: sp.sheetPath,
         })),
         width: render.width,
         height: render.height,
         fps,
-        durationSec,
-        audioFilePath: audioPath,
-        // Speaker sizes are authored in preview-canvas pixels; the renderer
-        // scales them up against this.
-        authoredWidth: render.width,
+        durationSec: effectiveDuration,
+        audioFilePath: effectiveAudioPath,
+        // Only valid for the narration file — a hand-picked WAV was never
+        // analysed, so the waveform falls back to the placeholder.
+        analysis: audioPath ? null : narration?.analysis ?? null,
+        subtitles,
+        // Same reasoning: subtitles are only meaningful against the narration
+        // whose timings produced them.
+        narrationSegments: audioPath ? [] : narration?.segments ?? [],
       });
 
       if (res.ok) {
@@ -105,14 +127,28 @@ export function RenderBar() {
     <section className="flex flex-col gap-3">
       <h2 className="label-etched">Render</h2>
 
+      {narration && narrationSec && (
+        <div className="border border-accent/25 bg-metal-800/60 px-3 py-2 space-y-2">
+          <p className="text-sm text-neutral-300">
+            Narration ready — {narrationSec}s, {narration.segments.length} lines.
+            {audioPath ? " (overridden below)" : " Attached automatically."}
+          </p>
+          <Toggle
+            label="Match video length to narration"
+            checked={matchNarration}
+            onChange={setMatchNarration}
+          />
+        </div>
+      )}
+
       <label className="flex items-center gap-3">
         <span className="label-etched whitespace-nowrap">Length</span>
         <input
           type="number"
           min={1}
           max={600}
-          value={durationSec}
-          disabled={busy}
+          value={effectiveDuration}
+          disabled={busy || (matchNarration && !!narrationSec && !audioPath)}
           onChange={(e) => {
             const n = Number(e.target.value);
             if (Number.isFinite(n)) setDurationSec(Math.max(1, Math.min(600, Math.round(n))));
@@ -124,7 +160,7 @@ export function RenderBar() {
 
       <div className="flex items-center gap-2">
         <HudButton onClick={pickAudio}>
-          {audioPath ? "Change Audio" : "Attach Audio"}
+          {audioPath ? "Change Audio" : narration ? "Use Different Audio" : "Attach Audio"}
         </HudButton>
         {audioPath && (
           <button

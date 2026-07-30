@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HudButton } from "./components/ui/HudButton";
 import { Toggle } from "./components/ui/Toggle";
 import { Slider } from "./components/ui/Slider";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
-import { WaveformRenderer } from "./components/canvas/WaveformRenderer";
+import { WaveformScene } from "./components/canvas/WaveformScene";
+import { SubtitleScene } from "./components/canvas/SubtitleScene";
+import { usePreviewClock } from "./lib/motion/usePreviewClock";
+import { buildCues } from "./lib/subtitles/wordTiming";
+import { buildSpeakerVisemeTracks } from "./lib/visemes/speakerTracks";
+import { visemeAt } from "./lib/visemes/timeline";
+import { useSheetUrls } from "./lib/visemes/useSheetUrls";
+import { TemplatesPanel } from "./components/canvas/TemplatesPanel";
+import { RoadmapSection } from "./components/canvas/RoadmapSection";
 import BackendPanel from "./components/settings/BackendPanel";
 import NarrationPanel from "./components/settings/NarrationPanel";
 import { RenderBar } from "./components/render/RenderBar";
@@ -38,10 +46,16 @@ function HudCorners() {
   );
 }
 
+/** Snap step for avatar dragging — 5% of the frame in each axis. */
+const SNAP_GRID = 0.05;
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
 export default function App() {
   const [view, setView] = useState<"canvas" | "settings" | "narration">("canvas");
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const fps = useProjectStore((s) => s.fps);
   const setFps = useProjectStore((s) => s.setFps);
@@ -54,6 +68,24 @@ export default function App() {
   const voices = useVoicesStore((s) => s.voices);
   const waveform = useProjectStore((s) => s.waveform);
   const setWaveform = useProjectStore((s) => s.setWaveform);
+  const narration = useProjectStore((s) => s.narration);
+  const subtitles = useProjectStore((s) => s.subtitles);
+  const setSubtitles = useProjectStore((s) => s.setSubtitles);
+
+  // One clock shared by every canvas overlay. Loops over the narration so the
+  // preview shows the real audio cycling rather than drifting into silence.
+  const previewTimeMs = usePreviewClock(narration?.analysis?.durationMs);
+  const cues = useMemo(
+    () => buildCues(narration?.segments ?? [], subtitles.maxChars),
+    [narration, subtitles.maxChars]
+  );
+
+  // Lip-sync, driven by exactly the same word timings as the subtitles.
+  const visemeTracks = useMemo(
+    () => buildSpeakerVisemeTracks(narration?.segments ?? [], fps),
+    [narration, fps]
+  );
+  const sheetUrls = useSheetUrls(speakers.map((sp) => sp.sheetPath));
   const accentColor = useSettingsStore((s) => s.accentColor);
   const motionEnabled = useSettingsStore((s) => s.motionEnabled);
 
@@ -93,6 +125,32 @@ export default function App() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [view]);
+
+  // Avatar dragging. The listeners live on window rather than the avatar so a
+  // fast drag that outruns the cursor doesn't drop the gesture the moment the
+  // pointer leaves the small disk.
+  useEffect(() => {
+    if (!draggingId) return;
+    const onMove = (e: PointerEvent) => {
+      const el = canvasRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      let x = (e.clientX - r.left) / r.width;
+      let y = (e.clientY - r.top) / r.height;
+      if (snapToGrid) {
+        x = Math.round(x / SNAP_GRID) * SNAP_GRID;
+        y = Math.round(y / SNAP_GRID) * SNAP_GRID;
+      }
+      updateSpeaker(draggingId, { x: clamp01(x), y: clamp01(y) });
+    };
+    const onUp = () => setDraggingId(null);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [draggingId, snapToGrid, updateSpeaker]);
 
   return (
     <div className="h-full w-full flex flex-col bg-metal-900 text-neutral-200">
@@ -301,12 +359,98 @@ export default function App() {
           </section>
 
           <section>
+            <div className="label-etched mb-2">Subtitles</div>
+            <div className="space-y-4">
+              <Toggle
+                label="Show subtitles"
+                checked={subtitles.enabled}
+                onChange={(v) => setSubtitles({ enabled: v })}
+              />
+              {subtitles.enabled && (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {(["top", "center", "bottom"] as const).map((p) => (
+                      <HudButton
+                        key={p}
+                        active={subtitles.position === p}
+                        onClick={() => setSubtitles({ position: p })}
+                      >
+                        {p}
+                      </HudButton>
+                    ))}
+                  </div>
+                  <Slider
+                    label="Text Size"
+                    value={subtitles.fontSize}
+                    min={0.025} max={0.11} step={0.005}
+                    onChange={(v) => setSubtitles({ fontSize: v })}
+                    format={(v) => `${(v * 100).toFixed(1)}%`}
+                  />
+                  <Slider
+                    label="Outline"
+                    value={subtitles.strokeWidth}
+                    min={0} max={0.3} step={0.01}
+                    onChange={(v) => setSubtitles({ strokeWidth: v })}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <Slider
+                    label="Active Word Glow"
+                    value={subtitles.activeGlow}
+                    min={0} max={1.5} step={0.05}
+                    onChange={(v) => setSubtitles({ activeGlow: v })}
+                    format={(v) => (v === 0 ? "off" : `${v.toFixed(2)}x`)}
+                  />
+                  <Slider
+                    label="Line Length"
+                    value={subtitles.maxChars}
+                    min={16} max={70} step={2}
+                    onChange={(v) => setSubtitles({ maxChars: Math.round(v) })}
+                    format={(v) => `${Math.round(v)} chars`}
+                  />
+                  <Toggle
+                    label="UPPERCASE"
+                    checked={subtitles.uppercase}
+                    onChange={(v) => setSubtitles({ uppercase: v })}
+                  />
+                  <div className="flex items-center gap-4">
+                    {([
+                      ["color", "Text"],
+                      ["activeColor", "Active"],
+                      ["strokeColor", "Outline"],
+                    ] as const).map(([key, label]) => (
+                      <label key={key} className="flex flex-col items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={subtitles[key]}
+                          onChange={(e) => setSubtitles({ [key]: e.target.value })}
+                          className="h-8 w-8 border border-accent/30 bg-transparent p-0"
+                        />
+                        <span className="text-sm text-neutral-400">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {!narration && (
+                    <p className="text-sm text-neutral-500">
+                      Generate narration to see real subtitles here.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+
+          <section>
             <div className="label-etched mb-2 flex items-center justify-between">
               <span>Speakers</span>
               <button onClick={addSpeaker} className="text-accent-bright hover:text-accent text-sm">
                 + Add
               </button>
             </div>
+            {speakers.length > 0 && (
+              <div className="mb-3">
+                <Toggle label="Snap to grid when dragging" checked={snapToGrid} onChange={setSnapToGrid} />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               {speakers.length === 0 && <p className="text-sm text-neutral-500">No speakers yet.</p>}
               {speakers.map((sp) => (
@@ -323,6 +467,53 @@ export default function App() {
                       ✕
                     </button>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const p = await window.byok.dialog.openFile([
+                          { name: "Viseme sheet", extensions: ["png"] },
+                        ]);
+                        if (p) updateSpeaker(sp.id, { sheetPath: p });
+                      }}
+                      className="label-etched underline hover:text-accent-bright"
+                    >
+                      {sp.sheetPath ? "Change face" : "Choose face…"}
+                    </button>
+                    {sp.sheetPath && (
+                      <button
+                        onClick={() => updateSpeaker(sp.id, { sheetPath: undefined })}
+                        className="label-etched underline text-neutral-500 hover:text-red-400"
+                      >
+                        clear
+                      </button>
+                    )}
+                  </div>
+                  {sp.sheetPath && (
+                    <p className="text-sm text-neutral-500 truncate" title={sp.sheetPath}>
+                      {sp.sheetPath.split(/[\\/]/).pop()}
+                    </p>
+                  )}
+                  <Slider
+                    label="Size"
+                    value={sp.size}
+                    min={0.05} max={0.9} step={0.01}
+                    onChange={(v) => updateSpeaker(sp.id, { size: v })}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <Slider
+                    label="Position X"
+                    value={sp.x}
+                    min={0} max={1} step={0.01}
+                    onChange={(v) => updateSpeaker(sp.id, { x: v })}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <Slider
+                    label="Position Y"
+                    value={sp.y}
+                    min={0} max={1} step={0.01}
+                    onChange={(v) => updateSpeaker(sp.id, { y: v })}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
                   {voices.length > 0 ? (
                     <select
                       value={sp.voiceId ?? ""}
@@ -346,7 +537,11 @@ export default function App() {
             </div>
           </section>
 
+          <TemplatesPanel />
+
           <RenderBar />
+
+          <RoadmapSection />
         </aside>
 
         {/* CENTER: preview canvas, narration, or backend settings */}
@@ -376,7 +571,27 @@ export default function App() {
                 width: isPortrait ? "auto" : "80%",
               }}
             >
-              <WaveformRenderer config={waveform} width={canvasSize.w} height={canvasSize.h} />
+              <WaveformScene
+                config={waveform}
+                width={canvasSize.w}
+                height={canvasSize.h}
+                timeMs={previewTimeMs}
+                analysis={narration?.analysis}
+              />
+
+              {/* Only while actually dragging — a permanent grid would fight
+                  the preview, but an invisible snap feels like drift. */}
+              {draggingId && snapToGrid && (
+                <div
+                  className="absolute inset-0 z-20 pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(to right, rgba(var(--accent-rgb), 0.18) 1px, transparent 1px)," +
+                      "linear-gradient(to bottom, rgba(var(--accent-rgb), 0.18) 1px, transparent 1px)",
+                    backgroundSize: `${SNAP_GRID * 100}% ${SNAP_GRID * 100}%`,
+                  }}
+                />
+              )}
 
               <span className="label-etched text-center leading-relaxed relative z-10">
                 {render.format} · {fps} FPS
@@ -387,18 +602,32 @@ export default function App() {
               {speakers.map((sp) => (
                 <div
                   key={sp.id}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDraggingId(sp.id);
+                  }}
+                  title="Drag to reposition"
                   style={{
                     position: "absolute",
                     left: `${sp.x * 100}%`,
                     top: `${sp.y * 100}%`,
                     transform: "translate(-50%, -50%)",
+                    cursor: draggingId === sp.id ? "grabbing" : "grab",
+                    touchAction: "none",
                   }}
                   className="z-10"
                 >
                   <SpeakerAvatar
-                    sheetUrl={sp.sheetUrl}
-                    viseme={VISEME.NEUTRAL}
-                    size={sp.size}
+                    sheetUrl={(sp.sheetPath && sheetUrls[sp.sheetPath]) || ""}
+                    viseme={
+                      visemeTracks[sp.id]
+                        ? visemeAt(visemeTracks[sp.id], previewTimeMs / 1000)
+                        : VISEME.NEUTRAL
+                    }
+                    // size is a fraction of frame width; the render resolves it
+                    // against the output width the exact same way.
+                    size={sp.size * canvasSize.w}
                     bgOpacity={sp.bgOpacity}
                     borderOpacity={sp.borderOpacity}
                     bgColor={sp.bgColor}
@@ -406,6 +635,15 @@ export default function App() {
                   />
                 </div>
               ))}
+
+              {/* Above the avatars, matching the render's layer order. */}
+              <SubtitleScene
+                cues={cues}
+                config={subtitles}
+                width={canvasSize.w}
+                height={canvasSize.h}
+                timeMs={previewTimeMs}
+              />
             </div>
           )}
         </main>

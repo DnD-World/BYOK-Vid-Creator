@@ -7,7 +7,12 @@
 // instances, no Buffers.
 // ---------------------------------------------------------------------------
 
-import type { WaveformConfig } from "../src/store/types";
+import type {
+  AudioAnalysis,
+  NarrationSegment,
+  SubtitleConfig,
+  WaveformConfig,
+} from "../src/store/types";
 
 // Declared as `type` aliases rather than `interface` on purpose. Remotion
 // constrains composition props to `Record<string, unknown>`, and TypeScript
@@ -22,12 +27,17 @@ export type RenderSpeaker = {
   /** 0–1, fraction of frame width/height. Matches SpeakerConfig. */
   x: number;
   y: number;
-  /** Diameter, in pixels of the *preview* canvas. Scaled at render time. */
+  /** Diameter as a 0–1 fraction of frame width. Matches SpeakerConfig. */
   size: number;
   bgColor: string;
   borderColor: string;
   bgOpacity: number;
   borderOpacity: number;
+  /** Filename (not path) of this speaker's viseme sheet inside Remotion's
+   *  public dir, or null for a faceless disk. The main process copies the
+   *  file in before bundling — same mechanism as the narration WAV, and for
+   *  the same reason: a file:// src is blocked from the bundle's http:// origin. */
+  sheetFileName: string | null;
 };
 
 export type RenderProps = {
@@ -44,11 +54,15 @@ export type RenderProps = {
    */
   audioFileName: string | null;
   /**
-   * Width the speaker `size` values were authored against, so they can be
-   * scaled up to the real output resolution. The preview canvas is much
-   * smaller than 1080x1920, and without this every avatar renders as a dot.
+   * Loudness + active-speaker data for that audio. null when rendering silent,
+   * or when the user attached a file by hand that was never analysed — the
+   * waveform then falls back to its placeholder animation.
    */
-  authoredWidth: number;
+  analysis: AudioAnalysis | null;
+  subtitles: SubtitleConfig;
+  /** Narration lines with timing, from which subtitle cues are derived.
+   *  Empty means nothing to show. */
+  narrationSegments: NarrationSegment[];
 };
 
 export const COMPOSITION_ID = "byok-video";

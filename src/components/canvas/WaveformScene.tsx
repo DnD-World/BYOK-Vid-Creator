@@ -14,9 +14,14 @@
 // file — that is the entire reason it is separate from WaveformRenderer.
 // ---------------------------------------------------------------------------
 
-import type { WaveformConfig } from "../../store/types";
+import type { AudioAnalysis, WaveformConfig } from "../../store/types";
 import { samplePath, type PathPoint } from "../../lib/waveform/samplePath";
-import { fakeAmplitude, fakeActiveTrack } from "../../lib/waveform/fakeAmplitude";
+import {
+  placeholderAmplitude,
+  placeholderActiveTrack,
+  shapedAmplitude,
+} from "../../lib/waveform/amplitude";
+import { sampleAnalysis } from "../../lib/waveform/audioAnalysis";
 
 export interface WaveformSceneProps {
   config: WaveformConfig;
@@ -24,6 +29,9 @@ export interface WaveformSceneProps {
   height: number;
   /** Elapsed time into the timeline. The only clock this component has. */
   timeMs: number;
+  /** Real narration audio. When absent the scene falls back to the
+   *  placeholder animation so an empty project still looks alive. */
+  analysis?: AudioAnalysis | null;
 }
 
 interface TrackDef {
@@ -123,7 +131,7 @@ function RingEllipse({
   );
 }
 
-export function WaveformScene({ config, width, height, timeMs }: WaveformSceneProps) {
+export function WaveformScene({ config, width, height, timeMs, analysis }: WaveformSceneProps) {
   if (width <= 0 || height <= 0) return null;
 
   const density = Math.round(config.density) || 48;
@@ -132,7 +140,13 @@ export function WaveformScene({ config, width, height, timeMs }: WaveformScenePr
   const tracks = tracksForBehavior(config);
   const closed = config.position === "circular";
   const maxLen = frameMin * 0.14 * config.scale;
-  const activeIdx = fakeActiveTrack(tracks.length, timeMs);
+
+  // The single branch that decides whether this is a real audio visualisation
+  // or the placeholder. Everything below reads from these two values.
+  const moment = sampleAnalysis(analysis, timeMs);
+  const activeIdx = moment ? moment.speaker : placeholderActiveTrack(tracks.length, timeMs);
+  const ampFor = (ti: number, i: number) =>
+    moment ? shapedAmplitude(ti, i, timeMs, moment.level) : placeholderAmplitude(ti, i, timeMs);
 
   return (
     <svg
@@ -143,13 +157,16 @@ export function WaveformScene({ config, width, height, timeMs }: WaveformScenePr
     >
       {tracks.map((track, ti) => {
         const isColorShift = config.behavior === "single-colorshift";
+        const shiftIdx = moment ? moment.speaker : placeholderActiveTrack(2, timeMs);
         const color = isColorShift
-          ? fakeActiveTrack(2, timeMs) === 0
-            ? config.colorA
-            : config.colorB
+          ? shiftIdx === 1
+            ? config.colorB
+            : config.colorA
           : track.color;
         const active = track.alwaysActive || ti === activeIdx;
-        const opacity = active ? 1 : 0.22;
+        // With real audio the loudness already collapses the bars during a
+        // pause, so dimming the inactive track as well would double-mute it.
+        const opacity = active ? 1 : moment ? 0.5 : 0.22;
 
         if (config.style === "rings") {
           // Chaotic overlapping-orbit cluster: 2 ellipses per track at
@@ -161,10 +178,7 @@ export function WaveformScene({ config, width, height, timeMs }: WaveformScenePr
           const innerR = frameMin * 0.5 * config.ringInnerRadius;
           const clusterR = frameMin * 0.42 * config.ringSize;
           const avgAmp =
-            [...Array(6)].reduce(
-              (sum, _, i) => sum + fakeAmplitude(ti, i * 7, timeMs),
-              0
-            ) / 6;
+            [...Array(6)].reduce((sum, _, i) => sum + ampFor(ti, i * 7), 0) / 6;
 
           const ringsForTrack = [0, 1].map((ri) => {
             const seed = ti * 2 + ri;
@@ -196,9 +210,7 @@ export function WaveformScene({ config, width, height, timeMs }: WaveformScenePr
         }
 
         const points = offsetPoints(base, config.position, track.lane, frameMin);
-        const amps = points.map((_, i) =>
-          active ? fakeAmplitude(ti, i, timeMs) : 0.06
-        );
+        const amps = points.map((_, i) => (active ? ampFor(ti, i) : 0.06));
         const barWidth = Math.max(1.5, (frameMin * 0.9) / density / 2);
 
         switch (config.style) {

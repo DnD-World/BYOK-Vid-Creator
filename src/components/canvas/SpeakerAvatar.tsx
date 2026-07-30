@@ -1,5 +1,9 @@
 import { CSSProperties } from "react";
-import { VisemeId } from "@/lib/visemes/visemeMap";
+// Relative, NOT the "@/" alias: this component is now rendered by the Remotion
+// bundle too, which is built by Remotion's own webpack and does not know the
+// app's tsconfig path aliases. An alias here fails the render but not the
+// preview — the worst kind of asymmetry.
+import type { VisemeId } from "../../lib/visemes/visemeMap";
 
 interface Props {
   sheetUrl: string;          // 3072x3072 (3x3 of 1024)
@@ -20,13 +24,17 @@ export function SpeakerAvatar({
   const row = Math.floor(viseme / 3);
   const head = size * 0.9; // 90% fill rule
 
-  const face: CSSProperties = {
-    width: head, height: head,
-    backgroundImage: `url(${sheetUrl})`,
-    backgroundSize: `${head * 3}px ${head * 3}px`,
-    backgroundPosition: `-${col * head}px -${row * head}px`,
-    borderRadius: "50%",
-  };
+  // No sheet assigned yet is a normal state, not an error — the disk still
+  // draws, just without a face, so the layout is identical once one is picked.
+  const face: CSSProperties = sheetUrl
+    ? {
+        width: head, height: head,
+        backgroundImage: `url(${sheetUrl})`,
+        backgroundSize: `${head * 3}px ${head * 3}px`,
+        backgroundPosition: `-${col * head}px -${row * head}px`,
+        borderRadius: "50%",
+      }
+    : { width: head, height: head };
 
   return (
     <div style={{

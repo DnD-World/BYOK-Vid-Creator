@@ -12,8 +12,16 @@
 // layout-critical has to be an inline style.
 // ---------------------------------------------------------------------------
 
+import { useMemo } from "react";
 import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { WaveformScene } from "../src/components/canvas/WaveformScene";
+import { SubtitleScene } from "../src/components/canvas/SubtitleScene";
+import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
+import { buildCues } from "../src/lib/subtitles/wordTiming";
+import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
+import { visemeAt } from "../src/lib/visemes/timeline";
+import { VISEME } from "../src/lib/visemes/visemeMap";
+import { useWaitForImages } from "./useWaitForImages";
 import type { RenderProps } from "./types";
 
 /** Apply an alpha to a #rgb/#rrggbb color. Speakers carry their fill and
@@ -35,30 +43,62 @@ export function VideoComposition({
   waveform,
   speakers,
   audioFileName,
-  authoredWidth,
+  analysis,
+  subtitles,
+  narrationSegments,
 }: RenderProps) {
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
+
+  // Cue layout depends only on the script and the wrap width, so it's computed
+  // once per worker rather than on every one of thousands of frames.
+  const cues = useMemo(
+    () => buildCues(narrationSegments, subtitles.maxChars),
+    [narrationSegments, subtitles.maxChars]
+  );
+
+  // Also once per worker, not per frame — the tracks are thousands of keyframes.
+  const visemeTracks = useMemo(
+    () => buildSpeakerVisemeTracks(narrationSegments, fps),
+    [narrationSegments, fps]
+  );
+
+  const sheetUrls = useMemo(
+    () =>
+      speakers
+        .map((sp) => (sp.sheetFileName ? staticFile(sp.sheetFileName) : ""))
+        .filter(Boolean),
+    [speakers]
+  );
+  // Must run before any frame is captured — see the hook for why.
+  useWaitForImages(sheetUrls);
 
   // The single line that makes the export deterministic: time comes from the
   // frame index, never from a wall clock. Frame 240 at 30fps is 8000ms on
   // every worker, in any order, on every machine.
   const timeMs = (frame / fps) * 1000;
 
-  // Speaker sizes were authored against the small preview canvas; scale them
-  // to the real output width so a 120px avatar isn't a speck on a 1080p frame.
-  const speakerScale = authoredWidth > 0 ? width / authoredWidth : 1;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0b0d" }}>
       {audioFileName ? <Audio src={staticFile(audioFileName)} /> : null}
 
       <div style={{ position: "absolute", inset: 0 }}>
-        <WaveformScene config={waveform} width={width} height={height} timeMs={timeMs} />
+        <WaveformScene
+          config={waveform}
+          width={width}
+          height={height}
+          timeMs={timeMs}
+          analysis={analysis}
+        />
       </div>
 
       {speakers.map((sp) => {
-        const size = Math.max(8, sp.size * speakerScale);
+        const track = visemeTracks[sp.id];
+        const viseme = track ? visemeAt(track, timeMs / 1000) : VISEME.NEUTRAL;
+        // size is a fraction of frame width, so this resolves identically in
+        // the preview and here — no scaling factor to get wrong.
+        const size = Math.max(8, sp.size * width);
         return (
           <div
             key={sp.id}
@@ -67,23 +107,32 @@ export function VideoComposition({
               left: `${sp.x * 100}%`,
               top: `${sp.y * 100}%`,
               transform: "translate(-50%, -50%)",
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              backgroundColor: withAlpha(sp.bgColor, sp.bgOpacity),
-              border: `${Math.max(1, size * 0.02)}px solid ${withAlpha(
-                sp.borderColor,
-                sp.borderOpacity
-              )}`,
-              boxSizing: "border-box",
             }}
           >
-            {/* Placeholder for the viseme sprite sheet. Lip-sync needs the
-                sheet PNG resolvable from inside the render bundle, which is
-                its own piece of work — see the PR description. */}
+            {/* The very same component the preview draws. Duplicating the disk
+                markup here is what let the border width and glow drift apart
+                once already — there is only one implementation now. */}
+            <SpeakerAvatar
+              sheetUrl={sp.sheetFileName ? staticFile(sp.sheetFileName) : ""}
+              viseme={viseme}
+              size={size}
+              bgOpacity={sp.bgOpacity}
+              borderOpacity={sp.borderOpacity}
+              bgColor={sp.bgColor}
+              borderColor={sp.borderColor}
+            />
           </div>
         );
       })}
+
+      {/* Last, so subtitles sit above the waveform and the avatars. */}
+      <SubtitleScene
+        cues={cues}
+        config={subtitles}
+        width={width}
+        height={height}
+        timeMs={timeMs}
+      />
     </AbsoluteFill>
   );
 }

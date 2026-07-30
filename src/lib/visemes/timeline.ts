@@ -1,4 +1,7 @@
-import { graphemeToViseme, VisemeId, VISEME } from "./visemeMap";
+// `type` on VisemeId is load-bearing: it's a type-only export, and importing it
+// as a value makes this module unusable by any tool that erases types per-file
+// instead of whole-program (isolatedModules, Node's --experimental-strip-types).
+import { graphemeToViseme, VISEME, type VisemeId } from "./visemeMap";
 
 export interface WordTiming { word: string; start: number; end: number; } // seconds
 export interface VisemeFrame { t: number; viseme: VisemeId; }             // seconds
@@ -30,8 +33,22 @@ export function buildVisemeTrack(
   return frames;
 }
 
+/** Viseme in effect at time `t` (seconds). Binary search rather than a scan:
+ *  this is called once per speaker per frame, so on a 10-minute 30fps render
+ *  a linear walk over a few thousand keyframes turns into tens of millions of
+ *  comparisons for no reason. Tracks are always built in ascending `t`. */
 export function visemeAt(track: VisemeFrame[], t: number): VisemeId {
+  let lo = 0;
+  let hi = track.length - 1;
   let v: VisemeId = VISEME.NEUTRAL;
-  for (const f of track) { if (f.t <= t) v = f.viseme; else break; }
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (track[mid].t <= t) {
+      v = track[mid].viseme;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
   return v;
 }

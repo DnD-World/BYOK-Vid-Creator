@@ -7,3 +7,10 @@ out/
 .DS_Store
 .vite/
 release/
+
+# Local Piper virtualenv — dedicated to this app so it can never
+# hold files open in an unrelated tool's environment.
+piper-venv/
+piper-voices/
+viseme-sheets/
+viseme/

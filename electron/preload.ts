@@ -17,6 +17,11 @@ const api = {
       ipcRenderer.invoke("keys:delete", provider),
     encryptionAvailable: (): Promise<boolean> =>
       ipcRenderer.invoke("keys:encryptionAvailable"),
+    test: (
+      provider: string,
+      opts?: { azureRegion?: string }
+    ): Promise<{ ok: boolean; message: string }> =>
+      ipcRenderer.invoke("keys:test", provider, opts),
   },
 
   dialog: {
@@ -96,11 +101,21 @@ const api = {
         referenceAudioFilename?: string;
         exaggeration?: number;
         cfgWeight?: number;
-      }[]
+        engine?: "chatterbox" | "piper";
+        piperPythonPath?: string;
+        piperOnnxPath?: string;
+      }[],
+      speakerOrder: string[]
     ): Promise<{
       filePath: string;
       segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
-    }> => ipcRenderer.invoke("tts:generateNarration", segments),
+      analysis: {
+        hz: number;
+        durationMs: number;
+        amp: number[];
+        speaker: number[];
+      } | null;
+    }> => ipcRenderer.invoke("tts:generateNarration", segments, speakerOrder),
   },
 
   llm: {

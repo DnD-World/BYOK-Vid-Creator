@@ -34,8 +34,14 @@ export const useSettingsStore = create<SettingsState>()(
         defaultTransition: "fade_zoom",
         storageTarget: "local",
         azureRegion: "",
-        piperPythonPath: "python3",
-        piperVoicesDir: "",
+        // Dedicated venv shipped alongside the app. Deliberately NOT bare
+        // "python"/"python3": on a machine with several tools installed, that
+        // resolves to whichever venv happens to be first on PATH, and Piper's
+        // long-lived server process then holds that unrelated environment's
+        // files open — which is exactly what blocked an unrelated tool from
+        // updating until its python was killed by hand.
+        piperPythonPath: "./piper-venv/Scripts/python.exe",
+        piperVoicesDir: "./piper-voices",
         chatterboxInstallPath: "",
         chatterboxPort: 8004,
         chatterboxExaggeration: 0.5,

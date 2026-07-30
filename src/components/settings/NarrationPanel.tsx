@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
+import { useVoicesStore } from "../../store/useVoicesStore";
 import { parseScript } from "../../lib/narration/parseScript";
 
 const LANGUAGES = [
@@ -28,8 +29,11 @@ export default function NarrationPanel() {
   const setScript = useProjectStore((s) => s.setScript);
   const language = useProjectStore((s) => s.language);
   const setLanguage = useProjectStore((s) => s.setLanguage);
+  const setNarration = useProjectStore((s) => s.setNarration);
   const exaggeration = useSettingsStore((s) => s.defaults.chatterboxExaggeration);
   const cfgWeight = useSettingsStore((s) => s.defaults.chatterboxCfgWeight);
+  const piperPythonPath = useSettingsStore((s) => s.defaults.piperPythonPath);
+  const piperVoices = useVoicesStore((s) => s.voices);
 
   const predefinedVoices = useChatterboxVoicesStore((s) => s.predefinedVoices);
   const referenceFiles = useChatterboxVoicesStore((s) => s.referenceFiles);
@@ -47,11 +51,20 @@ export default function NarrationPanel() {
   const [draftError, setDraftError] = useState<string | null>(null);
 
   const runDraft = async () => {
-    if (!topic.trim() || speakers.length === 0) return;
+    // Every one of these used to be a silent `return`, which is exactly why
+    // the button appeared to do nothing at all. Always say why.
+    setDraftError(null);
+    if (speakers.length === 0) {
+      setDraftError("Add at least one speaker on the Canvas tab first — the draft is written as dialogue between your speakers.");
+      return;
+    }
+    if (!topic.trim()) {
+      setDraftError("Enter a topic first.");
+      return;
+    }
     if (script.trim() && !window.confirm("This will replace your current script. Continue?")) return;
 
     setDrafting(true);
-    setDraftError(null);
     try {
       const languageName = LANGUAGES.find((l) => l.code === language)?.label ?? language;
       const draft = await window.byok.llm.draftScript({
@@ -86,10 +99,23 @@ export default function NarrationPanel() {
     const speakerById = new Map(speakers.map((s) => [s.id, s]));
     const missingVoice = segments.find((seg) => {
       const sp = speakerById.get(seg.speakerId);
-      return !sp?.chatterboxVoiceRef;
+      if (!sp) return true;
+      return (sp.ttsEngine ?? "chatterbox") === "piper"
+        ? !sp.voiceId
+        : !sp.chatterboxVoiceRef;
     });
     if (missingVoice) {
-      setGenError(`Speaker "${missingVoice.speakerLabel}" has no Chatterbox voice assigned below.`);
+      const sp = speakerById.get(missingVoice.speakerId);
+      const engine = (sp?.ttsEngine ?? "chatterbox") === "piper" ? "Piper" : "Chatterbox";
+      setGenError(`Speaker "${missingVoice.speakerLabel}" has no ${engine} voice assigned below.`);
+      setGenerating(false);
+      return;
+    }
+
+    // Chatterbox needs its server up; Piper starts its own on demand, so a
+    // Piper-only script must not be blocked by a stopped Chatterbox.
+    if (!serverRunning && segments.some((seg) => (speakerById.get(seg.speakerId)?.ttsEngine ?? "chatterbox") === "chatterbox")) {
+      setGenError("Chatterbox server isn't running — start it in Backend Settings, or switch those speakers to Piper.");
       setGenerating(false);
       return;
     }
@@ -97,11 +123,15 @@ export default function NarrationPanel() {
     try {
       const resolvedSegments = segments.map((seg) => {
         const sp = speakerById.get(seg.speakerId)!;
+        const usePiper = (sp.ttsEngine ?? "chatterbox") === "piper";
         return {
           speakerId: seg.speakerId,
           speakerLabel: seg.speakerLabel,
           text: seg.text,
           language,
+          engine: usePiper ? ("piper" as const) : ("chatterbox" as const),
+          piperPythonPath: usePiper ? piperPythonPath : undefined,
+          piperOnnxPath: usePiper ? sp.voiceId : undefined,
           voiceMode: sp.chatterboxVoiceMode ?? "predefined",
           predefinedVoiceId: sp.chatterboxVoiceMode === "clone" ? undefined : sp.chatterboxVoiceRef,
           referenceAudioFilename: sp.chatterboxVoiceMode === "clone" ? sp.chatterboxVoiceRef : undefined,
@@ -110,8 +140,19 @@ export default function NarrationPanel() {
         };
       });
 
-      const res = await window.byok.tts.generateNarration(resolvedSegments);
+      const res = await window.byok.tts.generateNarration(
+        resolvedSegments,
+        speakers.map((s) => s.id)
+      );
       setResult(res);
+      // Publish it so the render bar can attach it and match its length
+      // without the user hand-picking the file, and so the waveform can be
+      // driven by the real audio instead of the placeholder animation.
+      setNarration({
+        filePath: res.filePath,
+        segments: res.segments,
+        analysis: res.analysis,
+      });
       const buf = await window.byok.storage.readFile(res.filePath);
       const blob = new Blob([buf], { type: "audio/wav" });
       setAudioUrl(URL.createObjectURL(blob));
@@ -131,9 +172,10 @@ export default function NarrationPanel() {
         segment's timing preserved for later subtitle/lip-sync work.
       </p>
 
-      {!serverRunning && (
+      {!serverRunning && speakers.some((sp) => (sp.ttsEngine ?? "chatterbox") === "chatterbox") && (
         <p className="text-sm text-accent-bright border border-accent-deep/40 bg-accent-deep/10 px-3 py-2">
-          Chatterbox server isn't running — start it from Backend Settings first.
+          Chatterbox server isn't running — start it from Backend Settings, or set those
+          speakers to Piper, which needs no server of its own.
         </p>
       )}
 
@@ -143,31 +185,60 @@ export default function NarrationPanel() {
         {speakers.map((sp) => (
           <div key={sp.id} className="flex flex-wrap items-center gap-3 border-b border-accent/10 pb-3 last:border-0 last:pb-0">
             <span className="text-base text-neutral-200 min-w-[100px]">{sp.label}</span>
+
             <select
-              value={sp.chatterboxVoiceMode ?? "predefined"}
-              onChange={(e) =>
-                updateSpeaker(sp.id, {
-                  chatterboxVoiceMode: e.target.value as "predefined" | "clone",
-                  chatterboxVoiceRef: undefined,
-                })
-              }
+              value={sp.ttsEngine ?? "chatterbox"}
+              onChange={(e) => updateSpeaker(sp.id, { ttsEngine: e.target.value as "chatterbox" | "piper" })}
               className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
             >
-              <option value="predefined">Predefined</option>
-              <option value="clone">Clone</option>
+              <option value="piper">Piper (fast)</option>
+              <option value="chatterbox">Chatterbox (quality)</option>
             </select>
-            <select
-              value={sp.chatterboxVoiceRef ?? ""}
-              onChange={(e) => updateSpeaker(sp.id, { chatterboxVoiceRef: e.target.value || undefined })}
-              className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
-            >
-              <option value="">No voice assigned</option>
-              {(sp.chatterboxVoiceMode === "clone" ? referenceFiles : predefinedVoices).map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
+
+            {(sp.ttsEngine ?? "chatterbox") === "piper" ? (
+              <select
+                value={sp.voiceId ?? ""}
+                onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
+                className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+              >
+                <option value="">
+                  {piperVoices.length === 0 ? "No voices — scan in Backend Settings" : "No voice assigned"}
                 </option>
-              ))}
-            </select>
+                {piperVoices.map((v) => (
+                  <option key={v.id} value={v.onnxPath}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <select
+                  value={sp.chatterboxVoiceMode ?? "predefined"}
+                  onChange={(e) =>
+                    updateSpeaker(sp.id, {
+                      chatterboxVoiceMode: e.target.value as "predefined" | "clone",
+                      chatterboxVoiceRef: undefined,
+                    })
+                  }
+                  className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+                >
+                  <option value="predefined">Predefined</option>
+                  <option value="clone">Clone</option>
+                </select>
+                <select
+                  value={sp.chatterboxVoiceRef ?? ""}
+                  onChange={(e) => updateSpeaker(sp.id, { chatterboxVoiceRef: e.target.value || undefined })}
+                  className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+                >
+                  <option value="">No voice assigned</option>
+                  {(sp.chatterboxVoiceMode === "clone" ? referenceFiles : predefinedVoices).map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -209,7 +280,9 @@ export default function NarrationPanel() {
         />
         <button
           onClick={runDraft}
-          disabled={drafting || !topic.trim() || speakers.length === 0}
+          // Only ever disabled while a request is in flight. Disabling it for
+          // missing input is what hid the reason from the user.
+          disabled={drafting}
           className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-40"
         >
           {drafting ? "Drafting…" : "Generate Draft"}
@@ -238,7 +311,7 @@ export default function NarrationPanel() {
 
       <button
         onClick={generate}
-        disabled={generating || !serverRunning || !script.trim()}
+        disabled={generating || !script.trim()}
         className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
       >
         {generating ? "Generating…" : "Generate Narration"}

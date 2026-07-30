@@ -25,15 +25,19 @@ import type { WaveformConfig } from "../../src/store/types";
 
 export interface RenderJob {
   waveform: WaveformConfig;
-  speakers: RenderSpeaker[];
+  /** Sheets arrive as disk paths and are converted to public-dir filenames
+   *  here, so the renderer never has to know about the filesystem. */
+  speakers: (Omit<RenderSpeaker, "sheetFileName"> & { sheetPath?: string })[];
   width: number;
   height: number;
   fps: number;
   durationSec: number;
   /** Absolute path to a narration WAV, or null/undefined for a silent render. */
   audioFilePath?: string | null;
-  /** Preview canvas width the speaker sizes were authored against. */
-  authoredWidth: number;
+  /** Precomputed by the narration step; null for hand-attached audio. */
+  analysis?: RenderProps["analysis"];
+  subtitles: RenderProps["subtitles"];
+  narrationSegments?: RenderProps["narrationSegments"];
 }
 
 export interface RenderContext {
@@ -86,6 +90,38 @@ export async function renderVideo(
       audioFileName = AUDIO_PUBLIC_NAME;
     }
 
+    // Viseme sheets travel the same road as the audio, for the same reason: the
+    // bundle is served over http:// inside the headless browser, so a file://
+    // reference to somewhere on disk is blocked as cross-origin. Deduplicated by
+    // source path so two speakers sharing a sheet copy it once.
+    const sheetNameByPath = new Map<string, string>();
+    const speakers: RenderSpeaker[] = [];
+    for (const sp of job.speakers) {
+      let sheetFileName: string | null = null;
+      if (sp.sheetPath) {
+        let name = sheetNameByPath.get(sp.sheetPath);
+        if (!name) {
+          name = `viseme-${sheetNameByPath.size}${path.extname(sp.sheetPath) || ".png"}`;
+          try {
+            await fsp.copyFile(sp.sheetPath, path.join(publicDir, name));
+            sheetNameByPath.set(sp.sheetPath, name);
+          } catch (e) {
+            // A missing sheet must not abort an otherwise valid render — the
+            // speaker just renders faceless, exactly as before one was picked.
+            onProgress(STAGE.browser.from, `Couldn't read viseme sheet for ${sp.label}, rendering without a face.`);
+            name = undefined;
+          }
+        }
+        sheetFileName = name ?? null;
+      }
+      speakers.push({
+        id: sp.id, label: sp.label, x: sp.x, y: sp.y, size: sp.size,
+        bgColor: sp.bgColor, borderColor: sp.borderColor,
+        bgOpacity: sp.bgOpacity, borderOpacity: sp.borderOpacity,
+        sheetFileName,
+      });
+    }
+
     onProgress(STAGE.browser.from, "Checking render browser…");
     await ensureBrowser({
       onBrowserDownload: () => ({
@@ -110,13 +146,15 @@ export async function renderVideo(
 
     const inputProps: RenderProps = {
       waveform: job.waveform,
-      speakers: job.speakers,
+      speakers,
       width: job.width,
       height: job.height,
       fps: job.fps,
       durationSec: job.durationSec,
       audioFileName,
-      authoredWidth: job.authoredWidth,
+      analysis: job.analysis ?? null,
+      subtitles: job.subtitles,
+      narrationSegments: job.narrationSegments ?? [],
     };
 
     const composition = await selectComposition({

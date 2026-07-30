@@ -14,7 +14,9 @@ const previewDefaults: RenderProps = {
   fps: 30,
   durationSec: 10,
   audioFileName: null,
-  authoredWidth: 1080,
+  analysis: null,
+  subtitles: defaultProject.subtitles,
+  narrationSegments: [],
 };
 
 export function RemotionRoot() {

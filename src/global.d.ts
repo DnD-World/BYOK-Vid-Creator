@@ -9,6 +9,10 @@ declare global {
         set: (provider: string, value: string) => Promise<boolean>;
         remove: (provider: string) => Promise<boolean>;
         encryptionAvailable: () => Promise<boolean>;
+        test: (
+          provider: string,
+          opts?: { azureRegion?: string }
+        ) => Promise<{ ok: boolean; message: string }>;
       };
       dialog: {
         openFile: (filters?: unknown) => Promise<string | null>;
@@ -71,10 +75,20 @@ declare global {
             referenceAudioFilename?: string;
             exaggeration?: number;
             cfgWeight?: number;
-          }[]
+            engine?: "chatterbox" | "piper";
+            piperPythonPath?: string;
+            piperOnnxPath?: string;
+          }[],
+          speakerOrder: string[]
         ) => Promise<{
           filePath: string;
           segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
+          analysis: {
+            hz: number;
+            durationMs: number;
+            amp: number[];
+            speaker: number[];
+          } | null;
         }>;
       };
       llm: {
