@@ -29,6 +29,9 @@ export function RenderBar() {
   const speakers = useProjectStore((s) => s.speakers);
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
+  const attachedAudio = useProjectStore((s) => s.attachedAudio);
+  const setAttachedAudio = useProjectStore((s) => s.setAttachedAudio);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const [durationSec, setDurationSec] = useState(5);
   const [audioPath, setAudioPath] = useState<string | null>(null);
@@ -67,7 +70,25 @@ export function RenderBar() {
     const p = await window.byok.dialog.openFile([
       { name: "Audio", extensions: ["wav"] },
     ]);
-    if (p) setAudioPath(p);
+    if (!p) return;
+    setAudioPath(p);
+    // Analyse it immediately so the waveform reacts to the attached file the
+    // same way it reacts to generated narration. Without this the file plays
+    // in the render while the waveform animates to a sine wave — which is
+    // exactly what it used to do.
+    setAnalyzing(true);
+    try {
+      const analysis = await window.byok.audio.analyzeFile(p);
+      setAttachedAudio({ filePath: p, analysis });
+    } catch (e) {
+      setAttachedAudio({ filePath: p, analysis: null });
+      setError(
+        `Attached the audio, but couldn't analyse it (${e instanceof Error ? e.message : String(e)}). ` +
+          "It will still play; the waveform just won't follow it. 16-bit PCM WAV analyses reliably."
+      );
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   async function start() {
@@ -100,9 +121,9 @@ export function RenderBar() {
         fps,
         durationSec: effectiveDuration,
         audioFilePath: effectiveAudioPath,
-        // Only valid for the narration file — a hand-picked WAV was never
-        // analysed, so the waveform falls back to the placeholder.
-        analysis: audioPath ? null : narration?.analysis ?? null,
+        // Whichever audio is actually in the video is the one that drives the
+        // waveform.
+        analysis: audioPath ? attachedAudio?.analysis ?? null : narration?.analysis ?? null,
         subtitles,
         // Same reasoning: subtitles are only meaningful against the narration
         // whose timings produced them.
@@ -160,11 +181,20 @@ export function RenderBar() {
 
       <div className="flex items-center gap-2">
         <HudButton onClick={pickAudio}>
-          {audioPath ? "Change Audio" : narration ? "Use Different Audio" : "Attach Audio"}
+          {analyzing
+            ? "Analysing…"
+            : audioPath
+              ? "Change Audio"
+              : narration
+                ? "Use Different Audio"
+                : "Attach Audio"}
         </HudButton>
         {audioPath && (
           <button
-            onClick={() => setAudioPath(null)}
+            onClick={() => {
+              setAudioPath(null);
+              setAttachedAudio(null);
+            }}
             className="label-etched underline hover:text-accent-bright"
           >
             clear

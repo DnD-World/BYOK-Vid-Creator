@@ -116,4 +116,8 @@ export interface ProjectState {
   script: string;        // raw "Label: text" per line narration script
   language: string;      // narration language code, e.g. "el", "en"
   narration: NarrationResult | null;
+  /** An audio file the user attached by hand, overriding the narration. It has
+   *  no speaker segments — nobody said who is talking — so it drives the
+   *  waveform but not subtitles or lip-sync. */
+  attachedAudio: { filePath: string; analysis: AudioAnalysis | null } | null;
 }

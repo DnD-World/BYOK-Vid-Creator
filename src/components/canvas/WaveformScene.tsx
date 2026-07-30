@@ -163,7 +163,11 @@ export function WaveformScene({ config, width, height, timeMs, analysis }: Wavef
             ? config.colorB
             : config.colorA
           : track.color;
-        const active = track.alwaysActive || ti === activeIdx;
+        // activeIdx === -1 means "audio exists but nobody is attributed to it"
+        // — a hand-attached file with no speaker segments. Treat that as every
+        // track being live rather than none, otherwise attaching audio makes
+        // the multi-track waveforms go completely dead.
+        const active = track.alwaysActive || activeIdx === -1 || ti === activeIdx;
         // With real audio the loudness already collapses the bars during a
         // pause, so dimming the inactive track as well would double-mute it.
         const opacity = active ? 1 : moment ? 0.5 : 0.22;

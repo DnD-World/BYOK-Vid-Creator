@@ -35,6 +35,7 @@ interface Actions {
   setScript: (text: string) => void;
   setLanguage: (lang: string) => void;
   setNarration: (n: NarrationResult | null) => void;
+  setAttachedAudio: (a: ProjectState["attachedAudio"]) => void;
   addSpeaker: () => void;
   removeSpeaker: (id: string) => void;
   updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
@@ -65,6 +66,8 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
   setLanguage: (lang) => set({ language: lang }),
 
   setNarration: (narration) => set({ narration }),
+
+  setAttachedAudio: (attachedAudio) => set({ attachedAudio }),
 
   addSpeaker: () =>
     set((s) => {

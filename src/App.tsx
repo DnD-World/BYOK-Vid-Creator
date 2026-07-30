@@ -71,10 +71,15 @@ export default function App() {
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
+  const attachedAudio = useProjectStore((s) => s.attachedAudio);
+
+  // Attached audio wins, matching the render bar: whatever ends up in the
+  // video is what the preview animates to.
+  const activeAnalysis = attachedAudio?.analysis ?? narration?.analysis ?? null;
 
   // One clock shared by every canvas overlay. Loops over the narration so the
   // preview shows the real audio cycling rather than drifting into silence.
-  const previewTimeMs = usePreviewClock(narration?.analysis?.durationMs);
+  const previewTimeMs = usePreviewClock(activeAnalysis?.durationMs);
   const cues = useMemo(
     () => buildCues(narration?.segments ?? [], subtitles.maxChars),
     [narration, subtitles.maxChars]
@@ -576,7 +581,7 @@ export default function App() {
                 width={canvasSize.w}
                 height={canvasSize.h}
                 timeMs={previewTimeMs}
-                analysis={narration?.analysis}
+                analysis={activeAnalysis}
               />
 
               {/* Only while actually dragging — a permanent grid would fight

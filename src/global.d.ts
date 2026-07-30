@@ -18,6 +18,11 @@ declare global {
         openFile: (filters?: unknown) => Promise<string | null>;
         saveFile: (defaultName: string, filters?: unknown) => Promise<string | null>;
       };
+      audio: {
+        analyzeFile: (
+          filePath: string
+        ) => Promise<{ hz: number; durationMs: number; amp: number[]; speaker: number[] } | null>;
+      };
       storage: {
         outputDir: () => Promise<string>;
         openOutputDir: () => Promise<boolean>;

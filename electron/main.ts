@@ -106,6 +106,16 @@ ipcMain.handle("keys:encryptionAvailable", async () => {
   return keyStore.encryptionAvailable();
 });
 
+// Analyse an arbitrary audio file the user attached by hand. There are no
+// speaker segments for it — nobody said who is talking — so every frame is
+// marked "unknown speaker" and only the loudness envelope is real. That's
+// enough to make the waveform react, which is what the user expects the moment
+// they attach a file.
+ipcMain.handle("audio:analyzeFile", async (_e, filePath: string) => {
+  const buf = await fsp.readFile(filePath);
+  return analyzeNarration(buf, [], []);
+});
+
 // Runs in main rather than the renderer on purpose: the key never has to be
 // handed back across the bridge just to be tested.
 ipcMain.handle(

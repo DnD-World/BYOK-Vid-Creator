@@ -34,6 +34,13 @@ const api = {
       ipcRenderer.invoke("dialog:saveFile", defaultName, filters),
   },
 
+  audio: {
+    analyzeFile: (
+      filePath: string
+    ): Promise<{ hz: number; durationMs: number; amp: number[]; speaker: number[] } | null> =>
+      ipcRenderer.invoke("audio:analyzeFile", filePath),
+  },
+
   storage: {
     outputDir: (): Promise<string> => ipcRenderer.invoke("storage:outputDir"),
     openOutputDir: (): Promise<boolean> =>

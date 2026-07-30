@@ -42,4 +42,5 @@ export const defaultProject: ProjectState = {
   script: "",
   language: "el",
   narration: null,
+  attachedAudio: null,
 };
