@@ -25,7 +25,8 @@ interface RenderResult {
 export function RenderBar() {
   const render = useProjectStore((s) => s.render);
   const fps = useProjectStore((s) => s.fps);
-  const waveform = useProjectStore((s) => s.waveform);
+  const musicWaveform = useProjectStore((s) => s.musicWaveform);
+  const musicColor = useProjectStore((s) => s.musicColor);
   const speakers = useProjectStore((s) => s.speakers);
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
@@ -100,7 +101,8 @@ export function RenderBar() {
 
     try {
       const res = await window.byok.render.start({
-        waveform,
+        musicWaveform,
+        musicColor,
         // Only the fields the video needs — the sprite sheet and voice
         // assignments aren't used by the renderer yet.
         speakers: speakers.map((sp) => ({
@@ -113,6 +115,8 @@ export function RenderBar() {
           borderColor: sp.borderColor,
           bgOpacity: sp.bgOpacity,
           borderOpacity: sp.borderOpacity,
+          outlineShape: sp.outlineShape,
+          waveform: sp.waveform,
           // Path, not a URL — main copies the file into the render's public dir.
           sheetPath: sp.sheetPath,
         })),

@@ -10,8 +10,9 @@
 import type {
   AudioAnalysis,
   NarrationSegment,
+  OutlineShape,
   SubtitleConfig,
-  WaveformConfig,
+  TrackWaveform,
 } from "../src/store/types";
 
 // Declared as `type` aliases rather than `interface` on purpose. Remotion
@@ -33,6 +34,9 @@ export type RenderSpeaker = {
   borderColor: string;
   bgOpacity: number;
   borderOpacity: number;
+  outlineShape: OutlineShape;
+  /** This speaker's own waveform. Colour comes from borderColor above. */
+  waveform: TrackWaveform;
   /** Filename (not path) of this speaker's viseme sheet inside Remotion's
    *  public dir, or null for a faceless disk. The main process copies the
    *  file in before bundling — same mechanism as the narration WAV, and for
@@ -41,7 +45,8 @@ export type RenderSpeaker = {
 };
 
 export type RenderProps = {
-  waveform: WaveformConfig;
+  musicWaveform: TrackWaveform;
+  musicColor: string;
   speakers: RenderSpeaker[];
   width: number;
   height: number;

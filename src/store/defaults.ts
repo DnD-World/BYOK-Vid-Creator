@@ -1,4 +1,5 @@
 import { ProjectState } from "./types";
+import { defaultTrackWaveform } from "../lib/waveform/buildTracks";
 
 export const defaultProject: ProjectState = {
   render: {
@@ -8,22 +9,10 @@ export const defaultProject: ProjectState = {
     durationSec: 180,
     engine: "remotion",
   },
-  waveform: {
-    position: "circular",
-    behavior: "single-colorshift",
-    style: "bars",
-    colorA: "#ff9a3c",
-    colorB: "#3cb4ff",
-    colorMusic: "#8a8a8a",
-    scale: 1,
-    density: 48,
-    dotSize: 1,
-    edgeFlush: false,
-    ringInnerRadius: 0.2,
-    ringSize: 1,
-    ringX: 0.5,
-    ringY: 0.5,
-  },
+  // Music defaults to off: most projects start with narration only, and an
+  // always-animating track with no music behind it looks broken.
+  musicWaveform: { ...defaultTrackWaveform(0), enabled: false, style: "lines", position: "bottom" },
+  musicColor: "#8a8a8a",
   subtitles: {
     enabled: true,
     position: "bottom",

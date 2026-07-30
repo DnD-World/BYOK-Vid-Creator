@@ -10,6 +10,37 @@ export interface RenderSettings {
   engine: Engine;
 }
 
+/** One waveform belonging to one sound source — a speaker, or the music.
+ *
+ *  This replaces the old single global WaveformConfig plus its `behavior` enum
+ *  ("single" / "dual" / "dual-plus-music" / "triple"). Those combinations are
+ *  now emergent: which tracks exist and which are enabled IS the behaviour, so
+ *  the enum stopped describing anything the data didn't already say.
+ *
+ *  Colour deliberately lives on the owner, not here — a speaker's waveform is
+ *  their outline colour, so the two cannot drift apart. */
+export interface TrackWaveform {
+  enabled: boolean;
+  style: "bars" | "lines" | "wave" | "mirror" | "dots" | "rings";
+  position: "circular" | "top" | "bottom" | "left" | "right";
+  scale: number;       // 0.2–2.5, amplitude-extension multiplier
+  density: number;     // sample/bar count, 8–160
+  thickness: number;   // 0.2–3, bar/stroke width multiplier
+  dotSize: number;     // dots-style only
+  edgeFlush: boolean;
+  smoothing: number;   // 0–1, how much neighbouring bars influence each other
+  ringInnerRadius: number;
+  ringSize: number;
+  ringX: number;
+  ringY: number;
+  /** Lateral offset so simultaneous tracks read as separate lanes. */
+  lane: number;
+}
+
+export type OutlineShape = "circle" | "rounded" | "square" | "none";
+
+/** Legacy global waveform config. Kept only so old saved templates can be
+ *  read and migrated; nothing new should reference it. */
 export interface WaveformConfig {
   position: "circular" | "top" | "bottom" | "left" | "right";
   behavior: "single" | "single-colorshift" | "dual" | "dual-plus-music" | "triple";
@@ -57,7 +88,11 @@ export interface SpeakerConfig {
   bgOpacity: number;     // default 0 (invisible disk)
   borderOpacity: number; // default 1
   bgColor: string;
+  /** Outline colour — and, by construction, this speaker's waveform colour. */
   borderColor: string;
+  outlineShape: OutlineShape;
+  /** This speaker's own waveform. Animates only while they are speaking. */
+  waveform: TrackWaveform;
   x: number;
   y: number;
   // Diameter as a 0–1 fraction of frame WIDTH — same convention as x/y above,
@@ -108,7 +143,10 @@ export interface NarrationResult {
 
 export interface ProjectState {
   render: RenderSettings;
-  waveform: WaveformConfig;
+  /** The music track's waveform, and its colour. Always animating — music
+   *  doesn't take turns the way speakers do. */
+  musicWaveform: TrackWaveform;
+  musicColor: string;
   subtitles: SubtitleConfig;
   bgRelevancy: number;   // 0 = fewer/longer, 1 = many/fast
   fps: Fps;

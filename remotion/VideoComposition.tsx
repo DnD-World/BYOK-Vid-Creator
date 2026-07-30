@@ -18,6 +18,7 @@ import { WaveformScene } from "../src/components/canvas/WaveformScene";
 import { SubtitleScene } from "../src/components/canvas/SubtitleScene";
 import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
 import { buildCues } from "../src/lib/subtitles/wordTiming";
+import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
 import { visemeAt } from "../src/lib/visemes/timeline";
 import { VISEME } from "../src/lib/visemes/visemeMap";
@@ -40,7 +41,8 @@ function withAlpha(hex: string, alpha: number): string {
 }
 
 export function VideoComposition({
-  waveform,
+  musicWaveform,
+  musicColor,
   speakers,
   audioFileName,
   analysis,
@@ -73,6 +75,11 @@ export function VideoComposition({
   // Must run before any frame is captured — see the hook for why.
   useWaitForImages(sheetUrls);
 
+  const tracks = useMemo(
+    () => buildTracks(speakers, musicWaveform, musicColor),
+    [speakers, musicWaveform, musicColor]
+  );
+
   // The single line that makes the export deterministic: time comes from the
   // frame index, never from a wall clock. Frame 240 at 30fps is 8000ms on
   // every worker, in any order, on every machine.
@@ -85,7 +92,7 @@ export function VideoComposition({
 
       <div style={{ position: "absolute", inset: 0 }}>
         <WaveformScene
-          config={waveform}
+          tracks={tracks}
           width={width}
           height={height}
           timeMs={timeMs}
@@ -120,6 +127,7 @@ export function VideoComposition({
               borderOpacity={sp.borderOpacity}
               bgColor={sp.bgColor}
               borderColor={sp.borderColor}
+              outlineShape={sp.outlineShape}
             />
           </div>
         );

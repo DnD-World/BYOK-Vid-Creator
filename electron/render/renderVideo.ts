@@ -21,10 +21,10 @@ import os from "node:os";
 import { bundle } from "@remotion/bundler";
 import { selectComposition, renderMedia, ensureBrowser } from "@remotion/renderer";
 import { COMPOSITION_ID, type RenderProps, type RenderSpeaker } from "../../remotion/types";
-import type { WaveformConfig } from "../../src/store/types";
 
 export interface RenderJob {
-  waveform: WaveformConfig;
+  musicWaveform: RenderProps["musicWaveform"];
+  musicColor: string;
   /** Sheets arrive as disk paths and are converted to public-dir filenames
    *  here, so the renderer never has to know about the filesystem. */
   speakers: (Omit<RenderSpeaker, "sheetFileName"> & { sheetPath?: string })[];
@@ -118,6 +118,7 @@ export async function renderVideo(
         id: sp.id, label: sp.label, x: sp.x, y: sp.y, size: sp.size,
         bgColor: sp.bgColor, borderColor: sp.borderColor,
         bgOpacity: sp.bgOpacity, borderOpacity: sp.borderOpacity,
+        outlineShape: sp.outlineShape, waveform: sp.waveform,
         sheetFileName,
       });
     }
@@ -145,7 +146,8 @@ export async function renderVideo(
     });
 
     const inputProps: RenderProps = {
-      waveform: job.waveform,
+      musicWaveform: job.musicWaveform,
+      musicColor: job.musicColor,
       speakers,
       width: job.width,
       height: job.height,

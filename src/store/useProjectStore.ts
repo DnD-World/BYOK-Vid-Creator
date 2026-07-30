@@ -2,13 +2,15 @@ import { create } from "zustand";
 import {
   ProjectState,
   RenderSettings,
-  WaveformConfig,
   SpeakerConfig,
   SubtitleConfig,
+  TrackWaveform,
   Fps,
   NarrationResult,
 } from "./types";
+import type { ProjectPreset } from "./templatesTypes";
 import { defaultProject } from "./defaults";
+import { defaultTrackWaveform } from "../lib/waveform/buildTracks";
 
 const SPEAKER_COLORS = ["#e8a24a", "#4ac2e8"]; // speaker1 / speaker2 from tailwind theme
 
@@ -19,16 +21,26 @@ const SPEAKER_COLORS = ["#e8a24a", "#4ac2e8"]; // speaker1 / speaker2 from tailw
  *  by assuming a fresh install. */
 const LEGACY_AUTHORED_WIDTH = 560;
 
-function normalizeSpeakerSize(sp: SpeakerConfig): SpeakerConfig {
-  if (sp.size > 1) {
-    return { ...sp, size: Math.min(1, sp.size / LEGACY_AUTHORED_WIDTH) };
-  }
-  return sp;
+/** Brings a speaker from any older preset up to the current shape: pixel sizes
+ *  become fractions, and speakers saved before waveforms moved onto them get a
+ *  default one rather than crashing the renderer with an undefined config. */
+function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
+  const size = sp.size > 1 ? Math.min(1, sp.size / LEGACY_AUTHORED_WIDTH) : sp.size;
+  return {
+    ...sp,
+    size,
+    outlineShape: sp.outlineShape ?? "circle",
+    waveform: sp.waveform ?? defaultTrackWaveform(i === 0 ? 0 : i % 2 === 1 ? 1 : -1),
+  };
 }
 
 interface Actions {
   setRender: (p: Partial<RenderSettings>) => void;
-  setWaveform: (p: Partial<WaveformConfig>) => void;
+  setMusicWaveform: (p: Partial<TrackWaveform>) => void;
+  setMusicColor: (c: string) => void;
+  /** Patch one speaker's own waveform. Kept separate from updateSpeaker so
+   *  callers don't have to spread the nested object by hand every time. */
+  setSpeakerWaveform: (id: string, p: Partial<TrackWaveform>) => void;
   setSubtitles: (p: Partial<SubtitleConfig>) => void;
   setBgRelevancy: (v: number) => void;
   setFps: (fps: Fps) => void;
@@ -39,12 +51,7 @@ interface Actions {
   addSpeaker: () => void;
   removeSpeaker: (id: string) => void;
   updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
-  loadSnapshot: (snap: {
-    render: RenderSettings;
-    fps: Fps;
-    waveform: WaveformConfig;
-    speakers: SpeakerConfig[];
-  }) => void;
+  loadSnapshot: (snap: ProjectPreset) => void;
   reset: () => void;
 }
 
@@ -53,7 +60,16 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
 
   setRender: (p) => set((s) => ({ render: { ...s.render, ...p } })),
 
-  setWaveform: (p) => set((s) => ({ waveform: { ...s.waveform, ...p } })),
+  setMusicWaveform: (p) => set((s) => ({ musicWaveform: { ...s.musicWaveform, ...p } })),
+
+  setMusicColor: (musicColor) => set({ musicColor }),
+
+  setSpeakerWaveform: (id, p) =>
+    set((s) => ({
+      speakers: s.speakers.map((sp) =>
+        sp.id === id ? { ...sp, waveform: { ...sp.waveform, ...p } } : sp
+      ),
+    })),
 
   setSubtitles: (p) => set((s) => ({ subtitles: { ...s.subtitles, ...p } })),
 
@@ -87,6 +103,10 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
         y: 0.6,
         // Fraction of frame width, like x/y — not pixels.
         size: 0.28,
+        outlineShape: "circle",
+        // Alternate lanes so a second speaker's waveform doesn't draw exactly
+        // on top of the first one's.
+        waveform: defaultTrackWaveform(n === 0 ? 0 : n % 2 === 1 ? 1 : -1),
       };
       return { speakers: [...s.speakers, next] };
     }),
@@ -101,13 +121,17 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
       ),
     })),
 
+  // Every field falls back to the current default, so a partial or older
+  // preset loads rather than throwing or blanking the project.
   loadSnapshot: (snap) =>
-    set({
-      render: snap.render,
-      fps: snap.fps,
-      waveform: snap.waveform,
-      speakers: snap.speakers.map(normalizeSpeakerSize),
-    }),
+    set((s) => ({
+      render: snap.render ?? s.render,
+      fps: snap.fps ?? s.fps,
+      musicWaveform: snap.musicWaveform ?? defaultProject.musicWaveform,
+      musicColor: snap.musicColor ?? defaultProject.musicColor,
+      subtitles: snap.subtitles ?? s.subtitles,
+      speakers: (snap.speakers ?? s.speakers).map(migrateSpeaker),
+    })),
 
   reset: () => set(defaultProject),
 }));

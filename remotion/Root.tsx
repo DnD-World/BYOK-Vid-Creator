@@ -7,7 +7,8 @@ import { defaultProject } from "../src/store/defaults";
 // render overrides them through calculateMetadata, driven by inputProps
 // handed in by the Electron main process.
 const previewDefaults: RenderProps = {
-  waveform: defaultProject.waveform,
+  musicWaveform: defaultProject.musicWaveform,
+  musicColor: defaultProject.musicColor,
   speakers: [],
   width: 1080,
   height: 1920,

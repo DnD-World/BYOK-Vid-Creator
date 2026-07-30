@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HudButton } from "./components/ui/HudButton";
 import { Toggle } from "./components/ui/Toggle";
-import { Slider } from "./components/ui/Slider";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { WaveformScene } from "./components/canvas/WaveformScene";
 import { SubtitleScene } from "./components/canvas/SubtitleScene";
@@ -10,29 +8,16 @@ import { buildCues } from "./lib/subtitles/wordTiming";
 import { buildSpeakerVisemeTracks } from "./lib/visemes/speakerTracks";
 import { visemeAt } from "./lib/visemes/timeline";
 import { useSheetUrls } from "./lib/visemes/useSheetUrls";
-import { TemplatesPanel } from "./components/canvas/TemplatesPanel";
-import { RoadmapSection } from "./components/canvas/RoadmapSection";
+import { CastPanel } from "./components/panels/CastPanel";
+import { ScenePanel } from "./components/panels/ScenePanel";
+import { buildTracks } from "./lib/waveform/buildTracks";
 import BackendPanel from "./components/settings/BackendPanel";
 import NarrationPanel from "./components/settings/NarrationPanel";
-import { RenderBar } from "./components/render/RenderBar";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
-import { useVoicesStore } from "./store/useVoicesStore";
 import { deriveAccentShades } from "./lib/color/deriveShades";
 import { useCornerFlare } from "./lib/motion/useCornerFlare";
 import { VISEME } from "./lib/visemes/visemeMap";
-import type { Fps, WaveformConfig } from "./store/types";
-
-const FPS_OPTIONS: Fps[] = [10, 24, 30];
-const WAVEFORM_STYLES: WaveformConfig["style"][] = ["bars", "lines", "wave", "mirror", "dots", "rings"];
-const WAVEFORM_POSITIONS: WaveformConfig["position"][] = ["circular", "top", "bottom", "left", "right"];
-const WAVEFORM_BEHAVIORS: { id: WaveformConfig["behavior"]; label: string }[] = [
-  { id: "single", label: "Single" },
-  { id: "single-colorshift", label: "Color-shift" },
-  { id: "dual", label: "Dual" },
-  { id: "dual-plus-music", label: "Dual+Music" },
-  { id: "triple", label: "Triple" },
-];
 
 /** Two corner-bracket accents — the recurring HUD-panel detail. Drop this
  *  inside any element with position:relative that uses .panel-hud. Always
@@ -58,19 +43,13 @@ export default function App() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const fps = useProjectStore((s) => s.fps);
-  const setFps = useProjectStore((s) => s.setFps);
   const render = useProjectStore((s) => s.render);
-  const setRender = useProjectStore((s) => s.setRender);
   const speakers = useProjectStore((s) => s.speakers);
-  const addSpeaker = useProjectStore((s) => s.addSpeaker);
-  const removeSpeaker = useProjectStore((s) => s.removeSpeaker);
   const updateSpeaker = useProjectStore((s) => s.updateSpeaker);
-  const voices = useVoicesStore((s) => s.voices);
-  const waveform = useProjectStore((s) => s.waveform);
-  const setWaveform = useProjectStore((s) => s.setWaveform);
+  const musicWaveform = useProjectStore((s) => s.musicWaveform);
+  const musicColor = useProjectStore((s) => s.musicColor);
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
-  const setSubtitles = useProjectStore((s) => s.setSubtitles);
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
 
   // Attached audio wins, matching the render bar: whatever ends up in the
@@ -91,6 +70,10 @@ export default function App() {
     [narration, fps]
   );
   const sheetUrls = useSheetUrls(speakers.map((sp) => sp.sheetPath));
+  const tracks = useMemo(
+    () => buildTracks(speakers, musicWaveform, musicColor),
+    [speakers, musicWaveform, musicColor]
+  );
   const accentColor = useSettingsStore((s) => s.accentColor);
   const motionEnabled = useSettingsStore((s) => s.motionEnabled);
 
@@ -116,6 +99,7 @@ export default function App() {
   const headerFlare = useCornerFlare<HTMLElement>();
   const asideFlare = useCornerFlare<HTMLElement>();
   const mainFlare = useCornerFlare<HTMLElement>();
+  const sceneFlare = useCornerFlare<HTMLElement>();
 
   // The waveform SVG needs real pixel dimensions of the aspect-locked slot,
   // which CSS aspect-ratio computes at layout time — so track it via
@@ -202,351 +186,14 @@ export default function App() {
 
       <div className="flex flex-1 gap-3 px-3 pb-3 min-h-0">
         {/* LEFT RAIL */}
+        {/* LEFT: the cast — one tab per speaker, plus music */}
         <aside
           ref={asideFlare.ref}
           onClick={asideFlare.fire}
-          className="panel-hud hud-flare-target relative w-80 p-5 flex flex-col gap-7 overflow-y-auto"
+          className="panel-hud hud-flare-target relative w-96 p-5 min-h-0"
         >
           <HudCorners />
-          <section>
-            <div className="label-etched mb-2">Frame Rate</div>
-            <div className="flex gap-2">
-              {FPS_OPTIONS.map((f) => (
-                <HudButton key={f} active={fps === f} onClick={() => setFps(f)}>
-                  {f}
-                </HudButton>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Aspect Ratio</div>
-            <div className="flex gap-2">
-              <HudButton
-                active={render.format === "9:16"}
-                onClick={() => setRender({ format: "9:16", width: 1080, height: 1920 })}
-              >
-                9:16
-              </HudButton>
-              <HudButton
-                active={render.format === "16:9"}
-                onClick={() => setRender({ format: "16:9", width: 1920, height: 1080 })}
-              >
-                16:9
-              </HudButton>
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Waveform Style</div>
-            <div className="flex flex-wrap gap-2">
-              {WAVEFORM_STYLES.map((s) => (
-                <HudButton key={s} active={waveform.style === s} onClick={() => setWaveform({ style: s })}>
-                  {s}
-                </HudButton>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Waveform Position</div>
-            <div className="flex flex-wrap gap-2">
-              {WAVEFORM_POSITIONS.map((p) => (
-                <HudButton key={p} active={waveform.position === p} onClick={() => setWaveform({ position: p })}>
-                  {p}
-                </HudButton>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Waveform Shape</div>
-            <div className="space-y-4">
-              <Slider
-                label="Size"
-                value={waveform.scale}
-                min={0.5} max={1.8} step={0.05}
-                onChange={(v) => setWaveform({ scale: v })}
-                format={(v) => `${v.toFixed(2)}x`}
-              />
-              <Slider
-                label="Density"
-                value={waveform.density}
-                min={16} max={96} step={4}
-                onChange={(v) => setWaveform({ density: v })}
-                format={(v) => `${Math.round(v)}`}
-              />
-              {waveform.position !== "circular" && waveform.style !== "rings" && (
-                <Toggle
-                  label="Flush to edge"
-                  checked={waveform.edgeFlush}
-                  onChange={(v) => setWaveform({ edgeFlush: v })}
-                />
-              )}
-              {waveform.style === "dots" && (
-                <Slider
-                  label="Dot Size"
-                  value={waveform.dotSize}
-                  min={0.4} max={2.5} step={0.1}
-                  onChange={(v) => setWaveform({ dotSize: v })}
-                  format={(v) => `${v.toFixed(1)}x`}
-                />
-              )}
-              {waveform.style === "rings" && (
-                <>
-                  <Slider
-                    label="Ring Size"
-                    value={waveform.ringSize}
-                    min={0.5} max={1.5} step={0.05}
-                    onChange={(v) => setWaveform({ ringSize: v })}
-                    format={(v) => `${v.toFixed(2)}x`}
-                  />
-                  <Slider
-                    label="Center Opening"
-                    value={waveform.ringInnerRadius}
-                    min={0} max={0.8} step={0.02}
-                    onChange={(v) => setWaveform({ ringInnerRadius: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  <Slider
-                    label="Position X"
-                    value={waveform.ringX}
-                    min={0} max={1} step={0.02}
-                    onChange={(v) => setWaveform({ ringX: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  <Slider
-                    label="Position Y"
-                    value={waveform.ringY}
-                    min={0} max={1} step={0.02}
-                    onChange={(v) => setWaveform({ ringY: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                </>
-              )}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Waveform Mode</div>
-            <div className="flex flex-wrap gap-2">
-              {WAVEFORM_BEHAVIORS.map((b) => (
-                <HudButton
-                  key={b.id}
-                  active={waveform.behavior === b.id}
-                  onClick={() => setWaveform({ behavior: b.id })}
-                >
-                  {b.label}
-                </HudButton>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Waveform Colors</div>
-            <div className="flex items-center gap-4">
-              {([
-                ["colorA", "Speaker A"],
-                ["colorB", "Speaker B"],
-                ["colorMusic", "Music"],
-              ] as const).map(([key, label]) => (
-                <label key={key} className="flex flex-col items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={waveform[key]}
-                    onChange={(e) => setWaveform({ [key]: e.target.value } as Partial<WaveformConfig>)}
-                    className="h-8 w-8 border border-accent/30 bg-transparent p-0"
-                  />
-                  <span className="text-sm text-neutral-400">{label}</span>
-                </label>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2">Subtitles</div>
-            <div className="space-y-4">
-              <Toggle
-                label="Show subtitles"
-                checked={subtitles.enabled}
-                onChange={(v) => setSubtitles({ enabled: v })}
-              />
-              {subtitles.enabled && (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    {(["top", "center", "bottom"] as const).map((p) => (
-                      <HudButton
-                        key={p}
-                        active={subtitles.position === p}
-                        onClick={() => setSubtitles({ position: p })}
-                      >
-                        {p}
-                      </HudButton>
-                    ))}
-                  </div>
-                  <Slider
-                    label="Text Size"
-                    value={subtitles.fontSize}
-                    min={0.025} max={0.11} step={0.005}
-                    onChange={(v) => setSubtitles({ fontSize: v })}
-                    format={(v) => `${(v * 100).toFixed(1)}%`}
-                  />
-                  <Slider
-                    label="Outline"
-                    value={subtitles.strokeWidth}
-                    min={0} max={0.3} step={0.01}
-                    onChange={(v) => setSubtitles({ strokeWidth: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  <Slider
-                    label="Active Word Glow"
-                    value={subtitles.activeGlow}
-                    min={0} max={1.5} step={0.05}
-                    onChange={(v) => setSubtitles({ activeGlow: v })}
-                    format={(v) => (v === 0 ? "off" : `${v.toFixed(2)}x`)}
-                  />
-                  <Slider
-                    label="Line Length"
-                    value={subtitles.maxChars}
-                    min={16} max={70} step={2}
-                    onChange={(v) => setSubtitles({ maxChars: Math.round(v) })}
-                    format={(v) => `${Math.round(v)} chars`}
-                  />
-                  <Toggle
-                    label="UPPERCASE"
-                    checked={subtitles.uppercase}
-                    onChange={(v) => setSubtitles({ uppercase: v })}
-                  />
-                  <div className="flex items-center gap-4">
-                    {([
-                      ["color", "Text"],
-                      ["activeColor", "Active"],
-                      ["strokeColor", "Outline"],
-                    ] as const).map(([key, label]) => (
-                      <label key={key} className="flex flex-col items-center gap-1.5">
-                        <input
-                          type="color"
-                          value={subtitles[key]}
-                          onChange={(e) => setSubtitles({ [key]: e.target.value })}
-                          className="h-8 w-8 border border-accent/30 bg-transparent p-0"
-                        />
-                        <span className="text-sm text-neutral-400">{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {!narration && (
-                    <p className="text-sm text-neutral-500">
-                      Generate narration to see real subtitles here.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-
-          <section>
-            <div className="label-etched mb-2 flex items-center justify-between">
-              <span>Speakers</span>
-              <button onClick={addSpeaker} className="text-accent-bright hover:text-accent text-sm">
-                + Add
-              </button>
-            </div>
-            {speakers.length > 0 && (
-              <div className="mb-3">
-                <Toggle label="Snap to grid when dragging" checked={snapToGrid} onChange={setSnapToGrid} />
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              {speakers.length === 0 && <p className="text-sm text-neutral-500">No speakers yet.</p>}
-              {speakers.map((sp) => (
-                <div
-                  key={sp.id}
-                  className="border border-accent/25 bg-metal-800/60 px-3 py-2.5 space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: sp.borderColor }} />
-                      <span className="text-base text-neutral-200">{sp.label}</span>
-                    </div>
-                    <button onClick={() => removeSpeaker(sp.id)} className="text-neutral-500 hover:text-red-400 text-sm">
-                      ✕
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        const p = await window.byok.dialog.openFile([
-                          { name: "Viseme sheet", extensions: ["png"] },
-                        ]);
-                        if (p) updateSpeaker(sp.id, { sheetPath: p });
-                      }}
-                      className="label-etched underline hover:text-accent-bright"
-                    >
-                      {sp.sheetPath ? "Change face" : "Choose face…"}
-                    </button>
-                    {sp.sheetPath && (
-                      <button
-                        onClick={() => updateSpeaker(sp.id, { sheetPath: undefined })}
-                        className="label-etched underline text-neutral-500 hover:text-red-400"
-                      >
-                        clear
-                      </button>
-                    )}
-                  </div>
-                  {sp.sheetPath && (
-                    <p className="text-sm text-neutral-500 truncate" title={sp.sheetPath}>
-                      {sp.sheetPath.split(/[\\/]/).pop()}
-                    </p>
-                  )}
-                  <Slider
-                    label="Size"
-                    value={sp.size}
-                    min={0.05} max={0.9} step={0.01}
-                    onChange={(v) => updateSpeaker(sp.id, { size: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  <Slider
-                    label="Position X"
-                    value={sp.x}
-                    min={0} max={1} step={0.01}
-                    onChange={(v) => updateSpeaker(sp.id, { x: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  <Slider
-                    label="Position Y"
-                    value={sp.y}
-                    min={0} max={1} step={0.01}
-                    onChange={(v) => updateSpeaker(sp.id, { y: v })}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  {voices.length > 0 ? (
-                    <select
-                      value={sp.voiceId ?? ""}
-                      onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
-                      className="w-full bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
-                    >
-                      <option value="">No voice assigned</option>
-                      {voices.map((v) => (
-                        <option key={v.id} value={v.onnxPath}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="text-sm text-neutral-500">
-                      Scan for voices in Backend Settings to assign one.
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <TemplatesPanel />
-
-          <RenderBar />
-
-          <RoadmapSection />
+          <CastPanel />
         </aside>
 
         {/* CENTER: preview canvas, narration, or backend settings */}
@@ -577,7 +224,7 @@ export default function App() {
               }}
             >
               <WaveformScene
-                config={waveform}
+                tracks={tracks}
                 width={canvasSize.w}
                 height={canvasSize.h}
                 timeMs={previewTimeMs}
@@ -637,6 +284,7 @@ export default function App() {
                     borderOpacity={sp.borderOpacity}
                     bgColor={sp.bgColor}
                     borderColor={sp.borderColor}
+                    outlineShape={sp.outlineShape}
                   />
                 </div>
               ))}
@@ -652,6 +300,16 @@ export default function App() {
             </div>
           )}
         </main>
+
+        {/* RIGHT: the scene — frame, subtitles, render, presets */}
+        <aside
+          ref={sceneFlare.ref}
+          onClick={sceneFlare.fire}
+          className="panel-hud hud-flare-target relative w-96 p-5 min-h-0"
+        >
+          <HudCorners />
+          <ScenePanel />
+        </aside>
       </div>
     </div>
   );
