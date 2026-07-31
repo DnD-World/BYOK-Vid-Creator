@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
@@ -49,6 +49,17 @@ export default function NarrationPanel() {
   const [tone, setTone] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
+
+  // GLM-5.2 took 274s on a real key here — well inside the 5 minute timeout,
+  // but a button that just says "Drafting…" for four and a half minutes is
+  // indistinguishable from a hang. A ticking counter is the whole fix.
+  const [draftSec, setDraftSec] = useState(0);
+  useEffect(() => {
+    if (!drafting) return;
+    setDraftSec(0);
+    const id = window.setInterval(() => setDraftSec((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [drafting]);
 
   const runDraft = async () => {
     // Every one of these used to be a silent `return`, which is exactly why
@@ -285,8 +296,13 @@ export default function NarrationPanel() {
           disabled={drafting}
           className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-40"
         >
-          {drafting ? "Drafting…" : "Generate Draft"}
+          {drafting ? `Drafting… ${draftSec}s` : "Generate Draft"}
         </button>
+        {drafting && (
+          <p className="text-sm text-neutral-500">
+            GLM-5.2 is slow — a few minutes is normal, and it gives up at five.
+          </p>
+        )}
         {draftError && <p className="text-sm text-red-400 whitespace-pre-wrap">{draftError}</p>}
       </div>
 

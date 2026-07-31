@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import { Toggle } from "./components/ui/Toggle";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { WaveformScene } from "./components/canvas/WaveformScene";
@@ -35,12 +36,74 @@ function HudCorners() {
 const SNAP_GRID = 0.05;
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
+/** A side rail that can fold away to a spine.
+ *
+ *  At the 1280px minimum window width the two 384px rails leave the preview
+ *  267px wide for a 1080x1920 frame — too small to judge subtitle size or
+ *  waveform detail, which is most of what the preview is for. Folding one rail
+ *  hands that width straight to the canvas. */
+function Rail({
+  title, side, open, onToggle, flareRef, onFlare, children,
+}: {
+  title: string;
+  side: "left" | "right";
+  open: boolean;
+  onToggle: () => void;
+  flareRef: MutableRefObject<HTMLElement | null>;
+  onFlare: () => void;
+  children: ReactNode;
+}) {
+  // ‹ collapses a left rail and expands a right one, so the arrow always points
+  // the way the panel will move.
+  const glyph = open ? (side === "left" ? "‹" : "›") : side === "left" ? "›" : "‹";
+  return (
+    <aside
+      ref={flareRef}
+      onClick={onFlare}
+      className={`panel-hud hud-flare-target relative min-h-0 transition-[width] duration-200 ${
+        open ? "w-96 p-5" : "w-9 px-0 py-3"
+      }`}
+    >
+      <HudCorners />
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        title={open ? `Collapse ${title}` : `Expand ${title}`}
+        className={`absolute top-2 z-20 h-6 w-6 grid place-items-center text-accent-bright/70 hover:text-accent-bright ${
+          side === "left" ? "right-2" : "left-2"
+        }`}
+      >
+        {glyph}
+      </button>
+      {open ? (
+        children
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="label-etched absolute inset-x-0 top-10 mx-auto whitespace-nowrap hover:text-accent-bright"
+          style={{ writingMode: "vertical-rl" }}
+        >
+          {title}
+        </button>
+      )}
+    </aside>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState<"canvas" | "settings" | "narration">("canvas");
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [castOpen, setCastOpen] = useState(true);
+  const [sceneOpen, setSceneOpen] = useState(true);
 
   const fps = useProjectStore((s) => s.fps);
   const render = useProjectStore((s) => s.render);
@@ -101,19 +164,28 @@ export default function App() {
   const mainFlare = useCornerFlare<HTMLElement>();
   const sceneFlare = useCornerFlare<HTMLElement>();
 
-  // The waveform SVG needs real pixel dimensions of the aspect-locked slot,
-  // which CSS aspect-ratio computes at layout time — so track it via
-  // ResizeObserver rather than guessing from render.width/height.
+  // Measure the room the preview has, then size the frame to fit inside it —
+  // rather than the reverse. CSS can't express "contain" here: aspect-ratio
+  // plus max-width/max-height clamps one axis and lets the other keep its
+  // specified size, which silently un-squares the frame. Computing it means
+  // the preview is always as large as the space genuinely allows, in both
+  // orientations, and the SVG gets exact pixel dimensions for free.
   useEffect(() => {
-    if (!canvasRef.current) return;
-    const el = canvasRef.current;
+    if (!stageRef.current) return;
+    const el = stageRef.current;
     const ro = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setCanvasSize({ w: width, h: height });
+      setStageSize({ w: width, h: height });
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, [view]);
+
+  const canvasSize = useMemo(() => {
+    const ratio = isPortrait ? 9 / 16 : 16 / 9;
+    const w = Math.floor(Math.min(stageSize.w, stageSize.h * ratio));
+    return { w: Math.max(0, w), h: Math.max(0, Math.floor(w / ratio)) };
+  }, [stageSize, isPortrait]);
 
   // Avatar dragging. The listeners live on window rather than the avatar so a
   // fast drag that outruns the cursor doesn't drop the gesture the moment the
@@ -185,23 +257,28 @@ export default function App() {
       </header>
 
       <div className="flex flex-1 gap-3 px-3 pb-3 min-h-0">
-        {/* LEFT RAIL */}
         {/* LEFT: the cast — one tab per speaker, plus music */}
-        <aside
-          ref={asideFlare.ref}
-          onClick={asideFlare.fire}
-          className="panel-hud hud-flare-target relative w-96 p-5 min-h-0"
+        <Rail
+          title="Cast"
+          side="left"
+          open={castOpen}
+          onToggle={() => setCastOpen((v) => !v)}
+          flareRef={asideFlare.ref}
+          onFlare={asideFlare.fire}
         >
-          <HudCorners />
           <CastPanel />
-        </aside>
+        </Rail>
 
         {/* CENTER: preview canvas, narration, or backend settings */}
         <main
           ref={mainFlare.ref}
           onClick={mainFlare.fire}
+          // No place-items-center here: a centred grid item has an indefinite
+          // height, so the stage's h-full resolved against nothing and never
+          // shrank when the window did. The stage stretches; the centring
+          // happens inside it.
           className={`panel-hud hud-flare-target relative flex-1 p-6 min-h-0 ${
-            view === "canvas" ? "grid place-items-center" : "overflow-hidden"
+            view === "canvas" ? "grid" : "overflow-hidden"
           }`}
         >
           <HudCorners />
@@ -214,14 +291,11 @@ export default function App() {
               <NarrationPanel />
             </div>
           ) : (
+            <div ref={stageRef} className="min-w-0 min-h-0 grid place-items-center">
             <div
               ref={canvasRef}
               className="slot-recessed relative grid place-items-center overflow-hidden"
-              style={{
-                aspectRatio: isPortrait ? "9 / 16" : "16 / 9",
-                height: isPortrait ? "80%" : "auto",
-                width: isPortrait ? "auto" : "80%",
-              }}
+              style={{ width: canvasSize.w, height: canvasSize.h }}
             >
               <WaveformScene
                 tracks={tracks}
@@ -298,18 +372,21 @@ export default function App() {
                 timeMs={previewTimeMs}
               />
             </div>
+            </div>
           )}
         </main>
 
         {/* RIGHT: the scene — frame, subtitles, render, presets */}
-        <aside
-          ref={sceneFlare.ref}
-          onClick={sceneFlare.fire}
-          className="panel-hud hud-flare-target relative w-96 p-5 min-h-0"
+        <Rail
+          title="Scene"
+          side="right"
+          open={sceneOpen}
+          onToggle={() => setSceneOpen((v) => !v)}
+          flareRef={sceneFlare.ref}
+          onFlare={sceneFlare.fire}
         >
-          <HudCorners />
           <ScenePanel />
-        </aside>
+        </Rail>
       </div>
     </div>
   );
