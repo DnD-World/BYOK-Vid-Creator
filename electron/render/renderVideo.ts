@@ -37,6 +37,7 @@ export interface RenderJob {
   /** Precomputed by the narration step; null for hand-attached audio. */
   analysis?: RenderProps["analysis"];
   subtitles: RenderProps["subtitles"];
+  visemeFadeMs?: number;
   narrationSegments?: RenderProps["narrationSegments"];
 }
 
@@ -189,6 +190,7 @@ export async function renderVideo(
       spectrumFileName,
       spectrumBandCount,
       subtitles: job.subtitles,
+      visemeFadeMs: job.visemeFadeMs ?? 0,
       narrationSegments: job.narrationSegments ?? [],
     };
 

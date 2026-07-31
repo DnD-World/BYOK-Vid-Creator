@@ -19,10 +19,15 @@ export interface RenderTrack {
    * active-speaker gate; a speaker's waveform only animates on their own lines.
    */
   speakerIndex: number | null;
+  /** Where the owning face sits, as 0–1 fractions, for the "speaker" position.
+   *  null for music, which has no face to ring. */
+  anchor: { x: number; y: number; size: number } | null;
 }
 
+type TrackSpeaker = Pick<SpeakerConfig, "borderColor" | "waveform" | "x" | "y" | "size">;
+
 export function buildTracks(
-  speakers: Pick<SpeakerConfig, "borderColor" | "waveform">[],
+  speakers: TrackSpeaker[],
   musicWaveform: TrackWaveform,
   musicColor: string
 ): RenderTrack[] {
@@ -30,12 +35,17 @@ export function buildTracks(
 
   speakers.forEach((sp, i) => {
     if (sp.waveform?.enabled) {
-      tracks.push({ cfg: sp.waveform, color: sp.borderColor, speakerIndex: i });
+      tracks.push({
+        cfg: sp.waveform,
+        color: sp.borderColor,
+        speakerIndex: i,
+        anchor: { x: sp.x, y: sp.y, size: sp.size },
+      });
     }
   });
 
   if (musicWaveform?.enabled) {
-    tracks.push({ cfg: musicWaveform, color: musicColor, speakerIndex: null });
+    tracks.push({ cfg: musicWaveform, color: musicColor, speakerIndex: null, anchor: null });
   }
 
   return tracks;

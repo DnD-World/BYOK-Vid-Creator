@@ -7,7 +7,7 @@ import { SubtitleScene } from "./components/canvas/SubtitleScene";
 import { usePreviewClock } from "./lib/motion/usePreviewClock";
 import { buildCues } from "./lib/subtitles/wordTiming";
 import { buildSpeakerVisemeTracks } from "./lib/visemes/speakerTracks";
-import { visemeAt } from "./lib/visemes/timeline";
+import { visemeBlendAt } from "./lib/visemes/timeline";
 import { useSheetUrls } from "./lib/visemes/useSheetUrls";
 import { CastPanel } from "./components/panels/CastPanel";
 import { ScenePanel } from "./components/panels/ScenePanel";
@@ -114,6 +114,7 @@ export default function App() {
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
+  const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
 
   // Attached audio wins, matching the render bar: whatever ends up in the
   // video is what the preview animates to.
@@ -133,6 +134,10 @@ export default function App() {
     [narration, fps]
   );
   const sheetUrls = useSheetUrls(speakers.map((sp) => sp.sheetPath));
+  const speakerColors = useMemo(
+    () => Object.fromEntries(speakers.map((sp) => [sp.id, sp.borderColor])),
+    [speakers]
+  );
   const tracks = useMemo(
     () => buildTracks(speakers, musicWaveform, musicColor),
     [speakers, musicWaveform, musicColor]
@@ -141,6 +146,40 @@ export default function App() {
   const motionEnabled = useSettingsStore((s) => s.motionEnabled);
 
   const isPortrait = render.format === "9:16";
+
+  // The autosave stores the narration's path and timings but not its analysis —
+  // a ten-minute spectrum is megabytes and localStorage would refuse it. The
+  // WAV is still on disk, so re-analyse it once on startup and the waveform
+  // comes back to life without the user regenerating anything.
+  const setNarration = useProjectStore((s) => s.setNarration);
+  const setAttachedAudio = useProjectStore((s) => s.setAttachedAudio);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const n = useProjectStore.getState().narration;
+      if (n?.filePath && !n.analysis) {
+        try {
+          const analysis = await window.byok.audio.analyzeFile(n.filePath);
+          if (!cancelled && analysis) setNarration({ ...n, analysis });
+        } catch {
+          // The file was moved or deleted. Keeping the segments is still worth
+          // it — subtitles and lip-sync work, the waveform just idles.
+        }
+      }
+      const a = useProjectStore.getState().attachedAudio;
+      if (a?.filePath && !a.analysis) {
+        try {
+          const analysis = await window.byok.audio.analyzeFile(a.filePath);
+          if (!cancelled && analysis) setAttachedAudio({ ...a, analysis });
+        } catch {
+          /* same */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setNarration, setAttachedAudio]);
 
   // Recolor every accent-* class + glow effect live, including on first
   // mount (so a previously chosen color persists across restarts).
@@ -346,11 +385,12 @@ export default function App() {
                 >
                   <SpeakerAvatar
                     sheetUrl={(sp.sheetPath && sheetUrls[sp.sheetPath]) || ""}
-                    viseme={
-                      visemeTracks[sp.id]
-                        ? visemeAt(visemeTracks[sp.id], previewTimeMs / 1000)
-                        : VISEME.NEUTRAL
-                    }
+                    {...(() => {
+                      const t = visemeTracks[sp.id];
+                      if (!t) return { viseme: VISEME.NEUTRAL };
+                      const b = visemeBlendAt(t, previewTimeMs / 1000, visemeFadeMs / 1000);
+                      return { viseme: b.to, prevViseme: b.from, mix: b.mix };
+                    })()}
                     // size is a fraction of frame width; the render resolves it
                     // against the output width the exact same way.
                     size={sp.size * canvasSize.w}
@@ -370,6 +410,7 @@ export default function App() {
                 width={canvasSize.w}
                 height={canvasSize.h}
                 timeMs={previewTimeMs}
+                speakerColors={speakerColors}
               />
             </div>
             </div>

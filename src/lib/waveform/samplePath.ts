@@ -1,4 +1,4 @@
-import type { WaveformConfig } from "../../store/types";
+import type { TrackWaveform } from "../../store/types";
 
 export interface PathPoint {
   x: number;
@@ -18,20 +18,29 @@ export interface PathPoint {
  * default inset (8% margin) — this is deliberately a toggle, not free-drag
  * positioning, since that's all that was actually needed.
  */
+export interface RingOverride {
+  cx: number;
+  cy: number;
+  r: number;
+}
+
 export function samplePath(
-  position: WaveformConfig["position"],
+  position: TrackWaveform["position"],
   w: number,
   h: number,
   count: number,
-  edgeFlush = false
+  edgeFlush = false,
+  /** Explicit centre and radius for a closed ring, used by the "speaker"
+   *  position so a halo can sit around a face instead of the frame. */
+  ring?: RingOverride
 ): PathPoint[] {
   const pts: PathPoint[] = [];
   const margin = edgeFlush ? 0.01 : 0.08;
 
-  if (position === "circular") {
-    const cx = w / 2;
-    const cy = h / 2;
-    const r = Math.min(w, h) * (edgeFlush ? 0.48 : 0.34);
+  if (position === "circular" || position === "speaker") {
+    const cx = ring ? ring.cx : w / 2;
+    const cy = ring ? ring.cy : h / 2;
+    const r = ring ? ring.r : Math.min(w, h) * (edgeFlush ? 0.48 : 0.34);
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 - Math.PI / 2;
       pts.push({

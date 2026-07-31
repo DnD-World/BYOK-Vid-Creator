@@ -30,6 +30,7 @@ export function RenderBar() {
   const speakers = useProjectStore((s) => s.speakers);
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
+  const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
   const setAttachedAudio = useProjectStore((s) => s.setAttachedAudio);
   const [analyzing, setAnalyzing] = useState(false);
@@ -129,6 +130,7 @@ export function RenderBar() {
         // waveform.
         analysis: audioPath ? attachedAudio?.analysis ?? null : narration?.analysis ?? null,
         subtitles,
+        visemeFadeMs,
         // Same reasoning: subtitles are only meaningful against the narration
         // whose timings produced them.
         narrationSegments: audioPath ? [] : narration?.segments ?? [],

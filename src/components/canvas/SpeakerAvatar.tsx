@@ -9,6 +9,10 @@ import type { OutlineShape } from "../../store/types";
 interface Props {
   sheetUrl: string;          // 3072x3072 (3x3 of 1024)
   viseme: VisemeId;          // 0-8
+  /** The cell being faded out of, and how far through the fade we are (1 =
+   *  done). Omit for a hard cut, which is what this did before. */
+  prevViseme?: VisemeId;
+  mix?: number;
   size: number;              // disk diameter in px
   bgOpacity: number;         // 0-1
   borderOpacity: number;     // 0-1
@@ -27,14 +31,11 @@ const SHAPE_RADIUS: Record<OutlineShape, string> = {
 };
 
 export function SpeakerAvatar({
-  sheetUrl, viseme, size,
+  sheetUrl, viseme, prevViseme, mix = 1, size,
   bgOpacity, borderOpacity,
   bgColor = "#1a1a1a", borderColor = "#d98a3d",
   outlineShape = "circle",
 }: Props) {
-  const col = viseme % 3;
-  const row = Math.floor(viseme / 3);
-
   // The face is clipped to the SAME shape as the frame around it. Leaving this
   // at a hard 50% meant a square frame still circle-cropped the artwork, which
   // looked like the shape control was broken.
@@ -46,17 +47,20 @@ export function SpeakerAvatar({
   const fill = outlineShape === "circle" || outlineShape === "none" ? 0.9 : 0.97;
   const head = size * fill;
 
-  // No sheet assigned yet is a normal state, not an error — the frame still
-  // draws, just without a face, so the layout is identical once one is picked.
-  const face: CSSProperties = sheetUrl
-    ? {
-        width: head, height: head,
-        backgroundImage: `url(${sheetUrl})`,
-        backgroundSize: `${head * 3}px ${head * 3}px`,
-        backgroundPosition: `-${col * head}px -${row * head}px`,
-        borderRadius: faceRadius,
-      }
-    : { width: head, height: head };
+  const cell = (v: VisemeId): CSSProperties => ({
+    position: "absolute",
+    inset: 0,
+    backgroundImage: `url(${sheetUrl})`,
+    backgroundSize: `${head * 3}px ${head * 3}px`,
+    backgroundPosition: `-${(v % 3) * head}px -${Math.floor(v / 3) * head}px`,
+    borderRadius: faceRadius,
+  });
+
+  // Both cells are drawn, the outgoing one underneath at full opacity and the
+  // incoming one fading in on top. Fading BOTH would let the background show
+  // through the middle of the transition; stacking them
+  // opaque-under-fading-in does not.
+  const fading = !!sheetUrl && prevViseme !== undefined && mix < 1 && prevViseme !== viseme;
 
   return (
     <div style={{
@@ -75,7 +79,10 @@ export function SpeakerAvatar({
           ? `0 0 ${size * 0.06}px ${hexA(borderColor, borderOpacity * 0.6)}`
           : "none",
     }}>
-      <div style={face} />
+      <div style={{ position: "relative", width: head, height: head }}>
+        {sheetUrl && fading && <div style={cell(prevViseme!)} />}
+        {sheetUrl && <div style={{ ...cell(viseme), opacity: fading ? mix : 1 }} />}
+      </div>
     </div>
   );
 }

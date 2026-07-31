@@ -1,5 +1,10 @@
 export {};
 
+// The real shape, not a hand-copied approximation of it. This file used to
+// re-declare the analysis inline, which meant adding `spectrum` to
+// AudioAnalysis left the renderer's view of the IPC boundary silently stale.
+import type { AudioAnalysis } from "./store/types";
+
 declare global {
   interface Window {
     byok: {
@@ -19,9 +24,7 @@ declare global {
         saveFile: (defaultName: string, filters?: unknown) => Promise<string | null>;
       };
       audio: {
-        analyzeFile: (
-          filePath: string
-        ) => Promise<{ hz: number; durationMs: number; amp: number[]; speaker: number[] } | null>;
+        analyzeFile: (filePath: string) => Promise<AudioAnalysis | null>;
       };
       storage: {
         outputDir: () => Promise<string>;
@@ -84,16 +87,12 @@ declare global {
             piperPythonPath?: string;
             piperOnnxPath?: string;
           }[],
-          speakerOrder: string[]
+          speakerOrder: string[],
+          pauses?: { sameMs: number; turnMs: number }
         ) => Promise<{
           filePath: string;
           segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
-          analysis: {
-            hz: number;
-            durationMs: number;
-            amp: number[];
-            speaker: number[];
-          } | null;
+          analysis: AudioAnalysis | null;
         }>;
       };
       llm: {

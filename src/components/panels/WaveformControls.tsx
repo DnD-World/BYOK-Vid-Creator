@@ -14,16 +14,28 @@ import { Toggle } from "../ui/Toggle";
 import type { TrackWaveform } from "../../store/types";
 
 const STYLES: TrackWaveform["style"][] = ["bars", "lines", "wave", "mirror", "dots", "rings"];
-const POSITIONS: TrackWaveform["position"][] = ["circular", "top", "bottom", "left", "right"];
+const POSITIONS: TrackWaveform["position"][] = [
+  "speaker", "circular", "top", "bottom", "left", "right",
+];
+const POSITION_LABEL: Record<TrackWaveform["position"], string> = {
+  speaker: "around face",
+  circular: "circular",
+  top: "top",
+  bottom: "bottom",
+  left: "left",
+  right: "right",
+};
 
 interface Props {
   value: TrackWaveform;
   onChange: (patch: Partial<TrackWaveform>) => void;
   /** Shown next to the enable toggle, e.g. "Καίτη's waveform". */
   label: string;
+  /** Music has no face to ring, so it doesn't get the "around face" option. */
+  canAnchorToFace?: boolean;
 }
 
-export function WaveformControls({ value, onChange, label }: Props) {
+export function WaveformControls({ value, onChange, label, canAnchorToFace = true }: Props) {
   return (
     <div className="space-y-4">
       <Toggle label={label} checked={value.enabled} onChange={(v) => onChange({ enabled: v })} />
@@ -45,13 +57,26 @@ export function WaveformControls({ value, onChange, label }: Props) {
             <div>
               <div className="label-etched mb-2">Position</div>
               <div className="flex flex-wrap gap-2">
-                {POSITIONS.map((p) => (
+                {POSITIONS.filter((p) => p !== "speaker" || canAnchorToFace).map((p) => (
                   <HudButton key={p} active={value.position === p} onClick={() => onChange({ position: p })}>
-                    {p}
+                    {POSITION_LABEL[p]}
                   </HudButton>
                 ))}
               </div>
+              {value.position === "speaker" && (
+                <p className="text-sm text-neutral-500 mt-2">
+                  A halo on this speaker's own face — it moves with them. Ring
+                  Size pushes it out from the artwork.
+                </p>
+              )}
             </div>
+          )}
+
+          {value.position === "speaker" && value.style !== "rings" && (
+            <Slider
+              label="Ring Size" value={value.ringSize} min={0.6} max={3} step={0.02}
+              onChange={(v) => onChange({ ringSize: v })} format={(v) => `${v.toFixed(2)}x`}
+            />
           )}
 
           <Slider

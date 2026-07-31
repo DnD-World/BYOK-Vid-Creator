@@ -81,6 +81,8 @@ export type RenderProps = {
    *  into frames, and it is one number rather than a megabyte. */
   spectrumBandCount: number;
   subtitles: SubtitleConfig;
+  /** Crossfade between viseme cells, in ms. */
+  visemeFadeMs: number;
   /** Narration lines with timing, from which subtitle cues are derived.
    *  Empty means nothing to show. */
   narrationSegments: NarrationSegment[];

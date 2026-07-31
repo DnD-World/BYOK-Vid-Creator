@@ -112,17 +112,13 @@ const api = {
         piperPythonPath?: string;
         piperOnnxPath?: string;
       }[],
-      speakerOrder: string[]
+      speakerOrder: string[],
+      pauses?: { sameMs: number; turnMs: number }
     ): Promise<{
       filePath: string;
       segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
-      analysis: {
-        hz: number;
-        durationMs: number;
-        amp: number[];
-        speaker: number[];
-      } | null;
-    }> => ipcRenderer.invoke("tts:generateNarration", segments, speakerOrder),
+      analysis: unknown;
+    }> => ipcRenderer.invoke("tts:generateNarration", segments, speakerOrder, pauses),
   },
 
   llm: {

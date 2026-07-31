@@ -66,6 +66,8 @@ export function PresetsPanel() {
   const setMusicColor = useProjectStore((s) => s.setMusicColor);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
   const loadSnapshot = useProjectStore((s) => s.loadSnapshot);
+  const loadProject = useProjectStore((s) => s.loadProject);
+  const setNarration = useProjectStore((s) => s.setNarration);
 
   const render = useProjectStore((s) => s.render);
   const fps = useProjectStore((s) => s.fps);
@@ -123,6 +125,63 @@ export function PresetsPanel() {
       setNote(`Loaded ${src.split(/[\\/]/).pop()}`);
     } catch (e) {
       setNote(`Couldn't read that preset — ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const saveProject = async () => {
+    const target = await window.byok.dialog.saveFile("project.byokproj.json", [
+      { name: "BYOK project", extensions: ["json"] },
+    ]);
+    if (!target) return;
+    // The analysis is derived from the narration WAV and is megabytes; the file
+    // path is enough to rebuild it on open.
+    const s = useProjectStore.getState();
+    const doc = {
+      kind: "byok-project" as const,
+      version: 1,
+      savedAt: Date.now(),
+      project: {
+        render: s.render, fps: s.fps, speakers: s.speakers,
+        musicWaveform: s.musicWaveform, musicColor: s.musicColor,
+        subtitles: s.subtitles, script: s.script, language: s.language,
+        pauseSameMs: s.pauseSameMs, pauseTurnMs: s.pauseTurnMs,
+        visemeFadeMs: s.visemeFadeMs,
+        narration: s.narration
+          ? { filePath: s.narration.filePath, segments: s.narration.segments, analysis: null }
+          : null,
+      },
+    };
+    const json = JSON.stringify(doc, null, 2);
+    await window.byok.storage.writeFile(target, new TextEncoder().encode(json).buffer as ArrayBuffer);
+    setNote(`Saved project to ${target.split(/[\\/]/).pop()}`);
+  };
+
+  const openProject = async () => {
+    const src = await window.byok.dialog.openFile([{ name: "BYOK project", extensions: ["json"] }]);
+    if (!src) return;
+    try {
+      const buf = await window.byok.storage.readFile(src);
+      const doc = JSON.parse(new TextDecoder().decode(buf));
+      if (doc?.kind !== "byok-project" || !doc.project) {
+        setNote("That's not a project file. Presets load with Import… above.");
+        return;
+      }
+      loadProject(doc.project);
+      // Rebuild the analysis from the WAV the project points at, exactly like
+      // the autosave does on startup.
+      const n = useProjectStore.getState().narration;
+      if (n?.filePath) {
+        try {
+          const analysis = await window.byok.audio.analyzeFile(n.filePath);
+          if (analysis) setNarration({ ...n, analysis });
+        } catch {
+          setNote(`Loaded, but its narration file is missing — regenerate to get the waveform back.`);
+          return;
+        }
+      }
+      setNote(`Opened ${src.split(/[\\/]/).pop()}`);
+    } catch (e) {
+      setNote(`Couldn't read that project — ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -188,8 +247,24 @@ export function PresetsPanel() {
         )}
       </section>
 
+      {/* Presets carry the look. A project carries everything — cast, script,
+          the narration you already generated, pacing, subtitles. Keeping the
+          two separate is the point: "try a different look" must not throw away
+          your script, and "open last week's video" must not be a look. */}
       <section className="space-y-3 border-t border-accent/15 pt-5">
-        <div className="label-etched">Share as a file</div>
+        <div className="label-etched">Project</div>
+        <p className="text-sm text-neutral-500">
+          Everything, not just the look. Your work is autosaved as you go — this
+          is for keeping named copies and moving them between machines.
+        </p>
+        <div className="flex gap-2">
+          <HudButton onClick={saveProject}>Save project…</HudButton>
+          <HudButton onClick={openProject}>Open project…</HudButton>
+        </div>
+      </section>
+
+      <section className="space-y-3 border-t border-accent/15 pt-5">
+        <div className="label-etched">Share the look as a file</div>
         <div className="flex gap-2">
           <HudButton onClick={exportPreset}>Export…</HudButton>
           <HudButton onClick={importPreset}>Import…</HudButton>

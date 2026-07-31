@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
   ProjectState,
   RenderSettings,
@@ -43,19 +44,28 @@ interface Actions {
   setSpeakerWaveform: (id: string, p: Partial<TrackWaveform>) => void;
   setSubtitles: (p: Partial<SubtitleConfig>) => void;
   setBgRelevancy: (v: number) => void;
+  setPauses: (p: { sameMs?: number; turnMs?: number }) => void;
+  setVisemeFadeMs: (v: number) => void;
   setFps: (fps: Fps) => void;
   setScript: (text: string) => void;
   setLanguage: (lang: string) => void;
   setNarration: (n: NarrationResult | null) => void;
   setAttachedAudio: (a: ProjectState["attachedAudio"]) => void;
   addSpeaker: () => void;
+  /** Add a speaker from the library — everything except where they stand,
+   *  which is assigned here so a recalled cast doesn't stack in one spot. */
+  addSpeakerFrom: (preset: Omit<SpeakerConfig, "id" | "x" | "y">) => void;
   removeSpeaker: (id: string) => void;
   updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
   loadSnapshot: (snap: ProjectPreset) => void;
+  /** Replace the whole project — used by "Open project…". */
+  loadProject: (p: Partial<ProjectState>) => void;
   reset: () => void;
 }
 
-export const useProjectStore = create<ProjectState & Actions>((set) => ({
+export const useProjectStore = create<ProjectState & Actions>()(
+  persist(
+    (set) => ({
   ...defaultProject,
 
   setRender: (p) => set((s) => ({ render: { ...s.render, ...p } })),
@@ -74,6 +84,14 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
   setSubtitles: (p) => set((s) => ({ subtitles: { ...s.subtitles, ...p } })),
 
   setBgRelevancy: (v) => set({ bgRelevancy: v }),
+
+  setPauses: (p) =>
+    set((s) => ({
+      pauseSameMs: p.sameMs ?? s.pauseSameMs,
+      pauseTurnMs: p.turnMs ?? s.pauseTurnMs,
+    })),
+
+  setVisemeFadeMs: (visemeFadeMs) => set({ visemeFadeMs }),
 
   setFps: (fps) => set({ fps }),
 
@@ -111,6 +129,22 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
       return { speakers: [...s.speakers, next] };
     }),
 
+  addSpeakerFrom: (preset) =>
+    set((s) => {
+      const n = s.speakers.length;
+      return {
+        speakers: [
+          ...s.speakers,
+          {
+            ...preset,
+            id: crypto.randomUUID(),
+            x: n % 2 === 0 ? 0.3 : 0.7,
+            y: 0.6,
+          },
+        ],
+      };
+    }),
+
   removeSpeaker: (id) =>
     set((s) => ({ speakers: s.speakers.filter((sp) => sp.id !== id) })),
 
@@ -133,5 +167,63 @@ export const useProjectStore = create<ProjectState & Actions>((set) => ({
       speakers: (snap.speakers ?? s.speakers).map(migrateSpeaker),
     })),
 
+  loadProject: (p) =>
+    set(() => ({
+      ...defaultProject,
+      ...p,
+      // Nested objects get merged over the defaults rather than replacing them,
+      // so a project saved before a field existed still opens with that field
+      // at its default instead of undefined. Same shallow-merge trap that made
+      // "Scan for Voices" un-clickable; it is not getting a second outing.
+      render: { ...defaultProject.render, ...(p.render ?? {}) },
+      subtitles: { ...defaultProject.subtitles, ...(p.subtitles ?? {}) },
+      musicWaveform: { ...defaultProject.musicWaveform, ...(p.musicWaveform ?? {}) },
+      speakers: (p.speakers ?? []).map(migrateSpeaker),
+    })),
+
   reset: () => set(defaultProject),
-}));
+    }),
+    {
+      name: "byok-project", // the autosave
+      version: 1,
+
+      // The analysis is deliberately dropped: for a ten-minute narration it is
+      // megabytes of base64 spectrum, and localStorage has single-digit MB to
+      // give. The WAV it came from is still on disk, so App.tsx re-analyses it
+      // on startup — a second of work rather than a quota error that silently
+      // stops every future autosave.
+      partialize: (s) => ({
+        render: s.render,
+        musicWaveform: s.musicWaveform,
+        musicColor: s.musicColor,
+        subtitles: s.subtitles,
+        bgRelevancy: s.bgRelevancy,
+        pauseSameMs: s.pauseSameMs,
+        pauseTurnMs: s.pauseTurnMs,
+        visemeFadeMs: s.visemeFadeMs,
+        fps: s.fps,
+        speakers: s.speakers,
+        script: s.script,
+        language: s.language,
+        narration: s.narration
+          ? { filePath: s.narration.filePath, segments: s.narration.segments, analysis: null }
+          : null,
+        attachedAudio: s.attachedAudio
+          ? { filePath: s.attachedAudio.filePath, analysis: null }
+          : null,
+      }),
+
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<ProjectState>;
+        return {
+          ...current,
+          ...p,
+          render: { ...current.render, ...(p.render ?? {}) },
+          subtitles: { ...current.subtitles, ...(p.subtitles ?? {}) },
+          musicWaveform: { ...current.musicWaveform, ...(p.musicWaveform ?? {}) },
+          speakers: (p.speakers ?? current.speakers).map(migrateSpeaker),
+        };
+      },
+    }
+  )
+);

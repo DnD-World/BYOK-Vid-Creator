@@ -26,15 +26,24 @@ export interface SubtitleSceneProps {
   width: number;
   height: number;
   timeMs: number;
+  /** speakerId -> that speaker's outline colour. Lets the highlighted word
+   *  carry whoever is talking, which is the same rule the waveform follows —
+   *  one colour per speaker, derived rather than configured twice. */
+  speakerColors?: Record<string, string>;
 }
 
 const FONT_STACK = '"Segoe UI", system-ui, -apple-system, Roboto, sans-serif';
 
-export function SubtitleScene({ cues, config, width, height, timeMs }: SubtitleSceneProps) {
+export function SubtitleScene({
+  cues, config, width, height, timeMs, speakerColors,
+}: SubtitleSceneProps) {
   if (!config.enabled || width <= 0 || height <= 0) return null;
 
   const cue = cueAt(cues, timeMs);
   if (!cue) return null;
+
+  const activeColor =
+    (config.activeFromSpeaker ? speakerColors?.[cue.speakerId] : null) ?? config.activeColor;
 
   // Sizes derive from frame width so subtitles occupy the same proportion of
   // the frame in the preview and at 1080p.
@@ -84,10 +93,10 @@ export function SubtitleScene({ cues, config, width, height, timeMs }: SubtitleS
             <span
               key={i}
               style={{
-                color: isActive ? config.activeColor : config.color,
+                color: isActive ? activeColor : config.color,
                 textShadow:
                   isActive && glowPx > 0
-                    ? `0 0 ${glowPx}px ${config.activeColor}`
+                    ? `0 0 ${glowPx}px ${activeColor}`
                     : "none",
                 // A trailing space inside the span, rather than a gap between
                 // flex items, so the line wraps like ordinary text does.

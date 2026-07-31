@@ -29,6 +29,8 @@ export function ScenePanel() {
   const subtitles = useProjectStore((s) => s.subtitles);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
   const narration = useProjectStore((s) => s.narration);
+  const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
+  const setVisemeFadeMs = useProjectStore((s) => s.setVisemeFadeMs);
 
   return (
     <div className="flex flex-col h-full">
@@ -80,6 +82,20 @@ export function ScenePanel() {
               </p>
             </section>
 
+            <section>
+              <div className="label-etched mb-2">Lip-sync</div>
+              <Slider
+                label="Mouth Crossfade" value={visemeFadeMs} min={0} max={200} step={5}
+                onChange={(v) => setVisemeFadeMs(Math.round(v))}
+                format={(v) => (v === 0 ? "hard cut" : `${Math.round(v)} ms`)}
+              />
+              <p className="text-sm text-neutral-500 mt-2">
+                Blends one mouth shape into the next instead of cutting. At {fps}
+                {" "}fps a frame is {Math.round(1000 / fps)}ms, so anything under
+                that lands on a single frame and won't read.
+              </p>
+            </section>
+
             <RoadmapSection />
           </>
         )}
@@ -128,16 +144,28 @@ export function ScenePanel() {
                   format={(v) => `${Math.round(v)} chars`}
                 />
                 <Toggle
+                  label="Active word takes the speaker's colour"
+                  checked={subtitles.activeFromSpeaker}
+                  onChange={(v) => setSubtitles({ activeFromSpeaker: v })}
+                />
+                <Toggle
                   label="UPPERCASE"
                   checked={subtitles.uppercase}
                   onChange={(v) => setSubtitles({ uppercase: v })}
                 />
                 <div className="flex items-center gap-4">
-                  {([
-                    ["color", "Text"],
-                    ["activeColor", "Active"],
-                    ["strokeColor", "Outline"],
-                  ] as const).map(([key, label]) => (
+                  {(
+                    [
+                      ["color", "Text"],
+                      // Hidden rather than disabled while the speaker drives it:
+                      // a control that visibly does nothing is worse than one
+                      // that isn't there.
+                      ...(subtitles.activeFromSpeaker
+                        ? []
+                        : ([["activeColor", "Active"]] as const)),
+                      ["strokeColor", "Outline"],
+                    ] as const
+                  ).map(([key, label]) => (
                     <label key={key} className="flex flex-col items-center gap-1.5">
                       <input
                         type="color" value={subtitles[key]}

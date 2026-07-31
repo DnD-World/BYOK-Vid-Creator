@@ -150,8 +150,22 @@ export function WaveformScene({
       {tracks.map((track, ti) => {
         const cfg = track.cfg;
         const density = Math.max(8, Math.round(cfg.density));
-        const closed = cfg.position === "circular";
-        const maxLen = frameMin * 0.14 * cfg.scale;
+        // A halo around a face needs the face's own centre and radius. Music
+        // has no face, so it falls back to ringing the frame.
+        const halo =
+          cfg.position === "speaker" && track.anchor
+            ? {
+                cx: track.anchor.x * width,
+                cy: track.anchor.y * height,
+                // Just clear of the artwork, scaled by the ring control so it
+                // can be pushed out into a wide corona.
+                r: ((track.anchor.size * width) / 2) * (1.14 * cfg.ringSize),
+              }
+            : undefined;
+        const closed = cfg.position === "circular" || cfg.position === "speaker";
+        // Bars around a small face have to be measured against the face, not
+        // the frame — 14% of a 1080px frame is longer than the head it rings.
+        const maxLen = halo ? halo.r * 0.6 * cfg.scale : frameMin * 0.14 * cfg.scale;
 
         // Music is always live. A speaker's waveform animates only on their own
         // lines — except when the audio has no speaker attribution at all
@@ -210,8 +224,15 @@ export function WaveformScene({
           );
         }
 
-        const base = samplePath(cfg.position, width, height, density, cfg.edgeFlush);
-        const points = offsetPoints(base, cfg.position, cfg.lane, frameMin);
+        const base = samplePath(cfg.position, width, height, density, cfg.edgeFlush, halo);
+        // Lane gaps are proportional to the frame, which would throw a halo
+        // clear across the screen — around a face they scale with the face.
+        const points = offsetPoints(
+          base,
+          closed ? "circular" : cfg.position,
+          cfg.lane,
+          halo ? halo.r : frameMin
+        );
         const n = points.length;
         const raw = points.map((_, i) => (active ? ampAt(i, n, closed) : 0.06));
         const amps = smoothAmps(raw, cfg.smoothing, closed);
@@ -220,7 +241,10 @@ export function WaveformScene({
         const caps = active
           ? smoothAmps(points.map((_, i) => peakAt(i, n, closed)), cfg.smoothing, closed)
           : null;
-        const barWidth = Math.max(1, ((frameMin * 0.9) / density / 2) * cfg.thickness);
+        // Bar width follows the circumference the bars are spread around, so a
+        // halo on a small face gets fine bars rather than a solid ring.
+        const spread = halo ? halo.r * 2 * Math.PI : frameMin * 0.9;
+        const barWidth = Math.max(1, (spread / density / 2) * cfg.thickness);
 
         switch (cfg.style) {
           case "bars":

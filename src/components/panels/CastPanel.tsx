@@ -17,6 +17,7 @@ import { Tabs } from "../ui/Tabs";
 import { WaveformControls } from "./WaveformControls";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
+import { useSpeakerLibraryStore } from "../../store/useSpeakerLibraryStore";
 import type { OutlineShape } from "../../store/types";
 
 const SHAPES: { id: OutlineShape; label: string }[] = [
@@ -38,8 +39,14 @@ export function CastPanel() {
   const setMusicColor = useProjectStore((s) => s.setMusicColor);
   const voices = useVoicesStore((s) => s.voices);
 
+  const addSpeakerFrom = useProjectStore((s) => s.addSpeakerFrom);
+  const library = useSpeakerLibraryStore((s) => s.speakers);
+  const saveToLibrary = useSpeakerLibraryStore((s) => s.save);
+  const removeFromLibrary = useSpeakerLibraryStore((s) => s.remove);
+
   const [section, setSection] = useState<"speakers" | "music" | "waveforms">("speakers");
   const [active, setActive] = useState<string>("");
+  const [saved, setSaved] = useState<string | null>(null);
 
   // Never leave the panel pointing at a speaker that has just been deleted.
   useEffect(() => {
@@ -52,12 +59,37 @@ export function CastPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="label-lit text-base">Cast</h2>
         <button onClick={addSpeaker} className="label-etched underline hover:text-accent-bright">
           + Add speaker
         </button>
       </div>
+
+      {/* Recall a saved speaker. A face, a voice and a look are properties of a
+          character, not of one video — picking them again every time is the
+          most repetitive thing in the app. */}
+      {library.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <select
+            value=""
+            onChange={(e) => {
+              const entry = library.find((l) => l.savedId === e.target.value);
+              if (!entry) return;
+              const { savedId: _s, savedAt: _a, ...rest } = entry;
+              addSpeakerFrom(rest);
+            }}
+            className="flex-1 min-w-0 bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+          >
+            <option value="">Add from library…</option>
+            {library.map((l) => (
+              <option key={l.savedId} value={l.savedId}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <Tabs
         tabs={[
@@ -109,6 +141,7 @@ export function CastPanel() {
                 label="Show music waveform"
                 value={musicWaveform}
                 onChange={setMusicWaveform}
+                canAnchorToFace={false}
               />
             </section>
             {speakers.length === 0 && (
@@ -152,6 +185,40 @@ export function CastPanel() {
             </div>
             <p className="text-sm text-neutral-500 -mt-4">
               This name must match the label used in your script lines.
+            </p>
+
+            <div className="flex items-center gap-3 -mt-2">
+              <button
+                onClick={() => {
+                  saveToLibrary(speaker);
+                  setSaved(speaker.label);
+                  window.setTimeout(() => setSaved(null), 2000);
+                }}
+                className="label-etched underline hover:text-accent-bright"
+              >
+                Save to library
+              </button>
+              {library.some(
+                (l) => l.label.trim().toLowerCase() === speaker.label.trim().toLowerCase()
+              ) && (
+                <button
+                  onClick={() => {
+                    const hit = library.find(
+                      (l) => l.label.trim().toLowerCase() === speaker.label.trim().toLowerCase()
+                    );
+                    if (hit) removeFromLibrary(hit.savedId);
+                  }}
+                  className="label-etched underline text-neutral-500 hover:text-red-400"
+                >
+                  forget
+                </button>
+              )}
+              {saved === speaker.label && (
+                <span className="text-sm text-emerald-400">saved ✓</span>
+              )}
+            </div>
+            <p className="text-sm text-neutral-500 -mt-4">
+              Keeps the face, voice, colours and waveform — not where they stand.
             </p>
 
             <section className="space-y-3">

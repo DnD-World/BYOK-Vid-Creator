@@ -253,7 +253,8 @@ ipcMain.handle("tts:generateNarration", async (
   })[],
   // Speaker ids in the order the canvas draws them, so the analysis's
   // per-frame speaker index lines up with the waveform's tracks.
-  speakerOrder: string[] = []
+  speakerOrder: string[] = [],
+  pauses: { sameMs: number; turnMs: number } = { sameMs: 0, turnMs: 0 }
 ) => {
   if (segments.length === 0) {
     throw new Error("No script segments to generate — check your script matches your speaker labels.");
@@ -288,7 +289,13 @@ ipcMain.handle("tts:generateNarration", async (
     buffers.push(Buffer.from(audioBuffer));
   }
 
-  const { buffer, segments: timing } = concatWavBuffers(buffers);
+  // Nothing in front of the first line — leading silence only delays the video.
+  // After that, a breath between a speaker's own lines and a longer beat when
+  // the turn changes.
+  const gaps = segments.map((seg, i) =>
+    i === 0 ? 0 : seg.speakerId === segments[i - 1].speakerId ? pauses.sameMs : pauses.turnMs
+  );
+  const { buffer, segments: timing } = concatWavBuffers(buffers, gaps);
 
   await fsp.mkdir(outputDir(), { recursive: true });
   const filePath = path.join(outputDir(), `narration-${Date.now()}.wav`);

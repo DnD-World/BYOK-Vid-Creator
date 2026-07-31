@@ -20,7 +20,7 @@ import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
 import { buildCues } from "../src/lib/subtitles/wordTiming";
 import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
-import { visemeAt } from "../src/lib/visemes/timeline";
+import { visemeBlendAt } from "../src/lib/visemes/timeline";
 import { VISEME } from "../src/lib/visemes/visemeMap";
 import { useWaitForImages } from "./useWaitForImages";
 import { useSpectrumFile } from "./useSpectrumFile";
@@ -50,6 +50,7 @@ export function VideoComposition({
   spectrumFileName,
   spectrumBandCount,
   subtitles,
+  visemeFadeMs,
   narrationSegments,
 }: RenderProps) {
   const frame = useCurrentFrame();
@@ -89,6 +90,11 @@ export function VideoComposition({
     [speakers, musicWaveform, musicColor]
   );
 
+  const speakerColors = useMemo(
+    () => Object.fromEntries(speakers.map((sp) => [sp.id, sp.borderColor])),
+    [speakers]
+  );
+
   // The single line that makes the export deterministic: time comes from the
   // frame index, never from a wall clock. Frame 240 at 30fps is 8000ms on
   // every worker, in any order, on every machine.
@@ -112,7 +118,9 @@ export function VideoComposition({
 
       {speakers.map((sp) => {
         const track = visemeTracks[sp.id];
-        const viseme = track ? visemeAt(track, timeMs / 1000) : VISEME.NEUTRAL;
+        const blend = track
+          ? visemeBlendAt(track, timeMs / 1000, visemeFadeMs / 1000)
+          : { from: VISEME.NEUTRAL, to: VISEME.NEUTRAL, mix: 1 };
         // size is a fraction of frame width, so this resolves identically in
         // the preview and here — no scaling factor to get wrong.
         const size = Math.max(8, sp.size * width);
@@ -131,7 +139,9 @@ export function VideoComposition({
                 once already — there is only one implementation now. */}
             <SpeakerAvatar
               sheetUrl={sp.sheetFileName ? staticFile(sp.sheetFileName) : ""}
-              viseme={viseme}
+              viseme={blend.to}
+              prevViseme={blend.from}
+              mix={blend.mix}
               size={size}
               bgOpacity={sp.bgOpacity}
               borderOpacity={sp.borderOpacity}
@@ -150,6 +160,7 @@ export function VideoComposition({
         width={width}
         height={height}
         timeMs={timeMs}
+        speakerColors={speakerColors}
       />
     </AbsoluteFill>
   );

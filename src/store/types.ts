@@ -22,7 +22,9 @@ export interface RenderSettings {
 export interface TrackWaveform {
   enabled: boolean;
   style: "bars" | "lines" | "wave" | "mirror" | "dots" | "rings";
-  position: "circular" | "top" | "bottom" | "left" | "right";
+  /** "speaker" rings the owning speaker's own face rather than the frame —
+   *  the halo look. Music has no face, so it falls back to "circular". */
+  position: "circular" | "speaker" | "top" | "bottom" | "left" | "right";
   scale: number;       // 0.2–2.5, amplitude-extension multiplier
   density: number;     // sample/bar count, 8–160
   thickness: number;   // 0.2–3, bar/stroke width multiplier
@@ -72,6 +74,10 @@ export interface SubtitleConfig {
   strokeWidth: number;
   /** Glow strength on the active word, 0 = off. */
   activeGlow: number;
+  /** Take the active word's colour and glow from whoever is speaking, instead
+   *  of `activeColor`. Ties the caption to the speaker without a second set of
+   *  controls to keep in sync — the same rule the waveform already follows. */
+  activeFromSpeaker: boolean;
   uppercase: boolean;
   /** Characters per cue before the text wraps to a new cue. */
   maxChars: number;
@@ -170,6 +176,15 @@ export interface ProjectState {
   musicColor: string;
   subtitles: SubtitleConfig;
   bgRelevancy: number;   // 0 = fewer/longer, 1 = many/fast
+  /** Silence inserted before a line by the same speaker — a breath. */
+  pauseSameMs: number;
+  /** Silence inserted when the speaker changes. Two people swapping turns with
+   *  no gap at all is the single clearest tell that a conversation was
+   *  assembled rather than recorded. */
+  pauseTurnMs: number;
+  /** Crossfade between viseme cells, in ms. A hard cut between photoreal mouth
+   *  shapes reads as a glitch; a short fade reads as movement. 0 = hard cut. */
+  visemeFadeMs: number;
   fps: Fps;
   speakers: SpeakerConfig[];
   script: string;        // raw "Label: text" per line narration script

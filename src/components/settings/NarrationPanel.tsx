@@ -4,6 +4,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
 import { parseScript } from "../../lib/narration/parseScript";
+import { Slider } from "../ui/Slider";
 
 const LANGUAGES = [
   { code: "el", label: "Greek" },
@@ -30,6 +31,9 @@ export default function NarrationPanel() {
   const language = useProjectStore((s) => s.language);
   const setLanguage = useProjectStore((s) => s.setLanguage);
   const setNarration = useProjectStore((s) => s.setNarration);
+  const pauseSameMs = useProjectStore((s) => s.pauseSameMs);
+  const pauseTurnMs = useProjectStore((s) => s.pauseTurnMs);
+  const setPauses = useProjectStore((s) => s.setPauses);
   const exaggeration = useSettingsStore((s) => s.defaults.chatterboxExaggeration);
   const cfgWeight = useSettingsStore((s) => s.defaults.chatterboxCfgWeight);
   const piperPythonPath = useSettingsStore((s) => s.defaults.piperPythonPath);
@@ -153,7 +157,8 @@ export default function NarrationPanel() {
 
       const res = await window.byok.tts.generateNarration(
         resolvedSegments,
-        speakers.map((s) => s.id)
+        speakers.map((s) => s.id),
+        { sameMs: pauseSameMs, turnMs: pauseTurnMs }
       );
       setResult(res);
       // Publish it so the render bar can attach it and match its length
@@ -267,6 +272,25 @@ export default function NarrationPanel() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
+        <h3 className="label-lit text-sm">Pacing</h3>
+        <p className="text-sm text-neutral-400">
+          Silence inserted between lines. Two people swapping turns with no gap
+          at all is the clearest tell that a conversation was assembled rather
+          than recorded. Takes effect the next time you generate.
+        </p>
+        <Slider
+          label="Breath (same speaker)" value={pauseSameMs} min={0} max={800} step={10}
+          onChange={(v) => setPauses({ sameMs: Math.round(v) })}
+          format={(v) => `${Math.round(v)} ms`}
+        />
+        <Slider
+          label="Beat (speaker changes)" value={pauseTurnMs} min={0} max={1500} step={10}
+          onChange={(v) => setPauses({ turnMs: Math.round(v) })}
+          format={(v) => `${Math.round(v)} ms`}
+        />
       </div>
 
       <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-2">

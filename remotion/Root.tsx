@@ -19,6 +19,7 @@ const previewDefaults: RenderProps = {
   spectrumFileName: null,
   spectrumBandCount: 0,
   subtitles: defaultProject.subtitles,
+  visemeFadeMs: defaultProject.visemeFadeMs,
   narrationSegments: [],
 };
 
