@@ -38,6 +38,7 @@ export interface RenderJob {
   analysis?: RenderProps["analysis"];
   subtitles: RenderProps["subtitles"];
   visemeFadeMs?: number;
+  idleMotion?: number;
   narrationSegments?: RenderProps["narrationSegments"];
 }
 
@@ -191,6 +192,7 @@ export async function renderVideo(
       spectrumBandCount,
       subtitles: job.subtitles,
       visemeFadeMs: job.visemeFadeMs ?? 0,
+      idleMotion: job.idleMotion ?? 0,
       narrationSegments: job.narrationSegments ?? [],
     };
 

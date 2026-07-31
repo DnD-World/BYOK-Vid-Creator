@@ -83,6 +83,8 @@ export type RenderProps = {
   subtitles: SubtitleConfig;
   /** Crossfade between viseme cells, in ms. */
   visemeFadeMs: number;
+  /** Idle head motion intensity, 0–1. */
+  idleMotion: number;
   /** Narration lines with timing, from which subtitle cues are derived.
    *  Empty means nothing to show. */
   narrationSegments: NarrationSegment[];

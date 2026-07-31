@@ -17,6 +17,8 @@ import NarrationPanel from "./components/settings/NarrationPanel";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { deriveAccentShades } from "./lib/color/deriveShades";
+import { headMotion, motionTransform } from "./lib/motion/idleMotion";
+import { sampleAnalysis } from "./lib/waveform/audioAnalysis";
 import { useCornerFlare } from "./lib/motion/useCornerFlare";
 import { VISEME } from "./lib/visemes/visemeMap";
 
@@ -115,6 +117,7 @@ export default function App() {
   const subtitles = useProjectStore((s) => s.subtitles);
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
   const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
+  const idleMotion = useProjectStore((s) => s.idleMotion);
 
   // Attached audio wins, matching the render bar: whatever ends up in the
   // video is what the preview animates to.
@@ -123,6 +126,14 @@ export default function App() {
   // One clock shared by every canvas overlay. Loops over the narration so the
   // preview shows the real audio cycling rather than drifting into silence.
   const previewTimeMs = usePreviewClock(activeAnalysis?.durationMs);
+
+  // Who is talking right now, for the "speaking heads move a little more" cue.
+  // Read from the same analysis the waveform uses so the two never disagree.
+  const activeSpeakerId = useMemo(() => {
+    const m = sampleAnalysis(activeAnalysis, previewTimeMs);
+    if (!m || m.speaker < 0) return null;
+    return speakers[m.speaker]?.id ?? null;
+  }, [activeAnalysis, previewTimeMs, speakers]);
   const cues = useMemo(
     () => buildCues(narration?.segments ?? [], subtitles.maxChars),
     [narration, subtitles.maxChars]
@@ -377,7 +388,21 @@ export default function App() {
                     position: "absolute",
                     left: `${sp.x * 100}%`,
                     top: `${sp.y * 100}%`,
-                    transform: "translate(-50%, -50%)",
+                    // Dragging freezes the idle motion: a head that keeps
+                    // breathing while you're trying to place it fights the mouse.
+                    transform:
+                      "translate(-50%, -50%)" +
+                      (draggingId === sp.id
+                        ? ""
+                        : motionTransform(
+                            headMotion(
+                              sp.id,
+                              previewTimeMs,
+                              activeSpeakerId === sp.id,
+                              idleMotion
+                            ),
+                            sp.size * canvasSize.w
+                          )),
                     cursor: draggingId === sp.id ? "grabbing" : "grab",
                     touchAction: "none",
                   }}

@@ -31,6 +31,7 @@ export function RenderBar() {
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
   const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
+  const idleMotion = useProjectStore((s) => s.idleMotion);
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
   const setAttachedAudio = useProjectStore((s) => s.setAttachedAudio);
   const [analyzing, setAnalyzing] = useState(false);
@@ -131,6 +132,7 @@ export function RenderBar() {
         analysis: audioPath ? attachedAudio?.analysis ?? null : narration?.analysis ?? null,
         subtitles,
         visemeFadeMs,
+        idleMotion,
         // Same reasoning: subtitles are only meaningful against the narration
         // whose timings produced them.
         narrationSegments: audioPath ? [] : narration?.segments ?? [],

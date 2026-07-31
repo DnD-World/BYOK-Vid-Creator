@@ -20,6 +20,7 @@ const previewDefaults: RenderProps = {
   spectrumBandCount: 0,
   subtitles: defaultProject.subtitles,
   visemeFadeMs: defaultProject.visemeFadeMs,
+  idleMotion: defaultProject.idleMotion,
   narrationSegments: [],
 };
 

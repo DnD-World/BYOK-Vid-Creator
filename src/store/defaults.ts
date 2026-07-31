@@ -30,6 +30,7 @@ export const defaultProject: ProjectState = {
   pauseSameMs: 120,
   pauseTurnMs: 340,
   visemeFadeMs: 70,
+  idleMotion: 0.7,
   fps: 24,
   speakers: [],
   script: "",

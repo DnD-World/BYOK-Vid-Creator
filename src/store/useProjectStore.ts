@@ -46,6 +46,7 @@ interface Actions {
   setBgRelevancy: (v: number) => void;
   setPauses: (p: { sameMs?: number; turnMs?: number }) => void;
   setVisemeFadeMs: (v: number) => void;
+  setIdleMotion: (v: number) => void;
   setFps: (fps: Fps) => void;
   setScript: (text: string) => void;
   setLanguage: (lang: string) => void;
@@ -92,6 +93,8 @@ export const useProjectStore = create<ProjectState & Actions>()(
     })),
 
   setVisemeFadeMs: (visemeFadeMs) => set({ visemeFadeMs }),
+
+  setIdleMotion: (idleMotion) => set({ idleMotion }),
 
   setFps: (fps) => set({ fps }),
 
@@ -201,6 +204,7 @@ export const useProjectStore = create<ProjectState & Actions>()(
         pauseSameMs: s.pauseSameMs,
         pauseTurnMs: s.pauseTurnMs,
         visemeFadeMs: s.visemeFadeMs,
+        idleMotion: s.idleMotion,
         fps: s.fps,
         speakers: s.speakers,
         script: s.script,

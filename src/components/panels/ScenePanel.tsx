@@ -31,6 +31,8 @@ export function ScenePanel() {
   const narration = useProjectStore((s) => s.narration);
   const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
   const setVisemeFadeMs = useProjectStore((s) => s.setVisemeFadeMs);
+  const idleMotion = useProjectStore((s) => s.idleMotion);
+  const setIdleMotion = useProjectStore((s) => s.setIdleMotion);
 
   return (
     <div className="flex flex-col h-full">
@@ -94,6 +96,17 @@ export function ScenePanel() {
                 {" "}fps a frame is {Math.round(1000 / fps)}ms, so anything under
                 that lands on a single frame and won't read.
               </p>
+              <div className="mt-4">
+                <Slider
+                  label="Idle Motion" value={idleMotion} min={0} max={1} step={0.05}
+                  onChange={setIdleMotion}
+                  format={(v) => (v === 0 ? "still" : `${Math.round(v * 100)}%`)}
+                />
+                <p className="text-sm text-neutral-500 mt-2">
+                  Breathing and a slow drift, so a head isn't a photograph with a
+                  moving mouth. Whoever is speaking moves slightly more.
+                </p>
+              </div>
             </section>
 
             <RoadmapSection />

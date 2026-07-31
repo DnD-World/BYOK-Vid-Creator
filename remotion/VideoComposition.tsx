@@ -24,6 +24,8 @@ import { visemeBlendAt } from "../src/lib/visemes/timeline";
 import { VISEME } from "../src/lib/visemes/visemeMap";
 import { useWaitForImages } from "./useWaitForImages";
 import { useSpectrumFile } from "./useSpectrumFile";
+import { headMotion, motionTransform } from "../src/lib/motion/idleMotion";
+import { sampleAnalysis } from "../src/lib/waveform/audioAnalysis";
 import type { RenderProps } from "./types";
 
 /** Apply an alpha to a #rgb/#rrggbb color. Speakers carry their fill and
@@ -51,6 +53,7 @@ export function VideoComposition({
   spectrumBandCount,
   subtitles,
   visemeFadeMs,
+  idleMotion,
   narrationSegments,
 }: RenderProps) {
   const frame = useCurrentFrame();
@@ -100,6 +103,12 @@ export function VideoComposition({
   // every worker, in any order, on every machine.
   const timeMs = (frame / fps) * 1000;
 
+  // Same source as the waveform's active-speaker gate, so the head that moves
+  // more is always the head whose waveform is lit.
+  const moment = sampleAnalysis(analysis, timeMs, spectrum);
+  const activeSpeakerId =
+    moment && moment.speaker >= 0 ? speakers[moment.speaker]?.id ?? null : null;
+
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0b0d" }}>
@@ -124,6 +133,12 @@ export function VideoComposition({
         // size is a fraction of frame width, so this resolves identically in
         // the preview and here — no scaling factor to get wrong.
         const size = Math.max(8, sp.size * width);
+        const motion = headMotion(
+          sp.id,
+          timeMs,
+          activeSpeakerId === sp.id,
+          idleMotion
+        );
         return (
           <div
             key={sp.id}
@@ -131,7 +146,7 @@ export function VideoComposition({
               position: "absolute",
               left: `${sp.x * 100}%`,
               top: `${sp.y * 100}%`,
-              transform: "translate(-50%, -50%)",
+              transform: "translate(-50%, -50%)" + motionTransform(motion, size),
             }}
           >
             {/* The very same component the preview draws. Duplicating the disk

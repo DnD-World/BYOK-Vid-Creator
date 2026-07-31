@@ -185,6 +185,9 @@ export interface ProjectState {
   /** Crossfade between viseme cells, in ms. A hard cut between photoreal mouth
    *  shapes reads as a glitch; a short fade reads as movement. 0 = hard cut. */
   visemeFadeMs: number;
+  /** How much the heads breathe and drift when nothing else is happening.
+   *  0 = perfectly still, which is what made them read as photographs. */
+  idleMotion: number;
   fps: Fps;
   speakers: SpeakerConfig[];
   script: string;        // raw "Label: text" per line narration script
