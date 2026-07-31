@@ -110,6 +110,22 @@ export interface SpeakerConfig {
   chatterboxVoiceRef?: string; // predefined_voice_id or reference_audio_filename, depending on mode above
 }
 
+/** Per-band spectrum for every analysis frame — the data that lets bars move
+ *  independently instead of all scaling with one loudness number.
+ *
+ *  Frame-major and quantised: frame `f`, band `b` is byte `f * bandCount + b`,
+ *  0–255. Packed as base64 rather than a number[][] because at 60Hz and 24
+ *  bands a ten-minute narration is 864k values per array — as JSON that is
+ *  megabytes of "0.42," and it has to cross an IPC boundary and then a render
+ *  boundary. A byte per value is all the precision a bar height can show. */
+export interface AudioSpectrum {
+  bandCount: number;
+  /** base64 Uint8Array — the band's current level. */
+  bands: string;
+  /** base64 Uint8Array — the peak-hold cap above that level. */
+  peaks: string;
+}
+
 /** Precomputed loudness + who's-talking data for the narration audio, sampled
  *  at a fixed `hz` so one analysis serves the preview and any render fps.
  *  Produced by electron/audio/analyzeNarration.ts. */
@@ -120,6 +136,11 @@ export interface AudioAnalysis {
   amp: number[];
   /** Index into the speakers array, or -1 for silence. Same length as `amp`. */
   speaker: number[];
+  /** Absent when the spectrum travels out of band — during a render it is
+   *  written into the public dir and fetched by the composition instead of
+   *  riding along in inputProps. The waveform falls back to the shape function
+   *  when it is missing, so this staying null is a degradation, not a break. */
+  spectrum?: AudioSpectrum | null;
 }
 
 export interface NarrationSegment {

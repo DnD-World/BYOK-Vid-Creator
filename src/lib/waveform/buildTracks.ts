@@ -53,7 +53,11 @@ export function defaultTrackWaveform(lane = 0): TrackWaveform {
     thickness: 1,
     dotSize: 1,
     edgeFlush: false,
-    smoothing: 0.35,
+    // Was 0.35, which cost nothing when every bar was a sample of one smooth
+    // sine. Now that neighbouring bars carry different frequency bands, the
+    // difference between them is the signal, and blending it away is the one
+    // setting that can make a real spectrum look like the old fake one again.
+    smoothing: 0.2,
     ringInnerRadius: 0.2,
     ringSize: 1,
     ringX: 0.5,

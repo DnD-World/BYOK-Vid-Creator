@@ -114,7 +114,23 @@ export async function synthesizeWithPiper(
   text: string
 ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> {
   const handle = await getOrStartServer(pythonPath, onnxPath);
+  try {
+    return await postSynthesize(handle.port, text);
+  } catch (e) {
+    // One retry, and only for a connection that died rather than answered.
+    // See the agent:false note below for why this happens at all; the retry
+    // covers the race that remains when the server closes a socket in the
+    // window between us opening it and writing to it.
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== "ECONNRESET" && code !== "EPIPE") throw e;
+    return postSynthesize(handle.port, text);
+  }
+}
 
+async function postSynthesize(
+  port: number,
+  text: string
+): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> {
   // POST /synthesize with a JSON body. NOT `GET /?text=` — that was the old
   // rhasspy/piper http_server contract. In piper-tts 1.x `GET /` serves an HTML
   // demo page, so the old call silently returned a web page that then failed to
@@ -124,13 +140,23 @@ export async function synthesizeWithPiper(
     const req = http.request(
       {
         host: "127.0.0.1",
-        port: handle.port,
+        port,
         path: "/synthesize",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(payload),
         },
+        // No connection pooling. Node's global agent has kept sockets alive by
+        // default since v19, and Piper's server closes idle ones — so a script
+        // that alternates between two voices leaves each connection idle for
+        // however long the other voice takes, and the next request reuses a
+        // socket the server has already dropped. That surfaced as
+        // "read ECONNRESET" partway through generating a multi-speaker
+        // narration, non-deterministically: whether it failed depended on how
+        // long the other speaker's line took to synthesise, which is why the
+        // same script succeeded one run and failed the next.
+        agent: false,
         // Long lines on a CPU-only machine are genuinely slow; 30s was tight.
         timeout: 120000,
       },

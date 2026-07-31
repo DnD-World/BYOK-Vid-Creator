@@ -4,9 +4,12 @@
 // Two modes, and which one is in play depends only on whether real narration
 // audio has been analysed yet:
 //
-//   shapedAmplitude()  - real speech drives it. `level` is the measured
-//                        loudness at this instant; the shape function only
-//                        decides how that loudness is distributed across bars.
+//   bandAmplitude()    - real speech drives it, per frequency band. Each bar
+//                        reads its own band, so bass and treble move
+//                        independently the way they actually do.
+//   shapedAmplitude()  - fallback for audio analysed without a spectrum.
+//                        One loudness value spread across the bars by a shape
+//                        function, which means every bar moves together.
 //   placeholderAmplitude() - no audio yet, so the canvas still has to look
 //                        alive. Pure function of (track, index, time).
 //
@@ -35,13 +38,45 @@ export function placeholderAmplitude(track: number, i: number, timeMs: number): 
 }
 
 /**
- * Real-audio bar height. `level` (0–1) is the measured loudness of the
- * narration at this instant and sets the ceiling; the shape term only varies
- * bars relative to each other, never lifts them above the true level.
+ * Real-audio bar height, from the spectrum. Bar `i` of `count` reads a band,
+ * interpolated between the two nearest so a 56-bar ring off 24 bands is a
+ * curve rather than 24 visible steps.
  *
- * The consequence that matters: in a pause between lines `level` is ~0, so the
- * waveform genuinely goes still instead of idling. That silence is what makes
- * the motion read as driven by the voice rather than decorative.
+ * There is deliberately no global loudness multiplier here. The band level IS
+ * the height — that is the whole point of the change. Scaling every band by
+ * one number is what the shape function used to do, and it is why the waveform
+ * breathed in unison. Silence stays silent because every band is near zero
+ * during it, not because something outside gates it.
+ *
+ * `closed` mirrors the spectrum around a ring: bar 0 and the last bar are
+ * neighbours on a circle, so running low->high straight round would put a hard
+ * seam where treble meets bass. Mirroring makes it symmetrical, which is also
+ * what almost every circular visualiser does.
+ */
+export function bandAmplitude(
+  bands: Uint8Array,
+  bandCount: number,
+  i: number,
+  count: number,
+  closed: boolean
+): number {
+  if (bandCount === 0 || count <= 0) return 0.01;
+
+  const t = count === 1 ? 0 : i / count;
+  const u = closed ? (t < 0.5 ? t * 2 : (1 - t) * 2) : t;
+
+  const pos = u * (bandCount - 1);
+  const lo = Math.floor(pos);
+  const hi = Math.min(bandCount - 1, lo + 1);
+  const f = pos - lo;
+  const v = (bands[lo] * (1 - f) + bands[hi] * f) / 255;
+  return Math.max(0.01, Math.min(1, v));
+}
+
+/**
+ * Fallback bar height when audio was analysed but carries no spectrum — an
+ * older analysis, or a render whose spectrum file failed to load. `level` sets
+ * the ceiling and the shape term only varies bars relative to each other.
  */
 export function shapedAmplitude(
   track: number,

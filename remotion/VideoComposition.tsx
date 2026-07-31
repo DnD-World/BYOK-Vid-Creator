@@ -23,6 +23,7 @@ import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
 import { visemeAt } from "../src/lib/visemes/timeline";
 import { VISEME } from "../src/lib/visemes/visemeMap";
 import { useWaitForImages } from "./useWaitForImages";
+import { useSpectrumFile } from "./useSpectrumFile";
 import type { RenderProps } from "./types";
 
 /** Apply an alpha to a #rgb/#rrggbb color. Speakers carry their fill and
@@ -46,11 +47,19 @@ export function VideoComposition({
   speakers,
   audioFileName,
   analysis,
+  spectrumFileName,
+  spectrumBandCount,
   subtitles,
   narrationSegments,
 }: RenderProps) {
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
+
+  // Must resolve before any frame is captured — the hook holds the render.
+  const spectrum = useSpectrumFile(
+    spectrumFileName ? staticFile(spectrumFileName) : null,
+    spectrumBandCount
+  );
 
   // Cue layout depends only on the script and the wrap width, so it's computed
   // once per worker rather than on every one of thousands of frames.
@@ -97,6 +106,7 @@ export function VideoComposition({
           height={height}
           timeMs={timeMs}
           analysis={analysis}
+          spectrum={spectrum}
         />
       </div>
 

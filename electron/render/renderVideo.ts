@@ -48,6 +48,7 @@ export interface RenderContext {
 }
 
 const AUDIO_PUBLIC_NAME = "narration.wav";
+const SPECTRUM_PUBLIC_NAME = "spectrum.bin";
 
 /** Weights for turning three sequential stages into one 0-100 bar. Renders
  *  dominate on repeat runs, which is the case the user sees most often. */
@@ -83,11 +84,39 @@ export async function renderVideo(
   // cross-origin request from the bundle's http:// origin.
   const publicDir = await fsp.mkdtemp(path.join(os.tmpdir(), "byok-render-"));
   let audioFileName: string | null = null;
+  const warnings: string[] = [];
 
   try {
     if (job.audioFilePath) {
       await fsp.copyFile(job.audioFilePath, path.join(publicDir, AUDIO_PUBLIC_NAME));
       audioFileName = AUDIO_PUBLIC_NAME;
+    }
+
+    // The spectrum is the one part of the analysis big enough to matter — a
+    // ten-minute narration is 1.7MB of bytes — so it goes to disk and the
+    // composition fetches it, while the rest of the analysis (a few thousand
+    // small numbers) still rides along in inputProps. Written as one buffer of
+    // bands followed by peaks; the composition splits it in half.
+    //
+    // Everything that belongs in the public dir has to be written BEFORE
+    // bundle() runs: the bundler copies the directory into the served output,
+    // so a file written after it is never served. Writing this one late made
+    // the fetch 404, the composition fall back to the loudness envelope, and
+    // the render come out looking exactly like the version this change was
+    // supposed to replace — with no error anywhere.
+    const spectrum = job.analysis?.spectrum ?? null;
+    let spectrumFileName: string | null = null;
+    let spectrumBandCount = 0;
+    if (spectrum && spectrum.bandCount > 0) {
+      await fsp.writeFile(
+        path.join(publicDir, SPECTRUM_PUBLIC_NAME),
+        Buffer.concat([
+          Buffer.from(spectrum.bands, "base64"),
+          Buffer.from(spectrum.peaks, "base64"),
+        ])
+      );
+      spectrumFileName = SPECTRUM_PUBLIC_NAME;
+      spectrumBandCount = spectrum.bandCount;
     }
 
     // Viseme sheets travel the same road as the audio, for the same reason: the
@@ -154,7 +183,11 @@ export async function renderVideo(
       fps: job.fps,
       durationSec: job.durationSec,
       audioFileName,
-      analysis: job.analysis ?? null,
+      // Stripped, not omitted: leaving it in would put the whole spectrum in
+      // inputProps as well as in the file, which is the cost this avoids.
+      analysis: job.analysis ? { ...job.analysis, spectrum: null } : null,
+      spectrumFileName,
+      spectrumBandCount,
       subtitles: job.subtitles,
       narrationSegments: job.narrationSegments ?? [],
     };
@@ -175,12 +208,18 @@ export async function renderVideo(
       codec: "h264",
       outputLocation: outputPath,
       inputProps,
+      // The composition can't talk back except through the browser console, and
+      // the one thing it needs to say — "I couldn't load the spectrum, this
+      // video is silently worse than it should be" — is invisible otherwise.
+      onBrowserLog: (log) => {
+        if (log.text.includes("[byok]")) warnings.push(log.text);
+      },
       onProgress: ({ progress }) => {
         onProgress(lerp(STAGE.render, progress), "Rendering frames…");
       },
     });
 
-    onProgress(100, "Done");
+    onProgress(100, warnings.length ? warnings[0] : "Done");
     return {
       outputPath,
       durationSec: job.durationSec,

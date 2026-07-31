@@ -16,6 +16,8 @@ const previewDefaults: RenderProps = {
   durationSec: 10,
   audioFileName: null,
   analysis: null,
+  spectrumFileName: null,
+  spectrumBandCount: 0,
   subtitles: defaultProject.subtitles,
   narrationSegments: [],
 };

@@ -5,7 +5,8 @@
 > decisions were made.
 >
 > Audited against the code on 30 Jul 2026 — every "not built" below was checked
-> by grep, not remembered.
+> by grep, not remembered. Updated 31 Jul 2026 after the app was driven end to
+> end through its real UI for the first time.
 
 ---
 
@@ -30,6 +31,10 @@ existing, it goes in the Cut List — not a backlog.
 
 ## 1. Built and verified
 
+> "Verified" from here on means it was run and the output looked at — a render
+> inspected, a number measured — not that it typechecks.
+
+
 - **App shell**, amber-cyberpunk system, runtime accent colour, motion toggle.
 - **Piper TTS** — dedicated `piper-venv/`, `piper-tts 1.6.0`, voices in
   `piper-voices/` (2 Greek + 1 English). Real Greek synthesis confirmed.
@@ -37,8 +42,11 @@ existing, it goes in the Cut List — not a backlog.
   timings. Piper path verified end to end.
 - **Audio analysis** — RMS envelope at a fixed 60Hz (`analyzeNarration.ts`),
   independent of render fps so preview and export read identical data.
-- **Audio-driven waveform** — real loudness, and only the active speaker
-  animates. Attached (non-narration) audio also drives it.
+- **Audio-driven waveform** — a **per-band FFT**: 24 log-spaced bands at 60Hz,
+  so bars move independently rather than all scaling with one number. Only the
+  active speaker animates. Attached (non-narration) audio also drives it.
+  Peak-hold caps and rise/fall asymmetry are baked into the analysis, because
+  Remotion renders frames out of order and nothing downstream can hold state.
 - **Subtitles** — burned in, active-word glow, per-word timing estimated by
   character weight. Verified in Greek and English.
 - **Viseme lip-sync** — sheets copied into the render's public dir, tracks built
@@ -49,21 +57,41 @@ existing, it goes in the Cut List — not a backlog.
 - **Cast | Scene panels**, per-speaker waveforms, frame shapes, presets.
 - **Backend Settings** — per-key connectivity tests, help text, signup links.
 
-## 2. Built but NEVER RUN by a human
+## 2. First run through the real UI — done, 31 Jul 2026
 
-This is the single biggest risk in the project. Everything above was verified by
-driving the pipeline programmatically — **the app's real UI has never produced a
-video.**
+The app has now produced a video from its own UI: two speakers, viseme sheets,
+Piper Greek voices, a pasted Greek script, narration, render. Clicked, not
+scripted against the store. What that flushed out:
 
-- The whole Cast/Scene layout has never been seen on screen. Three columns at
-  384px + canvas needs ≥1280px, which is the current minimum window width. If
-  it's cramped, panels need to become collapsible.
-- **Chatterbox has never run on this machine.** One-time setup in
-  `docs/CHATTERBOX.md`.
-- Test buttons have never hit a real API.
-- Avatar drag, preset apply/save/export, face picker — all typechecked, none clicked.
+- **Persisted settings shadowed every new default.** zustand's `persist` merges
+  shallowly, so the whole `defaults` object came from localStorage and anything
+  added or changed since it was written never arrived. On this machine that
+  meant an empty `piperVoicesDir` — leaving "Scan for Voices" disabled forever
+  with nothing on screen saying why — and a bare `python3`. Fixed: deep merge
+  plus a v1 migration. **Any future field added to `BackendDefaults` needs no
+  further ceremony; this was the trap.**
+- **Piper synthesis was flaky in a way nothing but a real multi-speaker run
+  shows.** Node's global HTTP agent has kept sockets alive by default since v19;
+  Piper's server drops idle ones. Alternating two voices leaves each connection
+  idle for the length of the other's line, and the reused socket dies:
+  `read ECONNRESET`, mid-narration, non-deterministically. Fixed with
+  `agent: false` plus one retry.
+- **Preview sizing** used 80% of one axis, so a 9:16 preview was 267px wide at
+  the 1280px minimum. It now fits the frame to the space actually available
+  (334×593 there, 430×764 at full size).
+- **Cast and Scene rails collapse** to a labelled spine. Precisely: this buys a
+  9:16 preview nothing, because it is height-bound. A 16:9 preview goes
+  398×223 → 746×419 with one rail folded, → 1056×594 with both.
+- **GLM-5.2 took 274s** against a real key — inside the 5 minute timeout, but a
+  button reading "Drafting…" that long is indistinguishable from a hang. It
+  counts seconds now.
 
-**First job of any new session: run it and fix what falls over.**
+Verified by clicking: face picker, avatar drag with grid snap, all three
+built-in presets, preset save/load/export/import, the legacy template migration
+path, and all four backend Test buttons against real APIs (NVIDIA, Pixabay,
+Pexels pass; Azure correctly asks for its region first).
+
+**Still never run: Chatterbox.** One-time setup in `docs/CHATTERBOX.md`.
 
 ## 3. Partially built — honest status
 
@@ -87,7 +115,6 @@ video.**
 
 **Visual**
 - Background video from Pixabay / Pexels (keys saved, nothing consumes them)
-- **Per-band FFT waveforms** — see Next Chapter
 - Intro / outro cards
 - Transition library (`defaultTransition` exists in settings but nothing reads it)
 - The dotted 3D wave-plane waveform style
@@ -110,6 +137,25 @@ video.**
 
 ## 5. Technical debt found in audit
 
+- **The project is not saved anywhere.** `useProjectStore` has no `persist`, so
+  closing the app loses the cast, the script, the narration and every setting on
+  the Scene panel. Presets cover the *look*, deliberately, but they are a manual
+  export and they don't carry the script or the narration. Decide whether that
+  is the design (presets are the save format, say so in the UI) or a gap.
+- **Piper's server re-execs itself under a different Python.** `piper.http_server`
+  is a Flask app with the reloader on, so the process that actually binds the
+  port is a *grandchild* launched with the system interpreter
+  (`Programs\Python\Python312\python.exe`), not the venv the app carefully
+  points at. `shutdownAllPiperServers` kills the parent only. Nothing has piled
+  up in practice, but the venv isolation the settings comment argues for is not
+  actually holding, and ports are fixed (5501+) with no check that whatever
+  answers on one is ours.
+- **`onBrowserLog` is the only channel the composition has to report a problem.**
+  Currently one message uses it (spectrum failed to load). Worth remembering
+  that anything going wrong inside a render is otherwise completely silent —
+  which is exactly how a render that had quietly stopped using the spectrum
+  still looked like a success.
+
 - **Dead settings**, in the store but read by nothing: `defaultTransition`,
   `storageTarget`, `ttsPrimary`, `ttsFallback`, `llmScenePlanner`.
   `bgRelevancy` has a setter and no UI and no consumer. Either wire or delete —
@@ -131,25 +177,43 @@ video.**
 
 ## Next chapter — start here
 
-### 1. Waveforms look cheap, and the cause is architectural
+### 1. Waveforms — done, and what the numbers actually say
 
-They animate from a **single loudness number per frame**, spread across the bars
-by a sine shape function. Every bar therefore moves together, scaled by volume.
-That is exactly why it reads as generated rather than designed.
+The old model spread **one loudness number per frame** across the bars with a
+sine shape function, so every bar moved together. Replaced with a per-band FFT
+(`electron/audio/fft.ts`, 24 log-spaced bands, 60Hz), `bandAmplitude()` indexing
+a band instead of multiplying a shape, peak-hold caps and per-band rise/fall
+asymmetry.
 
-Real visualisers use a **per-band FFT** so bass and treble move independently.
+Measured off rendered frames rather than asserted (see the notes below on why
+that mattered):
 
-- `electron/audio/analyzeNarration.ts` → emit 16–32 frequency bands per frame
-  instead of one RMS value.
-- `lib/waveform/amplitude.ts` → `shapedAmplitude()` indexes a band instead of
-  multiplying a shape function.
-- Payload grows (18000 frames × 24 bands ≈ 430k numbers for 10 minutes). It may
-  need writing to a JSON file in the render's public dir rather than riding in
-  `inputProps`. The narration WAV and viseme sheets already use that road.
-- The track model, the controls and the render path already support it.
+| | old | new |
+|---|---|---|
+| adjacent-bar difference / mean | 0.02–0.07 | 0.16–0.27 |
+| shortest:longest bar in one frame | ~1.8 : 1 | ~7 : 1 |
+| peak-hold caps drawn | 0 | 13–27 |
 
-Cheap wins once real band data exists: **peak-hold caps**, **rise/fall asymmetry**,
-mirrored fills, gradients.
+Two honest caveats. About half the ring's shape is the voice's own persistent
+spectral signature rather than the moment — per-band normalisation removes the
+average tilt, but not the difference in peak-to-average ratio between bands.
+And bars are **mirrored** around a circular path, so a ring shows 24 bands twice
+rather than 48 distinct ones; the alternative is a visible seam where treble
+meets bass.
+
+Two traps that cost real time here, both worth remembering:
+
+- **Everything for the public dir must be written before `bundle()` runs.** The
+  bundler copies the directory into the served output. Writing `spectrum.bin`
+  after it meant a 404, a silent fallback to the loudness envelope, and a render
+  that looked exactly like the version this change replaced — with no error
+  anywhere. Caught only by measuring bar lengths in the output PNG.
+- **`electron-vite dev` does not rebuild the main process without `--watch`.**
+  `npm run dev` now passes it. Before that, every edit under `electron/` was
+  being tested against a stale main process.
+
+Still on the table now that real band data exists: mirrored fills, gradients,
+and the dotted 3D wave-plane style.
 
 ### 2. SFX via LocalAI — blocked on a backend
 

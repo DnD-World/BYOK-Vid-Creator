@@ -33,7 +33,7 @@ const BUILT_INS: BuiltIn[] = [
     name: "Halo",
     description: "Circular bars ringing each speaker. Calm, symmetrical, the house look.",
     outlineShape: "circle",
-    speakerWaveform: { enabled: true, style: "bars", position: "circular", scale: 1.1, density: 64, thickness: 1, smoothing: 0.35 },
+    speakerWaveform: { enabled: true, style: "bars", position: "circular", scale: 1.1, density: 64, thickness: 1, smoothing: 0.2 },
     musicWaveform: { enabled: false },
     musicColor: "#8a8a8a",
     subtitles: { position: "bottom", fontSize: 0.052, strokeWidth: 0.14, activeGlow: 0.6, uppercase: false },

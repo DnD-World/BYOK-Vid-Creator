@@ -20,8 +20,9 @@ import {
   placeholderAmplitude,
   placeholderActiveTrack,
   shapedAmplitude,
+  bandAmplitude,
 } from "../../lib/waveform/amplitude";
-import { sampleAnalysis } from "../../lib/waveform/audioAnalysis";
+import { sampleAnalysis, type DecodedSpectrum } from "../../lib/waveform/audioAnalysis";
 
 export interface WaveformSceneProps {
   tracks: RenderTrack[];
@@ -30,6 +31,10 @@ export interface WaveformSceneProps {
   /** Elapsed time into the timeline. The only clock this component has. */
   timeMs: number;
   analysis?: AudioAnalysis | null;
+  /** Supplied by the render, which loads the spectrum from a file in the
+   *  public dir instead of from inputProps. The preview leaves this unset and
+   *  the spectrum inside `analysis` is used. */
+  spectrum?: DecodedSpectrum | null;
 }
 
 function offsetPoints(
@@ -51,6 +56,21 @@ function offsetPoints(
 
 function extend(p: PathPoint, len: number) {
   return { x: p.x + p.nx * len, y: p.y + p.ny * len };
+}
+
+/** A short segment lying across the bar's direction at distance `len` — the
+ *  peak-hold cap. The normal is the direction the bar grows, so the cap runs
+ *  along its perpendicular. */
+function capLine(p: PathPoint, len: number, barWidth: number) {
+  const cx = p.x + p.nx * len;
+  const cy = p.y + p.ny * len;
+  const half = barWidth * 0.8;
+  return {
+    x1: cx + p.ny * half,
+    y1: cy - p.nx * half,
+    x2: cx - p.ny * half,
+    y2: cy + p.nx * half,
+  };
 }
 
 /** Rolling average across neighbouring bars. This is what turns a spiky,
@@ -112,11 +132,13 @@ function RingEllipse({
   );
 }
 
-export function WaveformScene({ tracks, width, height, timeMs, analysis }: WaveformSceneProps) {
+export function WaveformScene({
+  tracks, width, height, timeMs, analysis, spectrum,
+}: WaveformSceneProps) {
   if (width <= 0 || height <= 0 || tracks.length === 0) return null;
 
   const frameMin = Math.min(width, height);
-  const moment = sampleAnalysis(analysis, timeMs);
+  const moment = sampleAnalysis(analysis, timeMs, spectrum);
 
   return (
     <svg
@@ -140,17 +162,23 @@ export function WaveformScene({ tracks, width, height, timeMs, analysis }: Wavef
           : isMusic || placeholderActiveTrack(tracks.length, timeMs) === ti;
         const opacity = active ? 1 : moment ? 0.5 : 0.22;
 
-        const ampAt = (i: number) =>
-          moment
-            ? shapedAmplitude(ti, i, timeMs, moment.level)
-            : placeholderAmplitude(ti, i, timeMs);
+        // Three sources, in order of how real they are: the spectrum, the bare
+        // loudness envelope, and the placeholder animation.
+        const ampAt = (i: number, count: number, ring: boolean) =>
+          moment?.bands
+            ? bandAmplitude(moment.bands, moment.bandCount, i, count, ring)
+            : moment
+              ? shapedAmplitude(ti, i, timeMs, moment.level)
+              : placeholderAmplitude(ti, i, timeMs);
+        const peakAt = (i: number, count: number, ring: boolean) =>
+          moment?.peaks ? bandAmplitude(moment.peaks, moment.bandCount, i, count, ring) : 0;
 
         if (cfg.style === "rings") {
           const cx = width * cfg.ringX;
           const cy = height * cfg.ringY;
           const innerR = frameMin * 0.5 * cfg.ringInnerRadius;
           const clusterR = frameMin * 0.42 * cfg.ringSize;
-          const avgAmp = [...Array(6)].reduce((s, _, i) => s + ampAt(i * 7), 0) / 6;
+          const avgAmp = [...Array(6)].reduce((s, _, i) => s + ampAt(i * 7, 42, false), 0) / 6;
 
           return (
             <g key={ti} transform={`translate(${cx} ${cy})`}>
@@ -184,8 +212,14 @@ export function WaveformScene({ tracks, width, height, timeMs, analysis }: Wavef
 
         const base = samplePath(cfg.position, width, height, density, cfg.edgeFlush);
         const points = offsetPoints(base, cfg.position, cfg.lane, frameMin);
-        const raw = points.map((_, i) => (active ? ampAt(i) : 0.06));
+        const n = points.length;
+        const raw = points.map((_, i) => (active ? ampAt(i, n, closed) : 0.06));
         const amps = smoothAmps(raw, cfg.smoothing, closed);
+        // Caps get the same neighbour smoothing as the bars they sit above,
+        // otherwise they drift off the tips of a smoothed waveform.
+        const caps = active
+          ? smoothAmps(points.map((_, i) => peakAt(i, n, closed)), cfg.smoothing, closed)
+          : null;
         const barWidth = Math.max(1, ((frameMin * 0.9) / density / 2) * cfg.thickness);
 
         switch (cfg.style) {
@@ -199,6 +233,20 @@ export function WaveformScene({ tracks, width, height, timeMs, analysis }: Wavef
                       stroke={track.color} strokeWidth={barWidth} strokeLinecap="round" />
                   );
                 })}
+                {/* Peak-hold caps. Only drawn once they've pulled clear of the
+                    bar, so a rising bar doesn't wear a cap fused to its tip. */}
+                {caps?.map((c, i) =>
+                  c - amps[i] < 0.06 ? null : (
+                    <line
+                      key={`cap-${i}`}
+                      {...capLine(points[i], c * maxLen, barWidth)}
+                      stroke={track.color}
+                      strokeWidth={Math.max(1, barWidth * 0.5)}
+                      strokeLinecap="round"
+                      opacity={0.55}
+                    />
+                  )
+                )}
               </g>
             );
           case "mirror":
@@ -216,6 +264,18 @@ export function WaveformScene({ tracks, width, height, timeMs, analysis }: Wavef
                     </g>
                   );
                 })}
+                {caps?.map((c, i) =>
+                  c - amps[i] < 0.06 ? null : (
+                    <line
+                      key={`cap-${i}`}
+                      {...capLine(points[i], c * maxLen, barWidth)}
+                      stroke={track.color}
+                      strokeWidth={Math.max(1, barWidth * 0.5)}
+                      strokeLinecap="round"
+                      opacity={0.55}
+                    />
+                  )
+                )}
               </g>
             );
           case "dots":

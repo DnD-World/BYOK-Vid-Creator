@@ -62,8 +62,24 @@ export type RenderProps = {
    * Loudness + active-speaker data for that audio. null when rendering silent,
    * or when the user attached a file by hand that was never analysed — the
    * waveform then falls back to its placeholder animation.
+   *
+   * Its `spectrum` is deliberately stripped: see spectrumFileName below.
    */
   analysis: AudioAnalysis | null;
+  /**
+   * Filename (not path) of the packed per-band spectrum inside the public dir,
+   * or null if there isn't one.
+   *
+   * It travels as a file rather than inside inputProps because of its size: at
+   * 60Hz and 24 bands, ten minutes of narration is 1.7MB of raw bytes, and
+   * inputProps are serialised into the page for every render worker. The
+   * narration WAV and the viseme sheets already take this road for their own
+   * reasons, so the machinery to serve it was already here.
+   */
+  spectrumFileName: string | null;
+  /** Band count for that file — the composition needs it to split the bytes
+   *  into frames, and it is one number rather than a megabyte. */
+  spectrumBandCount: number;
   subtitles: SubtitleConfig;
   /** Narration lines with timing, from which subtitle cues are derived.
    *  Empty means nothing to show. */
