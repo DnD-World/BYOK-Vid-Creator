@@ -33,9 +33,33 @@ which looks worse than no lip-sync at all. Double-check row 2 in particular.
 
 ---
 
-## 2. Workflow (do this, not one-shot-nine-images)
+## 2. Workflow
 
-Image models will not keep a character consistent across nine independent
+### Fastest: one image containing every mouth shape
+
+Ask for a **single strip** with the shapes side by side, then slice it:
+
+```bash
+node tools/slice-grid.mjs kaiti-strip.png kaiti --cols 5 --order 0,1,2,3,7
+node tools/build-viseme-sheet.mjs ./viseme-v2 ./viseme-sheets-v2
+```
+
+One generation instead of five, and — the real benefit — the model composes
+the panels *against each other* on one canvas rather than redrawing the
+character from scratch each time, which holds the head far steadier. Rule 1
+below is the most common way these fail, and this is the best defence against
+it.
+
+`--order` maps panels (left to right, then top to bottom) to viseme indices, so
+`0,1,2,3,7` means the strip contains NEUTRAL, AH, EE, OH, L. Cells can be any
+square size — they don't have to be 1024px.
+
+Check the result: if the head has drifted between panels, fall back to the
+one-at-a-time method below for the cells that moved.
+
+### Reliable: one image at a time
+
+Image models will not always keep a character consistent across independent
 generations. So:
 
 1. **Generate the NEUTRAL cell first.** Re-roll until you genuinely like the
@@ -121,30 +145,57 @@ Square 1:1 image. Mouth closed and relaxed, happy alert expression.
 
 ---
 
-## 3b. You can draw five instead of nine
+## 3b. You can draw five instead of nine — but not the obvious five
 
-Measured on a real render: at the size faces actually appear (~170px in a
-1080p frame, with a waveform halo around them), the mouth accounts for about
-**5% of the face's pixels**. Only the shapes with a genuinely distinct
-silhouette read at that size.
+`tools/build-viseme-sheet.mjs` fills any cell you didn't draw from the shape it
+most resembles, so a partial set still produces a valid sheet. It prints every
+substitution it makes, so this stays a decision you made rather than a bug you
+inherit.
 
-So `tools/build-viseme-sheet.mjs` will fill four of the nine from the others:
+**Which five to draw depends on the language, and for Greek the intuitive
+answer is wrong.** Run the numbers yourself:
 
-| Not drawn | Borrowed from | Why it works at this size |
+```bash
+node --experimental-strip-types tools/viseme-coverage.mjs
+```
+
+It maps a script to visemes, then reports which cell to draw next for the most
+gain. On a Greek sample:
+
+| Draw | Adding | Mouth movement retained |
 |---|---|---|
-| `5` MBP | `0` NEUTRAL | Both are a closed mouth |
-| `6` FV | `0` NEUTRAL | Barely-open mouth, teeth invisible at 170px |
-| `7` L | `2` EE | Both are a part-open wide mouth |
-| `8` CH_SH | `4` OO | Both are a small round mouth |
+| 2 | EE | 52% |
+| 3 | OH | 74% |
+| 4 | L | 87% |
+| **5** | **AH** | **94%** |
+| 6 | CH_SH | 96% |
+| 7 | MBP | 98% |
+| 8 | FV | 100% |
+| 9 | OO | 100% |
 
-**The minimum set is therefore `0` NEUTRAL, `1` AH, `2` EE, `3` OH, `4` OO** —
-five drawings per character instead of nine. The tool prints exactly which
-cells it borrowed every time it runs, so this stays a decision you made rather
-than a bug you inherit.
+**So the five to draw are `0` NEUTRAL, `1` AH, `2` EE, `3` OH and `7` L.**
 
-Draw all nine if you want the extra fidelity; nothing about the app changes.
-But start with five, put it in a render, and look at it before committing to
-the other four — the difference may not be worth the re-rolls.
+The counter-intuitive part is `OO`, which is worth *nothing* in Greek — it
+appears in about 1% of graphemes, and `CH_SH` borrowing from it works out fine
+anyway. `L` is the opposite: 17% of Greek graphemes, and substituting it costs
+eleven points on its own. Drawing OO instead of L is the same amount of work
+for a materially worse result.
+
+The measure is mouth **changes**, not frames: `buildVisemeTrack` drops a
+keyframe that repeats the previous viseme, so merging two shapes doesn't just
+make them look alike — it deletes the transition between them and the mouth
+holds still. That is why fewer cells costs more than it first appears.
+
+For a different language, re-run the tool against a real script. English will
+rank these differently — `OO` and `FV` both matter far more there.
+
+### Is lip-sync worth it at all at this size?
+
+Yes, and it was worth checking. Rendering the same project twice — once
+normally, once with every cell replaced by NEUTRAL so the mouth cannot move —
+and diffing matched frames shows **5% of the face's pixels differ on average,
+22% on the busiest frame**, with 68% of frames differing by more than 1%. Small
+numbers, but plainly visible in motion. Don't skip the mouth.
 
 ---
 

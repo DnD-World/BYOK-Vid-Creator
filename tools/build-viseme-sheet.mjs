@@ -19,33 +19,39 @@ import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
 
-const CELL = 1024;
 const GRID = 3;
-const SHEET = CELL * GRID;
 const VISEME_COUNT = 9;
+
+// Cell size is whatever the input images are, not a fixed 1024. The app scales
+// the whole sheet to three times the drawn head size and reads cells by
+// fraction, so absolute resolution never reaches it — only the 3x3 layout and
+// square, equal-sized cells matter. Hardcoding 1024 rejected perfectly good
+// art for no reason, most obviously cells sliced out of a single grid image
+// (see tools/slice-grid.mjs), where the size is whatever the grid divides into.
 
 /** Index -> expected label, purely to sanity-check the input naming. */
 const EXPECTED = ["NEUTRAL", "AH", "EE", "OH", "OO", "MBP", "FV", "L", "CH_SH"];
 
 /**
- * Which cell to borrow when one wasn't drawn.
+ * Which cell to borrow when one wasn't drawn. Each maps to the shape it most
+ * resembles at the size faces actually render (~170px in a 1080p frame):
  *
- * Measured against a real render: the mouth occupies ~5% of the face's pixels
- * at the size faces actually appear (~170px in a 1080p frame), so the shapes
- * that read are the ones with a distinct silhouette — open, wide, round. The
- * four below are near-duplicates of another cell at that size:
+ *   OO    small round mouth          -> OH       (both rounded, OH is wider)
+ *   MBP   lips pressed together      -> NEUTRAL  (both a closed mouth)
+ *   FV    teeth on lip, barely open  -> EE       (both part-open, teeth showing)
+ *   L     tongue up, part open       -> EE       (both a part-open wide mouth)
+ *   CH_SH lips forward and rounded   -> OO       (chains on to OH if OO is absent)
  *
- *   MBP   lips pressed together      -> NEUTRAL  (both are a closed mouth)
- *   FV    teeth on lip, barely open  -> NEUTRAL
- *   L     tongue up, part open       -> EE       (both are a part-open wide mouth)
- *   CH_SH lips forward and rounded   -> OO       (both are a small round mouth)
+ * Which cells are worth drawing is a property of the LANGUAGE, not a constant
+ * — run `node tools/viseme-coverage.mjs` against a real script to see. For
+ * Greek the answer is not the obvious one: OO appears in ~1% of graphemes
+ * while L appears in ~17%, so a five-cell set of NEUTRAL/AH/EE/OH/L retains
+ * 94% of the mouth movement, where NEUTRAL/AH/EE/OH/OO retains only 83%.
  *
- * So a five-cell set — NEUTRAL, AH, EE, OH, OO — gets most of the effect for
- * a bit over half the drawing. Substitutions are always reported, never
- * silent: this is a deliberate shortcut, not a free lunch, and the full nine
- * are still better if you want to draw them.
+ * Substitutions are always reported, never silent: this is a deliberate
+ * shortcut, not a free lunch.
  */
-const FALLBACK = { 5: 0, 6: 0, 7: 2, 8: 4 };
+const FALLBACK = { 4: 3, 5: 0, 6: 2, 7: 2, 8: 4 };
 
 /** Walks the fallback chain to a cell that exists, or null. */
 function resolveFallback(slots, index) {
@@ -127,26 +133,41 @@ for (const [name, slots] of characters) {
     }
   }
 
-  const sheet = new PNG({ width: SHEET, height: SHEET });
-
+  // Read every cell first so the sheet can be sized from the actual art, and
+  // so a mismatch is caught before anything is written.
+  const cells = [];
   for (let i = 0; i < VISEME_COUNT; i++) {
-    const { file } = slots.get(i);
-    const src = PNG.sync.read(fs.readFileSync(path.join(inputDir, file)));
-    if (src.width !== CELL || src.height !== CELL) {
-      console.error(`${name}: FAIL — ${file} is ${src.width}x${src.height}, expected ${CELL}x${CELL}`);
-      hadError = true;
-      break;
-    }
+    cells.push(PNG.sync.read(fs.readFileSync(path.join(inputDir, slots.get(i).file))));
+  }
+  const CELL = cells[0].width;
+  if (cells[0].height !== CELL) {
+    console.error(`${name}: FAIL — cells must be square, ${slots.get(0).file} is ${cells[0].width}x${cells[0].height}`);
+    hadError = true;
+    continue;
+  }
+  const odd = cells.findIndex((c) => c.width !== CELL || c.height !== CELL);
+  if (odd >= 0) {
+    console.error(
+      `${name}: FAIL — ${slots.get(odd).file} is ${cells[odd].width}x${cells[odd].height}, ` +
+        `but the first cell is ${CELL}x${CELL}. All nine must match.`
+    );
+    hadError = true;
+    continue;
+  }
+
+  const SHEET = CELL * GRID;
+  const sheet = new PNG({ width: SHEET, height: SHEET });
+  for (let i = 0; i < VISEME_COUNT; i++) {
     const col = i % GRID;
     const row = Math.floor(i / GRID);
     // bitblt copies the raw RGBA rect; no scaling, so cells stay pixel-exact.
-    PNG.bitblt(src, sheet, 0, 0, CELL, CELL, col * CELL, row * CELL);
+    PNG.bitblt(cells[i], sheet, 0, 0, CELL, CELL, col * CELL, row * CELL);
   }
 
   const out = path.join(outputDir, `${name}.png`);
   fs.writeFileSync(out, PNG.sync.write(sheet));
   const kb = Math.round(fs.statSync(out).size / 1024);
-  console.log(`${name}: OK -> ${out} (${SHEET}x${SHEET}, ${kb}KB)`);
+  console.log(`${name}: OK -> ${out} (${SHEET}x${SHEET}, ${CELL}px cells, ${kb}KB)`);
 }
 
 process.exit(hadError ? 1 : 0);
