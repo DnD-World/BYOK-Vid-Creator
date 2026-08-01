@@ -35,7 +35,37 @@ which looks worse than no lip-sync at all. Double-check row 2 in particular.
 
 ## 2. Workflow
 
-### Fastest: one image containing every mouth shape
+### Best: inpaint the mouth, don't regenerate the head
+
+Every other method here makes head drift *less likely*. This one makes it
+impossible, because the head is never redrawn — the same pixels are reused and
+only the mouth region is replaced.
+
+If you have Midjourney, **Vary (Region)** is exactly this tool: mask the mouth
+on your NEUTRAL image, describe the new shape, and it returns the same frame
+with only that area regenerated. Photoshop's Generative Fill does the same job,
+as does any ComfyUI inpaint workflow. (Check your Midjourney version's syntax —
+`--sref` for locking one art style across all your characters and `--cref` for
+character reference are worth knowing, but for mouth shapes, regional inpaint
+beats both.)
+
+Then run each variation through:
+
+```bash
+node tools/merge-mouth.mjs kaiti_NEUTRAL.png kaiti_AH_inpaint.png viseme-v2/kaiti_1_AH.png
+```
+
+That composites the changed region back onto NEUTRAL with a feathered edge, so
+the output is byte-identical to NEUTRAL everywhere outside the mouth. It
+auto-detects the region by diffing the two images, and **refuses** if the
+changed area spans more than a quarter of the frame — which is how it tells you
+a variant came from a fresh generation rather than an inpaint. Pass `--box
+x,y,w,h` to override.
+
+This also rescues art you already have: two independently generated cells with
+real drift can be merged with a manual box, and the result has one head.
+
+### Faster: one image containing every mouth shape
 
 Ask for a **single strip** with the shapes side by side, then slice it:
 
