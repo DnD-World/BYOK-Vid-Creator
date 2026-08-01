@@ -27,6 +27,38 @@ const VISEME_COUNT = 9;
 /** Index -> expected label, purely to sanity-check the input naming. */
 const EXPECTED = ["NEUTRAL", "AH", "EE", "OH", "OO", "MBP", "FV", "L", "CH_SH"];
 
+/**
+ * Which cell to borrow when one wasn't drawn.
+ *
+ * Measured against a real render: the mouth occupies ~5% of the face's pixels
+ * at the size faces actually appear (~170px in a 1080p frame), so the shapes
+ * that read are the ones with a distinct silhouette — open, wide, round. The
+ * four below are near-duplicates of another cell at that size:
+ *
+ *   MBP   lips pressed together      -> NEUTRAL  (both are a closed mouth)
+ *   FV    teeth on lip, barely open  -> NEUTRAL
+ *   L     tongue up, part open       -> EE       (both are a part-open wide mouth)
+ *   CH_SH lips forward and rounded   -> OO       (both are a small round mouth)
+ *
+ * So a five-cell set — NEUTRAL, AH, EE, OH, OO — gets most of the effect for
+ * a bit over half the drawing. Substitutions are always reported, never
+ * silent: this is a deliberate shortcut, not a free lunch, and the full nine
+ * are still better if you want to draw them.
+ */
+const FALLBACK = { 5: 0, 6: 0, 7: 2, 8: 4 };
+
+/** Walks the fallback chain to a cell that exists, or null. */
+function resolveFallback(slots, index) {
+  const seen = new Set();
+  let i = index;
+  while (FALLBACK[i] !== undefined && !seen.has(i)) {
+    seen.add(i);
+    i = FALLBACK[i];
+    if (slots.has(i)) return i;
+  }
+  return slots.has(0) ? 0 : null;
+}
+
 const inputDir = process.argv[2] ?? "./viseme";
 const outputDir = process.argv[3] ?? "./viseme-sheets";
 
@@ -60,15 +92,35 @@ fs.mkdirSync(outputDir, { recursive: true });
 let hadError = false;
 
 for (const [name, slots] of characters) {
-  // Validate before writing anything — a half-built sheet is worse than none.
-  const missing = [];
-  for (let i = 0; i < VISEME_COUNT; i++) if (!slots.has(i)) missing.push(i);
-  if (missing.length > 0) {
-    console.error(`${name}: FAIL — missing viseme index ${missing.join(", ")}`);
+  // Cell 0 is the one thing that cannot be substituted — everything else
+  // borrows from it, directly or eventually.
+  if (!slots.has(0)) {
+    console.error(`${name}: FAIL — no NEUTRAL (index 0); every fallback leads there`);
     hadError = true;
     continue;
   }
+
+  // Fill what wasn't drawn, and say so. A sheet quietly missing four mouth
+  // shapes looks like a lip-sync bug later, not like a decision made now.
+  const borrowed = [];
   for (let i = 0; i < VISEME_COUNT; i++) {
+    if (slots.has(i)) continue;
+    const from = resolveFallback(slots, i);
+    if (from === null) {
+      console.error(`${name}: FAIL — cannot fill viseme ${i}`);
+      hadError = true;
+      break;
+    }
+    slots.set(i, { ...slots.get(from), borrowedFrom: from });
+    borrowed.push(`${EXPECTED[i]}<-${EXPECTED[from]}`);
+  }
+  if (hadError) continue;
+  if (borrowed.length > 0) {
+    console.warn(`${name}: ${borrowed.length} cell(s) borrowed — ${borrowed.join(", ")}`);
+  }
+
+  for (let i = 0; i < VISEME_COUNT; i++) {
+    if (slots.get(i).borrowedFrom !== undefined) continue;
     const got = slots.get(i).label.toUpperCase();
     if (got !== EXPECTED[i]) {
       console.warn(`${name}: index ${i} is labelled ${got}, expected ${EXPECTED[i]} — using the INDEX for placement`);

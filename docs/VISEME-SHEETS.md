@@ -121,6 +121,33 @@ Square 1:1 image. Mouth closed and relaxed, happy alert expression.
 
 ---
 
+## 3b. You can draw five instead of nine
+
+Measured on a real render: at the size faces actually appear (~170px in a
+1080p frame, with a waveform halo around them), the mouth accounts for about
+**5% of the face's pixels**. Only the shapes with a genuinely distinct
+silhouette read at that size.
+
+So `tools/build-viseme-sheet.mjs` will fill four of the nine from the others:
+
+| Not drawn | Borrowed from | Why it works at this size |
+|---|---|---|
+| `5` MBP | `0` NEUTRAL | Both are a closed mouth |
+| `6` FV | `0` NEUTRAL | Barely-open mouth, teeth invisible at 170px |
+| `7` L | `2` EE | Both are a part-open wide mouth |
+| `8` CH_SH | `4` OO | Both are a small round mouth |
+
+**The minimum set is therefore `0` NEUTRAL, `1` AH, `2` EE, `3` OH, `4` OO** —
+five drawings per character instead of nine. The tool prints exactly which
+cells it borrowed every time it runs, so this stays a decision you made rather
+than a bug you inherit.
+
+Draw all nine if you want the extra fidelity; nothing about the app changes.
+But start with five, put it in a render, and look at it before committing to
+the other four — the difference may not be worth the re-rolls.
+
+---
+
 ## 4. The nine mouth shapes
 
 For cells 1–8, reuse your NEUTRAL image as the reference and add:
