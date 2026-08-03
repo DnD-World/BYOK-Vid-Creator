@@ -42,7 +42,7 @@ const load = (f) => {
 };
 
 /** One assembled face at SIZE x SIZE. Mirrors PuppetAvatar's layout exactly. */
-function renderFace({ viseme = 0, eyes = "open", brow = null }) {
+function renderFace({ viseme = 0, eyes = {}, brow = null }) {
   const canvas = new PNG({ width: SIZE, height: SIZE });
   const base = load(p.base);
   over(canvas, resize(base, SIZE, SIZE), 0, 0);
@@ -54,21 +54,37 @@ function renderFace({ viseme = 0, eyes = "open", brow = null }) {
 
   const put = (l) => {
     if (!l) return;
-    const w = Math.max(1, Math.round(l.w * pxPerSource * (l.scale ?? 1)));
-    const h = Math.max(1, Math.round(l.h * pxPerSource * (l.scale ?? 1)));
+    const mul = pxPerSource * (l.scale ?? 1);
+    const fullW = Math.max(2, Math.round(l.w * mul));
+    const h = Math.max(1, Math.round(l.h * mul));
+    const scaled = adjust(resize(load(l.file), fullW, h), l);
+
     const cx = headCx + l.x * headPx;
     const cy = headCy + l.y * headPx;
     const anchor = l.anchor ?? "center";
     const top = anchor === "top-center" ? cy : anchor === "bottom-center" ? cy - h : cy - h / 2;
-    over(canvas, adjust(resize(load(l.file), w, h), l), cx - w / 2, top);
+
+    if (!l.split) {
+      over(canvas, scaled, cx - fullW / 2, top);
+      return;
+    }
+    // Keep the half where it sat in the pair.
+    const halfW = Math.floor(fullW / 2);
+    const piece = new PNG({ width: halfW, height: h });
+    PNG.bitblt(scaled, piece, l.split === "right" ? fullW - halfW : 0, 0, halfW, h, 0, 0);
+    const pieceCx = cx + (l.split === "left" ? -fullW / 4 : fullW / 4);
+    over(canvas, piece, pieceCx - halfW / 2, top);
   };
 
   (p.base_layers ?? []).forEach(put);
-  put(p.eyes[eyes] ?? p.eyes.open);
-  put(p.pupils);
-  if (brow && p.brows[brow]) {
-    put(p.brows[brow].left);
-    put(p.brows[brow].right);
+  put(p.eyes.whites);
+  put(p.eyes.pupils);
+  const lids = p.eyes.lids;
+  put({ ...(lids[eyes.left] ?? lids.open), split: "left" });
+  put({ ...(lids[eyes.right] ?? lids.open), split: "right" });
+  if (brow) {
+    put(p.brows[brow.left ?? brow]?.left);
+    put(p.brows[brow.right ?? brow]?.right);
   }
   (p.extras ?? []).forEach(put);
   put(p.mouths[String(viseme)]);
@@ -80,10 +96,22 @@ if (contact) {
   // Row 1: every mouth. Row 2: eye states. Row 3: brow sets. One image shows
   // whether each axis is placed correctly and, crucially, that they are
   // genuinely independent of one another.
+  const lidNames = Object.keys(p.eyes.lids);
+  const browNames = Object.keys(p.brows);
   const cells = [];
   for (let v = 0; v < 9; v++) cells.push({ label: LABELS[v], opts: { viseme: v, brow: "serious" } });
-  for (const e of Object.keys(p.eyes)) cells.push({ label: `eyes:${e}`, opts: { viseme: 1, eyes: e, brow: "serious" } });
-  for (const b of Object.keys(p.brows)) cells.push({ label: `brow:${b}`, opts: { viseme: 1, brow: b } });
+  for (const e of lidNames) {
+    cells.push({ label: `lids:${e}`, opts: { viseme: 1, eyes: { left: e, right: e }, brow: "serious" } });
+  }
+  // The point of splitting the lid pair: each eye can differ.
+  if (lidNames.includes("closed")) {
+    cells.push({ label: "wink", opts: { viseme: 1, eyes: { left: "closed", right: "open" }, brow: "serious" } });
+  }
+  for (const b of browNames) cells.push({ label: `brow:${b}`, opts: { viseme: 1, brow: b } });
+  // Same for brows: a different mood per side is the sceptical raised brow.
+  if (browNames.includes("angry") && browNames.includes("serious")) {
+    cells.push({ label: "brow:sceptical", opts: { viseme: 1, brow: { left: "angry", right: "serious" } } });
+  }
 
   const COLS = 5;
   const T = 260;

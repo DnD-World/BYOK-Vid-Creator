@@ -52,6 +52,12 @@ export interface PuppetLayer {
   anchor?: PuppetAnchor;
   /** Per-layer size override, multiplying the puppet's shared scale. */
   scale?: number;
+  /** Use only half of the source image, and place it where that half sat.
+   *
+   *  Eye lids are drawn as a PAIR in one file, so without this the two eyes
+   *  can only ever do the same thing — no wink, no raised single lid. Cutting
+   *  the pair down the middle turns one asset into two independent ones. */
+  split?: "left" | "right";
   /** HSL tweaks, so one mouth library can serve several characters — the
    *  human mouths desaturate into a grey dog's mouth. */
   saturation?: number;
@@ -59,8 +65,24 @@ export interface PuppetLayer {
   lightness?: number;
 }
 
-/** Named alternatives for one slot — eyes open/closed, brows happy/angry. */
+/** Named alternatives for one slot — lids open/half/closed, brows happy/angry. */
 export type PuppetVariants = Record<string, PuppetLayer>;
+
+/**
+ * The eye stack, in draw order: whites, then pupils, then a lid state on top.
+ *
+ * Separating them is what keeps the eye white visible when the lids come down.
+ * Treating "closed eyes" as a whole-eye replacement — which is how the source
+ * art is organised — makes the white vanish the moment a character blinks, and
+ * makes every character's blink look like a different drawing style.
+ */
+export interface PuppetEyes {
+  whites: PuppetLayer;
+  pupils?: PuppetLayer;
+  /** "open" is required. Any others ("half", "closed") become blink and
+   *  expression states, and each eye picks its own — that is the wink. */
+  lids: PuppetVariants;
+}
 
 export interface Puppet {
   name: string;
@@ -78,11 +100,10 @@ export interface Puppet {
   /** Always-on layers drawn under the features, in order. */
   base_layers?: PuppetLayer[];
 
-  /** Eye states. "open" is required; "closed" enables blinking. */
-  eyes: PuppetVariants;
-  /** Drawn over the eyes, and moves with them. */
-  pupils?: PuppetLayer;
-  /** Brow sets, keyed by mood — "serious", "happy", "angry", "sad". */
+  eyes: PuppetEyes;
+  /** Brow sets, keyed by mood — "serious", "happy", "angry", "sad". Left and
+   *  right are separate layers on purpose: picking a different mood for each
+   *  gives the sceptical single raised brow for free. */
   brows: Record<string, { left: PuppetLayer; right: PuppetLayer }>;
   /** Optional static features (nose, mustache). */
   extras?: PuppetLayer[];
@@ -96,8 +117,9 @@ export function puppetFiles(p: Puppet): string[] {
   const out = new Set<string>([p.base]);
   const add = (l?: PuppetLayer) => l && out.add(l.file);
   p.base_layers?.forEach(add);
-  Object.values(p.eyes).forEach(add);
-  add(p.pupils);
+  add(p.eyes.whites);
+  add(p.eyes.pupils);
+  Object.values(p.eyes.lids).forEach(add);
   Object.values(p.brows).forEach((b) => {
     add(b.left);
     add(b.right);

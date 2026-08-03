@@ -65,10 +65,13 @@ const out = {
   head: spec.head,
   sourceHeadWidth: spec.sourceHeadWidth,
   base_layers: (spec.base_layers ?? []).map((l, i) => stamp(l, `base_layers[${i}]`)),
-  eyes: Object.fromEntries(
-    Object.entries(spec.eyes ?? {}).map(([k, l]) => [k, stamp(l, `eyes.${k}`)])
-  ),
-  pupils: spec.pupils ? stamp(spec.pupils, "pupils") : undefined,
+  eyes: {
+    whites: stamp(spec.eyes?.whites, "eyes.whites"),
+    pupils: spec.eyes?.pupils ? stamp(spec.eyes.pupils, "eyes.pupils") : undefined,
+    lids: Object.fromEntries(
+      Object.entries(spec.eyes?.lids ?? {}).map(([k, l]) => [k, stamp(l, `eyes.lids.${k}`)])
+    ),
+  },
   brows: Object.fromEntries(
     Object.entries(spec.brows ?? {}).map(([k, b]) => [
       k,
@@ -99,8 +102,12 @@ if (!out.sourceHeadWidth) {
   console.error("FAIL — spec needs sourceHeadWidth (source px per head width)");
   missing++;
 }
-if (!out.eyes.open) {
-  console.error('FAIL — spec needs eyes.open');
+if (!out.eyes.whites) {
+  console.error("FAIL — spec needs eyes.whites (the eye white, drawn under the lids)");
+  missing++;
+}
+if (!out.eyes.lids?.open) {
+  console.error("FAIL — spec needs eyes.lids.open");
   missing++;
 }
 for (let i = 0; i < 9; i++) {
@@ -118,14 +125,15 @@ if (missing > 0) {
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
 
-const headPx = out.head.w;
+const lids = Object.keys(out.eyes.lids).length;
+const brows = Math.max(1, Object.keys(out.brows).length);
 console.log(
-  `${out.name}: ${dims.size} layers, head ${(headPx * 100).toFixed(0)}% of base width, ` +
-    `${Object.keys(out.eyes).length} eye state(s), ${Object.keys(out.brows).length} brow set(s)`
+  `${out.name}: ${dims.size} layers, head ${(out.head.w * 100).toFixed(0)}% of base width, ` +
+    `${lids} lid state(s), ${brows} brow set(s)`
 );
+// Lids and brows are per-EYE and per-SIDE, so they square rather than multiply.
 console.log(
-  `  combinations: 9 mouths x ${Object.keys(out.eyes).length} eyes x ` +
-    `${Math.max(1, Object.keys(out.brows).length)} brows = ` +
-    `${9 * Object.keys(out.eyes).length * Math.max(1, Object.keys(out.brows).length)} faces`
+  `  combinations: 9 mouths x ${lids}^2 lids x ${brows}^2 brows = ` +
+    `${9 * lids * lids * brows * brows} faces`
 );
 console.log(`-> ${outPath}`);

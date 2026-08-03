@@ -7,11 +7,14 @@
   "sourceHeadWidth": 2320,
 
   "eyes": {
-    "open":   { "file": "_0002_eyes.png",            "x": 0, "y": -0.14 },
-    "closed": { "file": "_0028_closed-eyes (2).png", "x": 0, "y": -0.14 },
-    "tired":  { "file": "_0020_Tired-eyes.png",      "x": 0, "y": -0.14 }
+    "whites": { "file": "_0002_eyes.png",  "x": 0, "y": -0.14 },
+    "pupils": { "file": "_0000_pupils.png", "x": 0, "y": -0.11 },
+    "lids": {
+      "open":   { "file": "_0001_Open-eyes.png",       "x": 0, "y": -0.14 },
+      "half":   { "file": "_0020_Tired-eyes.png",      "x": 0, "y": -0.14 },
+      "closed": { "file": "_0028_closed-eyes (2).png", "x": 0, "y": -0.14 }
+    }
   },
-  "pupils": { "file": "_0000_pupils.png", "x": 0, "y": -0.11 },
 
   "brows": {
     "serious": {
@@ -36,7 +39,7 @@
     { "file": "_0005_Nose-front.png", "x": 0, "y": -0.01, "scale": 0.6 }
   ],
 
-  "mouthDefaults": { "x": 0, "y": 0.073, "anchor": "top-center", "scale": 0.7 },
+  "mouthDefaults": { "x": 0, "y": 0.145, "anchor": "top-center", "scale": 0.95 },
   "mouths": {
     "0": "_0007_Happy-M.png",
     "1": "_0026_Happy-A.png",

@@ -7,11 +7,14 @@
   "sourceHeadWidth": 2500,
 
   "eyes": {
-    "open": { "file": "_0029_eyes.png", "x": 0, "y": -0.193 },
-    "closed": { "file": "_0028_closed-eyes.png", "x": 0, "y": -0.193, "saturation": 0.2 },
-    "lazy":   { "file": "_0030_lazy-eyes.png",   "x": 0, "y": -0.193, "saturation": 0.2 }
+    "whites": { "file": "_0029_eyes.png",  "x": 0, "y": -0.193 },
+    "pupils": { "file": "_0018_Pupils.png", "x": 0, "y": -0.170 },
+    "lids": {
+      "open": { "file": "_0027_open-eyes.png", "x": 0, "y": -0.193 },
+      "half":   { "file": "_0030_lazy-eyes.png",   "x": 0, "y": -0.193, "saturation": 0.15, "lightness": 0.92 },
+      "closed": { "file": "_0028_closed-eyes.png", "x": 0, "y": -0.193, "saturation": 0.15, "lightness": 0.92 }
+    }
   },
-  "pupils": { "file": "_0018_Pupils.png", "x": 0, "y": -0.170 },
 
   "brows": {
     "serious": {

@@ -26,10 +26,12 @@ interface Props {
   urls: Record<string, string>;
   /** Viseme index 0–8. */
   viseme: number;
-  /** Which entry of `puppet.eyes` to draw. Falls back to "open". */
-  eyeState?: string;
-  /** Which entry of `puppet.brows` to draw. */
-  brow?: string;
+  /** Lid state per eye, from `puppet.eyes.lids`. Different values wink. */
+  lidLeft?: string;
+  lidRight?: string;
+  /** Brow set per side, from `puppet.brows`. Different values raise one brow. */
+  browLeft?: string;
+  browRight?: string;
   /** Disk diameter in px. */
   size: number;
   bgOpacity: number;
@@ -55,7 +57,9 @@ function filterFor(l: PuppetLayer): string | undefined {
 }
 
 export function PuppetAvatar({
-  puppet, urls, viseme, eyeState = "open", brow, size,
+  puppet, urls, viseme,
+  lidLeft = "open", lidRight = "open",
+  browLeft, browRight, size,
   bgOpacity, borderOpacity,
   bgColor = "#1a1a1a", borderColor = "#d98a3d",
   outlineShape = "circle",
@@ -70,22 +74,32 @@ export function PuppetAvatar({
   const headCy = puppet.head.cy * head;
   const pxPerSource = headPx / puppet.sourceHeadWidth;
 
-  /** A layer, positioned by its anchor at (head centre + offset). */
+  /** A layer, positioned by its anchor at (head centre + offset).
+   *
+   *  A split layer draws half the source but stays where that half sat in the
+   *  pair: the element is half as wide, shifted a quarter-width off centre,
+   *  and the background is scaled to the full pair width so only the intended
+   *  half shows through. */
   const layerStyle = (l: PuppetLayer): CSSProperties => {
-    const w = l.w * pxPerSource * (l.scale ?? 1);
-    const h = l.h * pxPerSource * (l.scale ?? 1);
+    const mul = pxPerSource * (l.scale ?? 1);
+    const fullW = l.w * mul;
+    const h = l.h * mul;
+    const w = l.split ? fullW / 2 : fullW;
     const cx = headCx + l.x * headPx;
     const cy = headCy + l.y * headPx;
     const anchor = l.anchor ?? "center";
     const top = anchor === "top-center" ? cy : anchor === "bottom-center" ? cy - h : cy - h / 2;
+    // Centre of this piece, relative to the pair's centre.
+    const pieceCx = cx + (l.split === "left" ? -fullW / 4 : l.split === "right" ? fullW / 4 : 0);
     return {
       position: "absolute",
-      left: cx - w / 2,
+      left: pieceCx - w / 2,
       top,
       width: w,
       height: h,
       backgroundImage: `url(${urls[l.file] ?? ""})`,
-      backgroundSize: "100% 100%",
+      backgroundSize: `${fullW}px ${h}px`,
+      backgroundPosition: l.split === "right" ? `-${fullW / 2}px 0` : "0 0",
       filter: filterFor(l),
     };
   };
@@ -93,8 +107,11 @@ export function PuppetAvatar({
   const draw = (l: PuppetLayer | undefined, key: string) =>
     l && urls[l.file] ? <div key={key} style={layerStyle(l)} /> : null;
 
-  const brows = brow ? puppet.brows[brow] : undefined;
-  const eyes = puppet.eyes[eyeState] ?? puppet.eyes.open;
+  const lids = puppet.eyes.lids;
+  const lidL = lids[lidLeft] ?? lids.open;
+  const lidR = lids[lidRight] ?? lids.open;
+  const browL = browLeft ? puppet.brows[browLeft]?.left : undefined;
+  const browR = browRight ? puppet.brows[browRight]?.right : undefined;
   const mouth = puppet.mouths[String(viseme)] ?? puppet.mouths["0"];
 
   return (
@@ -119,10 +136,14 @@ export function PuppetAvatar({
           backgroundSize: "100% 100%",
         }} />
         {puppet.base_layers?.map((l, i) => draw(l, `bl${i}`))}
-        {draw(eyes, "eyes")}
-        {draw(puppet.pupils, "pupils")}
-        {brows && draw(brows.left, "browL")}
-        {brows && draw(brows.right, "browR")}
+        {/* Whites first, then pupils, then a lid per eye on top — so the eye
+            white stays visible behind a closed or half-closed lid. */}
+        {draw(puppet.eyes.whites, "whites")}
+        {draw(puppet.eyes.pupils, "pupils")}
+        {draw({ ...lidL, split: "left" }, "lidL")}
+        {draw({ ...lidR, split: "right" }, "lidR")}
+        {draw(browL, "browL")}
+        {draw(browR, "browR")}
         {puppet.extras?.map((l, i) => draw(l, `ex${i}`))}
         {draw(mouth, "mouth")}
       </div>

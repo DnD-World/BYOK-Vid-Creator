@@ -10,34 +10,43 @@
   "sourceHeadWidth": 2320,
   "base_layers": [],
   "eyes": {
-    "open": {
+    "whites": {
       "file": "_0002_eyes.png",
       "x": 0,
       "y": -0.14,
       "w": 1437,
       "h": 676
     },
-    "closed": {
-      "file": "_0028_closed-eyes (2).png",
+    "pupils": {
+      "file": "_0000_pupils.png",
       "x": 0,
-      "y": -0.14,
-      "w": 1767,
-      "h": 709
+      "y": -0.11,
+      "w": 719,
+      "h": 173
     },
-    "tired": {
-      "file": "_0020_Tired-eyes.png",
-      "x": 0,
-      "y": -0.14,
-      "w": 1747,
-      "h": 665
+    "lids": {
+      "open": {
+        "file": "_0001_Open-eyes.png",
+        "x": 0,
+        "y": -0.14,
+        "w": 1854,
+        "h": 756
+      },
+      "half": {
+        "file": "_0020_Tired-eyes.png",
+        "x": 0,
+        "y": -0.14,
+        "w": 1747,
+        "h": 665
+      },
+      "closed": {
+        "file": "_0028_closed-eyes (2).png",
+        "x": 0,
+        "y": -0.14,
+        "w": 1767,
+        "h": 709
+      }
     }
-  },
-  "pupils": {
-    "file": "_0000_pupils.png",
-    "x": 0,
-    "y": -0.11,
-    "w": 719,
-    "h": 173
   },
   "brows": {
     "serious": {
@@ -118,81 +127,81 @@
   "mouths": {
     "0": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0007_Happy-M.png",
       "w": 1200,
       "h": 529
     },
     "1": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0026_Happy-A.png",
       "w": 1082,
       "h": 817
     },
     "2": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0004_Happy-E.png",
       "w": 1235,
       "h": 709
     },
     "3": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0019_O,-u.png",
       "w": 506,
       "h": 689
     },
     "4": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0019_O,-u.png",
       "w": 506,
       "h": 689
     },
     "5": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0007_Happy-M.png",
       "w": 1200,
       "h": 529
     },
     "6": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0022_Happy-F.png",
       "w": 920,
       "h": 445
     },
     "7": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0003_Happy-R.png",
       "w": 1235,
       "h": 710
     },
     "8": {
       "x": 0,
-      "y": 0.073,
+      "y": 0.145,
       "anchor": "top-center",
-      "scale": 0.7,
+      "scale": 0.95,
       "file": "_0021_Happy-S.png",
       "w": 935,
       "h": 593
