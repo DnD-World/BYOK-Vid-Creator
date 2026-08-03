@@ -65,15 +65,23 @@
     "serious": {
       "left": {
         "file": "_0019_R-eyebrow-serious.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": -0.155,
-        "y": -0.316,
+        "y": -0.208,
         "w": 729,
         "h": 153
       },
       "right": {
         "file": "_0020_L-eyebrow-serious.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": 0.155,
-        "y": -0.316,
+        "y": -0.208,
         "w": 729,
         "h": 153
       }
@@ -81,15 +89,23 @@
     "angry": {
       "left": {
         "file": "_0021_R-eyebrow-angry.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": -0.155,
-        "y": -0.325,
+        "y": -0.208,
         "w": 751,
         "h": 285
       },
       "right": {
         "file": "_0022_L-eyebrow-angry.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": 0.155,
-        "y": -0.325,
+        "y": -0.208,
         "w": 751,
         "h": 285
       }
@@ -97,15 +113,23 @@
     "sad": {
       "left": {
         "file": "_0023_R-eyebrow-sad.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": -0.155,
-        "y": -0.33,
+        "y": -0.208,
         "w": 768,
         "h": 462
       },
       "right": {
         "file": "_0024_L-eybrow-sad.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": 0.155,
-        "y": -0.33,
+        "y": -0.208,
         "w": 769,
         "h": 461
       }
@@ -113,15 +137,23 @@
     "happy": {
       "left": {
         "file": "_0025_R-eyebrow-happy.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": -0.155,
-        "y": -0.33,
+        "y": -0.208,
         "w": 740,
         "h": 318
       },
       "right": {
         "file": "_0026_L-eyebrow-happy.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
         "x": 0.155,
-        "y": -0.33,
+        "y": -0.208,
         "w": 739,
         "h": 318
       }

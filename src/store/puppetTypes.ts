@@ -52,6 +52,14 @@ export interface PuppetLayer {
   anchor?: PuppetAnchor;
   /** Per-layer size override, multiplying the puppet's shared scale. */
   scale?: number;
+  /** Non-uniform overrides, on top of `scale`. Thickening a brow without
+   *  lengthening it needs scaleY alone. */
+  scaleX?: number;
+  scaleY?: number;
+  /** Recolour the layer to a flat colour, keeping its alpha. Drawn as a mask
+   *  rather than an image, so it is exact — right for solid shapes like brows,
+   *  wrong for anything with internal detail. */
+  tint?: string;
   /** Use only half of the source image, and place it where that half sat.
    *
    *  Eye lids are drawn as a PAIR in one file, so without this the two eyes

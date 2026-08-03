@@ -82,8 +82,8 @@ export function PuppetAvatar({
    *  half shows through. */
   const layerStyle = (l: PuppetLayer): CSSProperties => {
     const mul = pxPerSource * (l.scale ?? 1);
-    const fullW = l.w * mul;
-    const h = l.h * mul;
+    const fullW = l.w * mul * (l.scaleX ?? 1);
+    const h = l.h * mul * (l.scaleY ?? 1);
     const w = l.split ? fullW / 2 : fullW;
     const cx = headCx + l.x * headPx;
     const cy = headCy + l.y * headPx;
@@ -91,15 +91,38 @@ export function PuppetAvatar({
     const top = anchor === "top-center" ? cy : anchor === "bottom-center" ? cy - h : cy - h / 2;
     // Centre of this piece, relative to the pair's centre.
     const pieceCx = cx + (l.split === "left" ? -fullW / 4 : l.split === "right" ? fullW / 4 : 0);
-    return {
+    const url = urls[l.file] ?? "";
+    const size = `${fullW}px ${h}px`;
+    const pos = l.split === "right" ? `-${fullW / 2}px 0` : "0 0";
+    const box: CSSProperties = {
       position: "absolute",
       left: pieceCx - w / 2,
       top,
       width: w,
       height: h,
-      backgroundImage: `url(${urls[l.file] ?? ""})`,
-      backgroundSize: `${fullW}px ${h}px`,
-      backgroundPosition: l.split === "right" ? `-${fullW / 2}px 0` : "0 0",
+    };
+    // A tinted layer is a silhouette filled with a flat colour, so it is drawn
+    // as a mask rather than an image.
+    if (l.tint) {
+      return {
+        ...box,
+        backgroundColor: l.tint,
+        maskImage: `url(${url})`,
+        WebkitMaskImage: `url(${url})`,
+        maskSize: size,
+        WebkitMaskSize: size,
+        maskPosition: pos,
+        WebkitMaskPosition: pos,
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+      };
+    }
+    return {
+      ...box,
+      backgroundImage: `url(${url})`,
+      backgroundSize: size,
+      backgroundPosition: pos,
+      backgroundRepeat: "no-repeat",
       filter: filterFor(l),
     };
   };

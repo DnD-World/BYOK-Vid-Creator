@@ -64,6 +64,22 @@ export function over(dst, src, ox, oy) {
   }
 }
 
+/** Replace every visible pixel's colour, keeping alpha — the offline twin of
+ *  the component's mask + background-colour. Only right for solid silhouettes. */
+export function tint(img, hex) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const out = new PNG({ width: img.width, height: img.height });
+  img.data.copy(out.data);
+  for (let i = 0; i < out.data.length; i += 4) {
+    if (out.data[i + 3] === 0) continue;
+    out.data[i] = r;
+    out.data[i + 1] = g;
+    out.data[i + 2] = b;
+  }
+  return out;
+}
+
 /** HSL adjustment. Matches what CSS saturate()/hue-rotate()/brightness() do
  *  closely enough that the offline preview agrees with the live component. */
 export function adjust(img, { saturation = 1, hue = 0, lightness = 1 } = {}) {

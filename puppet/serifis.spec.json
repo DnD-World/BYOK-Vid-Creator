@@ -19,20 +19,20 @@
 
   "brows": {
     "serious": {
-      "left":  { "file": "_0019_R-eyebrow-serious.png", "x": -0.155, "y": -0.316 },
-      "right": { "file": "_0020_L-eyebrow-serious.png", "x":  0.155, "y": -0.316 }
+      "left":  { "file": "_0019_R-eyebrow-serious.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x": -0.155, "y": -0.208 },
+      "right": { "file": "_0020_L-eyebrow-serious.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x":  0.155, "y": -0.208 }
     },
     "angry": {
-      "left":  { "file": "_0021_R-eyebrow-angry.png", "x": -0.155, "y": -0.325 },
-      "right": { "file": "_0022_L-eyebrow-angry.png", "x":  0.155, "y": -0.325 }
+      "left":  { "file": "_0021_R-eyebrow-angry.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x": -0.155, "y": -0.208 },
+      "right": { "file": "_0022_L-eyebrow-angry.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x":  0.155, "y": -0.208 }
     },
     "sad": {
-      "left":  { "file": "_0023_R-eyebrow-sad.png", "x": -0.155, "y": -0.330 },
-      "right": { "file": "_0024_L-eybrow-sad.png",  "x":  0.155, "y": -0.330 }
+      "left":  { "file": "_0023_R-eyebrow-sad.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x": -0.155, "y": -0.208 },
+      "right": { "file": "_0024_L-eybrow-sad.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center",  "x":  0.155, "y": -0.208 }
     },
     "happy": {
-      "left":  { "file": "_0025_R-eyebrow-happy.png", "x": -0.155, "y": -0.330 },
-      "right": { "file": "_0026_L-eyebrow-happy.png", "x":  0.155, "y": -0.330 }
+      "left":  { "file": "_0025_R-eyebrow-happy.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x": -0.155, "y": -0.208 },
+      "right": { "file": "_0026_L-eyebrow-happy.png", "scaleX": 1.45, "scaleY": 2.6, "tint": "#6b6a5e", "anchor": "bottom-center", "x":  0.155, "y": -0.208 }
     }
   },
 

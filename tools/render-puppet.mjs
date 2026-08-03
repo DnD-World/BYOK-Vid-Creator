@@ -17,7 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
-import { resize, over, adjust } from "./lib/imageops.mjs";
+import { resize, over, adjust, tint } from "./lib/imageops.mjs";
 
 const LABELS = ["NEUTRAL", "AH", "EE", "OH", "OO", "MBP", "FV", "L", "CH_SH"];
 
@@ -55,9 +55,10 @@ function renderFace({ viseme = 0, eyes = {}, brow = null }) {
   const put = (l) => {
     if (!l) return;
     const mul = pxPerSource * (l.scale ?? 1);
-    const fullW = Math.max(2, Math.round(l.w * mul));
-    const h = Math.max(1, Math.round(l.h * mul));
-    const scaled = adjust(resize(load(l.file), fullW, h), l);
+    const fullW = Math.max(2, Math.round(l.w * mul * (l.scaleX ?? 1)));
+    const h = Math.max(1, Math.round(l.h * mul * (l.scaleY ?? 1)));
+    let scaled = adjust(resize(load(l.file), fullW, h), l);
+    if (l.tint) scaled = tint(scaled, l.tint);
 
     const cx = headCx + l.x * headPx;
     const cy = headCy + l.y * headPx;
