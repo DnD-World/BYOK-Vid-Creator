@@ -1,0 +1,50 @@
+{
+  "name": "Τσίκα",
+  "dir": "viseme",
+  "base": "tsika.png",
+
+  "head": { "cx": 0.51, "cy": 0.45, "w": 0.53 },
+  "sourceHeadWidth": 2500,
+
+  "eyes": {
+    "open":   { "file": "_0029_eyes.png",        "x": 0, "y": -0.011 },
+    "closed": { "file": "_0028_closed-eyes.png", "x": 0, "y": -0.011 },
+    "lazy":   { "file": "_0030_lazy-eyes.png",   "x": 0, "y": -0.011 }
+  },
+  "pupils": { "file": "_0018_Pupils.png", "x": 0, "y": 0.013 },
+
+  "brows": {
+    "happy": {
+      "left":  { "file": "_0025_R-eyebrow-happy.png", "x": -0.155, "y": -0.140 },
+      "right": { "file": "_0026_L-eyebrow-happy.png", "x":  0.155, "y": -0.140 }
+    },
+    "serious": {
+      "left":  { "file": "_0019_R-eyebrow-serious.png", "x": -0.155, "y": -0.130 },
+      "right": { "file": "_0020_L-eyebrow-serious.png", "x":  0.155, "y": -0.130 }
+    },
+    "angry": {
+      "left":  { "file": "_0021_R-eyebrow-angry.png", "x": -0.155, "y": -0.140 },
+      "right": { "file": "_0022_L-eyebrow-angry.png", "x":  0.155, "y": -0.140 }
+    },
+    "sad": {
+      "left":  { "file": "_0023_R-eyebrow-sad.png", "x": -0.155, "y": -0.145 },
+      "right": { "file": "_0024_L-eybrow-sad.png",  "x":  0.155, "y": -0.145 }
+    }
+  },
+
+  "mouthDefaults": {
+    "x": 0, "y": 0.446, "anchor": "top-center", "scale": 0.33,
+    "saturation": 0.75
+  },
+  "mouths": {
+    "0": "_0008_Happy-M.png",
+    "1": "_0015_Happy-A.png",
+    "2": "_0016_Happy-E.png",
+    "3": "_0004_O,-u.png",
+    "4": "_0004_O,-u.png",
+    "5": "_0008_Happy-M.png",
+    "6": "_0011_Sad-F.png",
+    "7": "_0012_Happy-R.png",
+    "8": "_0010_Happy-S.png"
+  }
+}

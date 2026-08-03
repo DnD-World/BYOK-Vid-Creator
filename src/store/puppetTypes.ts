@@ -1,0 +1,108 @@
+// ---------------------------------------------------------------------------
+// A layered character puppet: a base body with a blank face, plus independent
+// feature layers stacked on top.
+//
+// This replaces the flattened nine-cell sprite sheet, and the reason is
+// combinatorial. A sheet bakes one mouth, one pair of eyes and one pair of
+// brows into each of nine images, so nine is all you ever get. Keeping the
+// layers separate multiplies instead: 9 mouths x 4 eye states x 4 brow sets is
+// 144 faces from the same art, and blinking becomes independent of speaking
+// rather than something a sheet cannot express at all.
+//
+// EVERY coordinate here is relative to the HEAD, not to the image. That is
+// what makes a head tilt or shake possible later: the features are positioned
+// inside the head's own space, so one transform on the head group moves all of
+// them together and correctly. Absolute image coordinates would have to be
+// recomputed per frame and would drift apart under rotation.
+// ---------------------------------------------------------------------------
+
+/** Where the head sits on the base image, as fractions of the base image. */
+export interface PuppetHead {
+  /** Centre of the head, 0–1 across the base image. */
+  cx: number;
+  cy: number;
+  /** Head width as a fraction of the base image width. The unit everything
+   *  else is measured in. */
+  w: number;
+}
+
+export type PuppetAnchor =
+  | "center"
+  | "top-center"
+  | "bottom-center";
+
+/** One image stacked on the face. */
+export interface PuppetLayer {
+  /** Filename inside the puppet's asset folder. */
+  file: string;
+  /** The source PNG's own pixel dimensions, stamped in by tools/make-puppet.mjs.
+   *  Carried in the definition rather than measured from the loaded image so
+   *  layout is correct on the very first frame and identical in the preview and
+   *  the render — a render worker must not have to wait on an onload to know
+   *  how big something is. */
+  w: number;
+  h: number;
+  /** Offset from the head's centre, in HEAD WIDTHS. x positive is right,
+   *  y positive is down. */
+  x: number;
+  y: number;
+  /** Which point of the layer lands on (x, y). Mouths use "top-center",
+   *  because the upper lip stays put while the jaw drops — anchoring an open
+   *  and a closed mouth by their centres makes the closed one ride up. */
+  anchor?: PuppetAnchor;
+  /** Per-layer size override, multiplying the puppet's shared scale. */
+  scale?: number;
+  /** HSL tweaks, so one mouth library can serve several characters — the
+   *  human mouths desaturate into a grey dog's mouth. */
+  saturation?: number;
+  hue?: number;
+  lightness?: number;
+}
+
+/** Named alternatives for one slot — eyes open/closed, brows happy/angry. */
+export type PuppetVariants = Record<string, PuppetLayer>;
+
+export interface Puppet {
+  name: string;
+  /** Base body image, with a blank face. Path relative to `dir`. */
+  base: string;
+  /** Folder holding the base and every layer. Absolute on disk. */
+  dir: string;
+  head: PuppetHead;
+
+  /** How many pixels of SOURCE artwork correspond to one head width. All the
+   *  layers were drawn on one canvas, so they share a single scale, and this
+   *  is the one measurement that sets it. */
+  sourceHeadWidth: number;
+
+  /** Always-on layers drawn under the features, in order. */
+  base_layers?: PuppetLayer[];
+
+  /** Eye states. "open" is required; "closed" enables blinking. */
+  eyes: PuppetVariants;
+  /** Drawn over the eyes, and moves with them. */
+  pupils?: PuppetLayer;
+  /** Brow sets, keyed by mood — "serious", "happy", "angry", "sad". */
+  brows: Record<string, { left: PuppetLayer; right: PuppetLayer }>;
+  /** Optional static features (nose, mustache). */
+  extras?: PuppetLayer[];
+
+  /** One entry per viseme index 0–8. */
+  mouths: Record<string, PuppetLayer>;
+}
+
+/** Every file a puppet needs, for preloading and for copying into a render. */
+export function puppetFiles(p: Puppet): string[] {
+  const out = new Set<string>([p.base]);
+  const add = (l?: PuppetLayer) => l && out.add(l.file);
+  p.base_layers?.forEach(add);
+  Object.values(p.eyes).forEach(add);
+  add(p.pupils);
+  Object.values(p.brows).forEach((b) => {
+    add(b.left);
+    add(b.right);
+  });
+  p.extras?.forEach(add);
+  Object.values(p.mouths).forEach(add);
+  return [...out];
+}

@@ -1,0 +1,201 @@
+{
+  "name": "Καίτη",
+  "base": "kaiti.png",
+  "dir": "viseme",
+  "head": {
+    "cx": 0.5,
+    "cy": 0.61,
+    "w": 0.4
+  },
+  "sourceHeadWidth": 2320,
+  "base_layers": [],
+  "eyes": {
+    "open": {
+      "file": "_0002_eyes.png",
+      "x": 0,
+      "y": -0.14,
+      "w": 1437,
+      "h": 676
+    },
+    "closed": {
+      "file": "_0028_closed-eyes (2).png",
+      "x": 0,
+      "y": -0.14,
+      "w": 1767,
+      "h": 709
+    },
+    "tired": {
+      "file": "_0020_Tired-eyes.png",
+      "x": 0,
+      "y": -0.14,
+      "w": 1747,
+      "h": 665
+    }
+  },
+  "pupils": {
+    "file": "_0000_pupils.png",
+    "x": 0,
+    "y": -0.11,
+    "w": 719,
+    "h": 173
+  },
+  "brows": {
+    "serious": {
+      "left": {
+        "file": "_0012_R-eyebrow-serious.png",
+        "x": -0.155,
+        "y": -0.3,
+        "w": 645,
+        "h": 96
+      },
+      "right": {
+        "file": "_0013_L-eyebrow-serious.png",
+        "x": 0.155,
+        "y": -0.3,
+        "w": 637,
+        "h": 103
+      }
+    },
+    "happy": {
+      "left": {
+        "file": "_0016_R-eyebrow-happy.png",
+        "x": -0.155,
+        "y": -0.32,
+        "w": 724,
+        "h": 350
+      },
+      "right": {
+        "file": "_0017_L-eyebrow-happy.png",
+        "x": 0.155,
+        "y": -0.32,
+        "w": 724,
+        "h": 349
+      }
+    },
+    "angry": {
+      "left": {
+        "file": "_0015_R-eyebrow-angry.png",
+        "x": -0.155,
+        "y": -0.31,
+        "w": 672,
+        "h": 340
+      },
+      "right": {
+        "file": "_0014_L-eyebrow-angry.png",
+        "x": 0.155,
+        "y": -0.31,
+        "w": 672,
+        "h": 339
+      }
+    },
+    "sad": {
+      "left": {
+        "file": "_0010_R-eyebrow-sad.png",
+        "x": -0.155,
+        "y": -0.31,
+        "w": 583,
+        "h": 271
+      },
+      "right": {
+        "file": "_0011_L-eyebrow-sad.png",
+        "x": 0.155,
+        "y": -0.31,
+        "w": 582,
+        "h": 271
+      }
+    }
+  },
+  "extras": [
+    {
+      "file": "_0005_Nose-front.png",
+      "x": 0,
+      "y": -0.01,
+      "scale": 0.6,
+      "w": 447,
+      "h": 345
+    }
+  ],
+  "mouths": {
+    "0": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0007_Happy-M.png",
+      "w": 1200,
+      "h": 529
+    },
+    "1": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0026_Happy-A.png",
+      "w": 1082,
+      "h": 817
+    },
+    "2": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0004_Happy-E.png",
+      "w": 1235,
+      "h": 709
+    },
+    "3": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0019_O,-u.png",
+      "w": 506,
+      "h": 689
+    },
+    "4": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0019_O,-u.png",
+      "w": 506,
+      "h": 689
+    },
+    "5": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0007_Happy-M.png",
+      "w": 1200,
+      "h": 529
+    },
+    "6": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0022_Happy-F.png",
+      "w": 920,
+      "h": 445
+    },
+    "7": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0003_Happy-R.png",
+      "w": 1235,
+      "h": 710
+    },
+    "8": {
+      "x": 0,
+      "y": 0.073,
+      "anchor": "top-center",
+      "scale": 0.7,
+      "file": "_0021_Happy-S.png",
+      "w": 935,
+      "h": 593
+    }
+  }
+}

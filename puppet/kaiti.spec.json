@@ -1,0 +1,51 @@
+{
+  "name": "Καίτη",
+  "dir": "viseme",
+  "base": "kaiti.png",
+
+  "head": { "cx": 0.5, "cy": 0.61, "w": 0.4 },
+  "sourceHeadWidth": 2320,
+
+  "eyes": {
+    "open":   { "file": "_0002_eyes.png",            "x": 0, "y": -0.14 },
+    "closed": { "file": "_0028_closed-eyes (2).png", "x": 0, "y": -0.14 },
+    "tired":  { "file": "_0020_Tired-eyes.png",      "x": 0, "y": -0.14 }
+  },
+  "pupils": { "file": "_0000_pupils.png", "x": 0, "y": -0.11 },
+
+  "brows": {
+    "serious": {
+      "left":  { "file": "_0012_R-eyebrow-serious.png", "x": -0.155, "y": -0.30 },
+      "right": { "file": "_0013_L-eyebrow-serious.png", "x":  0.155, "y": -0.30 }
+    },
+    "happy": {
+      "left":  { "file": "_0016_R-eyebrow-happy.png", "x": -0.155, "y": -0.32 },
+      "right": { "file": "_0017_L-eyebrow-happy.png", "x":  0.155, "y": -0.32 }
+    },
+    "angry": {
+      "left":  { "file": "_0015_R-eyebrow-angry.png", "x": -0.155, "y": -0.31 },
+      "right": { "file": "_0014_L-eyebrow-angry.png", "x":  0.155, "y": -0.31 }
+    },
+    "sad": {
+      "left":  { "file": "_0010_R-eyebrow-sad.png", "x": -0.155, "y": -0.31 },
+      "right": { "file": "_0011_L-eyebrow-sad.png", "x":  0.155, "y": -0.31 }
+    }
+  },
+
+  "extras": [
+    { "file": "_0005_Nose-front.png", "x": 0, "y": -0.01, "scale": 0.6 }
+  ],
+
+  "mouthDefaults": { "x": 0, "y": 0.073, "anchor": "top-center", "scale": 0.7 },
+  "mouths": {
+    "0": "_0007_Happy-M.png",
+    "1": "_0026_Happy-A.png",
+    "2": "_0004_Happy-E.png",
+    "3": "_0019_O,-u.png",
+    "4": "_0019_O,-u.png",
+    "5": "_0007_Happy-M.png",
+    "6": "_0022_Happy-F.png",
+    "7": "_0003_Happy-R.png",
+    "8": "_0021_Happy-S.png"
+  }
+}
