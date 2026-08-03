@@ -1,0 +1,34 @@
+{
+  "character": "serifis",
+  "base": "viseme/serifis.png",
+  "parts": "viseme",
+  "out": "viseme-v2",
+
+  "layers": [
+    { "file": "_0029_eyes.png", "scale": 0.115, "x": 516, "y": 360, "anchor": "center" },
+    { "file": "_0018_Pupils.png", "scale": 0.115, "x": 516, "y": 372, "anchor": "center" },
+    { "file": "_0019_R-eyebrow-serious.png", "scale": 0.105, "x": 462, "y": 296, "anchor": "center" },
+    { "file": "_0020_L-eyebrow-serious.png", "scale": 0.105, "x": 570, "y": 296, "anchor": "center" }
+  ],
+
+  "mouth": {
+    "scale": 0.125,
+    "x": 516,
+    "y": 680,
+    "anchor": "top-center",
+    "saturation": 0.3,
+    "lightness": 0.95
+  },
+
+  "visemes": {
+    "0": "_0008_Happy-M.png",
+    "1": "_0015_Happy-A.png",
+    "2": "_0016_Happy-E.png",
+    "3": "_0004_O,-u.png",
+    "4": "_0004_O,-u.png",
+    "5": "_0008_Happy-M.png",
+    "6": "_0011_Sad-F.png",
+    "7": "_0012_Happy-R.png",
+    "8": "_0010_Happy-S.png"
+  }
+}

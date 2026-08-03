@@ -12,5 +12,11 @@ release/
 # hold files open in an unrelated tool's environment.
 piper-venv/
 piper-voices/
+# Character art and everything generated from it. The source PNGs are large
+# and live outside git; the sheets and cells are rebuildable from them with
+# tools/build-puppet-cells.mjs + tools/build-viseme-sheet.mjs, and the recipe
+# for doing so IS committed (puppet/*.json).
 viseme-sheets/
 viseme/
+viseme-v2/
+viseme-sheets-v2/
