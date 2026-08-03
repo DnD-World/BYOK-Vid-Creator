@@ -3,12 +3,13 @@
   "dir": "viseme",
   "base": "tsika.png",
 
-  "head": { "cx": 0.51, "cy": 0.45, "w": 0.53 },
+  "head": { "cx": 0.501, "cy": 0.45, "w": 0.53 },
   "sourceHeadWidth": 2500,
 
   "eyes": {
     "whites": { "file": "_0002_eyes.png",  "x": 0, "y": -0.011 },
-    "pupils": { "file": "_0000_pupils.png", "x": 0, "y": 0.013 },
+    "pupilLeft":  { "file": "_0000_pupils.png", "split": "left",  "x": -0.066, "y": 0.013 },
+      "pupilRight": { "file": "_0000_pupils.png", "split": "right", "x":  0.069, "y": 0.013 },
     "lids": {
       "open":   { "file": "_0001_Open-eyes.png",       "x": 0, "y": -0.011 },
       "half":   { "file": "_0020_Tired-eyes.png",      "x": 0, "y": -0.011, "saturation": 0.55 },

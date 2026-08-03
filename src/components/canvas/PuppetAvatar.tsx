@@ -139,7 +139,8 @@ export function PuppetAvatar({
         {/* Whites first, then pupils, then a lid per eye on top — so the eye
             white stays visible behind a closed or half-closed lid. */}
         {draw(puppet.eyes.whites, "whites")}
-        {draw(puppet.eyes.pupils, "pupils")}
+        {draw(puppet.eyes.pupilLeft, "pupilL")}
+        {draw(puppet.eyes.pupilRight, "pupilR")}
         {draw({ ...lidL, split: "left" }, "lidL")}
         {draw({ ...lidR, split: "right" }, "lidR")}
         {draw(browL, "browL")}

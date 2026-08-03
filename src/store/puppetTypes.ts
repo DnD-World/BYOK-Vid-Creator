@@ -78,7 +78,16 @@ export type PuppetVariants = Record<string, PuppetLayer>;
  */
 export interface PuppetEyes {
   whites: PuppetLayer;
-  pupils?: PuppetLayer;
+  /** One pupil per eye, each split out of the same pair image.
+   *
+   *  They are separate because the pupil pair is drawn narrower than the eye
+   *  whites — measured at 160 source px per side on this art — so a single
+   *  pair layer leaves both pupils hard against the inner edge of their eye.
+   *  You do not notice that while both eyes are open and symmetric. You notice
+   *  it immediately in a wink, where the one visible pupil is plainly not
+   *  centred. Per-eye pupils also give gaze direction for free later. */
+  pupilLeft?: PuppetLayer;
+  pupilRight?: PuppetLayer;
   /** "open" is required. Any others ("half", "closed") become blink and
    *  expression states, and each eye picks its own — that is the wink. */
   lids: PuppetVariants;
@@ -118,7 +127,8 @@ export function puppetFiles(p: Puppet): string[] {
   const add = (l?: PuppetLayer) => l && out.add(l.file);
   p.base_layers?.forEach(add);
   add(p.eyes.whites);
-  add(p.eyes.pupils);
+  add(p.eyes.pupilLeft);
+  add(p.eyes.pupilRight);
   Object.values(p.eyes.lids).forEach(add);
   Object.values(p.brows).forEach((b) => {
     add(b.left);

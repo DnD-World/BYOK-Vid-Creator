@@ -78,7 +78,8 @@ function renderFace({ viseme = 0, eyes = {}, brow = null }) {
 
   (p.base_layers ?? []).forEach(put);
   put(p.eyes.whites);
-  put(p.eyes.pupils);
+  put(p.eyes.pupilLeft);
+  put(p.eyes.pupilRight);
   const lids = p.eyes.lids;
   put({ ...(lids[eyes.left] ?? lids.open), split: "left" });
   put({ ...(lids[eyes.right] ?? lids.open), split: "right" });
@@ -128,6 +129,20 @@ if (contact) {
   fs.writeFileSync(contact, PNG.sync.write(sheet));
   console.log(`${cells.length} combinations -> ${contact}`);
   console.log("  " + cells.map((c) => c.label).join(", "));
+}
+
+// --one "viseme,lidL,lidR,browL,browR" — a single face, big, for close reading.
+const one = flag("one", null);
+if (one) {
+  const [v, lL, lR, bL, bR] = one.split(",").map((s) => s.trim());
+  const face = renderFace({
+    viseme: Number(v) || 0,
+    eyes: { left: lL || "open", right: lR || "open" },
+    brow: { left: bL || "serious", right: bR || bL || "serious" },
+  });
+  const out = flag("out", "one.png");
+  fs.writeFileSync(out, PNG.sync.write(face));
+  console.log(`face [${one}] -> ${out} (${SIZE}px)`);
 }
 
 const cellsDir = flag("cells", null);

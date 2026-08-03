@@ -3,7 +3,7 @@
   "base": "tsika.png",
   "dir": "viseme",
   "head": {
-    "cx": 0.51,
+    "cx": 0.501,
     "cy": 0.45,
     "w": 0.53
   },
@@ -17,9 +17,18 @@
       "w": 1437,
       "h": 676
     },
-    "pupils": {
+    "pupilLeft": {
       "file": "_0000_pupils.png",
-      "x": 0,
+      "split": "left",
+      "x": -0.066,
+      "y": 0.013,
+      "w": 719,
+      "h": 173
+    },
+    "pupilRight": {
+      "file": "_0000_pupils.png",
+      "split": "right",
+      "x": 0.069,
       "y": 0.013,
       "w": 719,
       "h": 173

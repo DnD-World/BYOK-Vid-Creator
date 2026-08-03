@@ -17,9 +17,18 @@
       "w": 1500,
       "h": 663
     },
-    "pupils": {
+    "pupilLeft": {
       "file": "_0018_Pupils.png",
-      "x": 0,
+      "split": "left",
+      "x": -0.075,
+      "y": -0.17,
+      "w": 554,
+      "h": 181
+    },
+    "pupilRight": {
+      "file": "_0018_Pupils.png",
+      "split": "right",
+      "x": 0.078,
       "y": -0.17,
       "w": 554,
       "h": 181

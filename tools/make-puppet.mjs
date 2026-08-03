@@ -67,7 +67,8 @@ const out = {
   base_layers: (spec.base_layers ?? []).map((l, i) => stamp(l, `base_layers[${i}]`)),
   eyes: {
     whites: stamp(spec.eyes?.whites, "eyes.whites"),
-    pupils: spec.eyes?.pupils ? stamp(spec.eyes.pupils, "eyes.pupils") : undefined,
+    pupilLeft: spec.eyes?.pupilLeft ? stamp(spec.eyes.pupilLeft, "eyes.pupilLeft") : undefined,
+    pupilRight: spec.eyes?.pupilRight ? stamp(spec.eyes.pupilRight, "eyes.pupilRight") : undefined,
     lids: Object.fromEntries(
       Object.entries(spec.eyes?.lids ?? {}).map(([k, l]) => [k, stamp(l, `eyes.lids.${k}`)])
     ),
