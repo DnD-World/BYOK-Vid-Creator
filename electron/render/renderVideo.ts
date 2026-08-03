@@ -21,13 +21,19 @@ import os from "node:os";
 import { bundle } from "@remotion/bundler";
 import { selectComposition, renderMedia, ensureBrowser } from "@remotion/renderer";
 import { COMPOSITION_ID, type RenderProps, type RenderSpeaker } from "../../remotion/types";
+import type { Puppet } from "../../src/store/puppetTypes";
+import { puppetAssetPaths, validatePuppet } from "../../src/lib/puppets/puppetAssets";
 
 export interface RenderJob {
   musicWaveform: RenderProps["musicWaveform"];
   musicColor: string;
-  /** Sheets arrive as disk paths and are converted to public-dir filenames
-   *  here, so the renderer never has to know about the filesystem. */
-  speakers: (Omit<RenderSpeaker, "sheetFileName"> & { sheetPath?: string })[];
+  /** Faces arrive as disk paths — a sheet image, or a puppet JSON with its art
+   *  beside it — and are converted to public-dir filenames here, so the
+   *  renderer never has to know about the filesystem. */
+  speakers: (Omit<RenderSpeaker, "sheetFileName" | "puppet" | "puppetFiles"> & {
+    sheetPath?: string;
+    puppetPath?: string;
+  })[];
   width: number;
   height: number;
   fps: number;
@@ -126,10 +132,60 @@ export async function renderVideo(
     // reference to somewhere on disk is blocked as cross-origin. Deduplicated by
     // source path so two speakers sharing a sheet copy it once.
     const sheetNameByPath = new Map<string, string>();
+
+    // Puppet layers travel the same road, and are deduplicated the same way —
+    // which matters far more here than it does for sheets. Three speakers on
+    // one puppet is 60 copyFile calls of the same twenty PNGs otherwise, and
+    // the whole cast typically shares one `viseme/` folder.
+    const layerNameByPath = new Map<string, string>();
+    const puppetCache = new Map<string, { puppet: Puppet; files: Record<string, string> } | null>();
+
+    /** Load a puppet and copy its art in, returning what the composition needs
+     *  to draw it — or null, which renders that speaker faceless rather than
+     *  aborting a render that is otherwise entirely valid. */
+    const preparePuppet = async (puppetPath: string, label: string) => {
+      if (puppetCache.has(puppetPath)) return puppetCache.get(puppetPath)!;
+      let prepared: { puppet: Puppet; files: Record<string, string> } | null = null;
+      try {
+        const raw = JSON.parse(await fsp.readFile(puppetPath, "utf8"));
+        const res = validatePuppet(raw);
+        if (!res.ok) throw new Error(res.error);
+        const files: Record<string, string> = {};
+        for (const [file, abs] of Object.entries(puppetAssetPaths(res.puppet, puppetPath))) {
+          let name = layerNameByPath.get(abs);
+          if (!name) {
+            name = `puppet-${layerNameByPath.size}${path.extname(abs) || ".png"}`;
+            // One missing layer is a missing brow, not a missing character, so
+            // it is skipped rather than failing the whole puppet.
+            try {
+              await fsp.copyFile(abs, path.join(publicDir, name));
+              layerNameByPath.set(abs, name);
+            } catch {
+              warnings.push(`[byok] ${label}: layer ${file} could not be read.`);
+              continue;
+            }
+          }
+          files[file] = name;
+        }
+        prepared = { puppet: res.puppet, files };
+      } catch (e) {
+        onProgress(
+          STAGE.browser.from,
+          `Couldn't load the puppet for ${label} (${e instanceof Error ? e.message : String(e)}), rendering without a face.`
+        );
+      }
+      puppetCache.set(puppetPath, prepared);
+      return prepared;
+    };
+
     const speakers: RenderSpeaker[] = [];
     for (const sp of job.speakers) {
+      // The puppet wins when both are set — same precedence as the preview.
+      const prepared = sp.puppetPath ? await preparePuppet(sp.puppetPath, sp.label) : null;
       let sheetFileName: string | null = null;
-      if (sp.sheetPath) {
+      // A speaker with a working puppet never draws their sheet, so there is no
+      // reason to copy 15MB of it into the bundle.
+      if (sp.sheetPath && !prepared) {
         let name = sheetNameByPath.get(sp.sheetPath);
         if (!name) {
           name = `viseme-${sheetNameByPath.size}${path.extname(sp.sheetPath) || ".png"}`;
@@ -151,6 +207,8 @@ export async function renderVideo(
         bgOpacity: sp.bgOpacity, borderOpacity: sp.borderOpacity,
         outlineShape: sp.outlineShape, waveform: sp.waveform,
         sheetFileName,
+        puppet: prepared?.puppet ?? null,
+        puppetFiles: prepared?.files ?? {},
       });
     }
 

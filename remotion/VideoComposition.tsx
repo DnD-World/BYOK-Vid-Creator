@@ -17,6 +17,7 @@ import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig } from
 import { WaveformScene } from "../src/components/canvas/WaveformScene";
 import { SubtitleScene } from "../src/components/canvas/SubtitleScene";
 import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
+import { PuppetAvatar } from "../src/components/canvas/PuppetAvatar";
 import { buildCues } from "../src/lib/subtitles/wordTiming";
 import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
@@ -78,15 +79,30 @@ export function VideoComposition({
     [narrationSegments, fps]
   );
 
-  const sheetUrls = useMemo(
+  // Every image any avatar might draw: a flattened sheet, or every layer of a
+  // layered puppet. Resolved to public-dir URLs here, once, and handed to the
+  // avatars below rather than recomputed per speaker per frame.
+  const puppetUrls = useMemo(
     () =>
-      speakers
-        .map((sp) => (sp.sheetFileName ? staticFile(sp.sheetFileName) : ""))
-        .filter(Boolean),
+      speakers.map((sp) =>
+        Object.fromEntries(
+          Object.entries(sp.puppetFiles).map(([file, name]) => [file, staticFile(name)])
+        )
+      ),
     [speakers]
   );
-  // Must run before any frame is captured — see the hook for why.
-  useWaitForImages(sheetUrls);
+
+  const faceUrls = useMemo(
+    () => [
+      ...speakers.map((sp) => (sp.sheetFileName ? staticFile(sp.sheetFileName) : "")).filter(Boolean),
+      ...puppetUrls.flatMap((m) => Object.values(m)),
+    ],
+    [speakers, puppetUrls]
+  );
+  // Must run before any frame is captured — see the hook for why. A puppet
+  // makes this matter more, not less: twenty layers that pop in over the first
+  // few frames is twenty chances to ship a frame with half a face.
+  useWaitForImages(faceUrls);
 
   const tracks = useMemo(
     () => buildTracks(speakers, musicWaveform, musicColor),
@@ -125,7 +141,7 @@ export function VideoComposition({
         />
       </div>
 
-      {speakers.map((sp) => {
+      {speakers.map((sp, i) => {
         const track = visemeTracks[sp.id];
         const blend = track
           ? visemeBlendAt(track, timeMs / 1000, visemeFadeMs / 1000)
@@ -149,21 +165,37 @@ export function VideoComposition({
               transform: "translate(-50%, -50%)" + motionTransform(motion, size),
             }}
           >
-            {/* The very same component the preview draws. Duplicating the disk
+            {/* The very same components the preview draws. Duplicating the disk
                 markup here is what let the border width and glow drift apart
                 once already — there is only one implementation now. */}
-            <SpeakerAvatar
-              sheetUrl={sp.sheetFileName ? staticFile(sp.sheetFileName) : ""}
-              viseme={blend.to}
-              prevViseme={blend.from}
-              mix={blend.mix}
-              size={size}
-              bgOpacity={sp.bgOpacity}
-              borderOpacity={sp.borderOpacity}
-              bgColor={sp.bgColor}
-              borderColor={sp.borderColor}
-              outlineShape={sp.outlineShape}
-            />
+            {sp.puppet ? (
+              <PuppetAvatar
+                puppet={sp.puppet}
+                urls={puppetUrls[i]}
+                viseme={blend.to}
+                prevViseme={blend.from}
+                mix={blend.mix}
+                size={size}
+                bgOpacity={sp.bgOpacity}
+                borderOpacity={sp.borderOpacity}
+                bgColor={sp.bgColor}
+                borderColor={sp.borderColor}
+                outlineShape={sp.outlineShape}
+              />
+            ) : (
+              <SpeakerAvatar
+                sheetUrl={sp.sheetFileName ? staticFile(sp.sheetFileName) : ""}
+                viseme={blend.to}
+                prevViseme={blend.from}
+                mix={blend.mix}
+                size={size}
+                bgOpacity={sp.bgOpacity}
+                borderOpacity={sp.borderOpacity}
+                bgColor={sp.bgColor}
+                borderColor={sp.borderColor}
+                outlineShape={sp.outlineShape}
+              />
+            )}
           </div>
         );
       })}

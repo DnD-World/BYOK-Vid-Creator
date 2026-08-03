@@ -35,9 +35,14 @@ if (!puppetPath) {
 const p = JSON.parse(fs.readFileSync(puppetPath, "utf8"));
 const SIZE = Number(flag("size", 512));
 
+// `dir` is relative to the puppet file, not to the cwd — same rule the app's
+// loader follows, so this tool and the app resolve every layer identically no
+// matter where either is invoked from.
+const assetDir = path.resolve(path.dirname(puppetPath), p.dir ?? ".");
+
 const cache = new Map();
 const load = (f) => {
-  if (!cache.has(f)) cache.set(f, PNG.sync.read(fs.readFileSync(path.join(p.dir, f))));
+  if (!cache.has(f)) cache.set(f, PNG.sync.read(fs.readFileSync(path.join(assetDir, f))));
   return cache.get(f);
 };
 

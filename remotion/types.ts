@@ -14,6 +14,7 @@ import type {
   SubtitleConfig,
   TrackWaveform,
 } from "../src/store/types";
+import type { Puppet } from "../src/store/puppetTypes";
 
 // Declared as `type` aliases rather than `interface` on purpose. Remotion
 // constrains composition props to `Record<string, unknown>`, and TypeScript
@@ -42,6 +43,19 @@ export type RenderSpeaker = {
    *  file in before bundling — same mechanism as the narration WAV, and for
    *  the same reason: a file:// src is blocked from the bundle's http:// origin. */
   sheetFileName: string | null;
+  /** This speaker's layered puppet, or null to fall back to `sheetFileName`.
+   *
+   *  The definition rides along in inputProps rather than as a file: it is a
+   *  few KB of geometry, and the composition needs it before it can lay out a
+   *  single frame. Its *art* is far too big for that and takes the same road
+   *  the sheets do — see `puppetFiles` below. */
+  puppet: Puppet | null;
+  /** Layer file name (as written in the puppet) -> filename inside Remotion's
+   *  public dir. Kept as a side map rather than rewriting `puppet.file` in
+   *  place, so what the composition draws is the same definition the author
+   *  tuned, and a mismatch shows up as a missing layer instead of as art that
+   *  is subtly the wrong one. */
+  puppetFiles: Record<string, string>;
 };
 
 export type RenderProps = {

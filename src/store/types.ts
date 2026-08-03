@@ -91,6 +91,17 @@ export interface SpeakerConfig {
    *  renderer: the preview turns it into a blob URL over IPC, and the render
    *  copies the file into Remotion's public dir. */
   sheetPath?: string;
+  /** Absolute path on disk to a `*.puppet.json` — a layered character rather
+   *  than a flattened sheet. Travels the same two roads as `sheetPath` for the
+   *  same reasons, except a puppet is a JSON file plus ~20 PNGs beside it
+   *  rather than one image.
+   *
+   *  When both are set the PUPPET WINS. They are kept side by side rather than
+   *  as one "face" field because they are not interchangeable: a sheet is nine
+   *  baked faces, a puppet blinks and winks and raises one brow. Someone
+   *  halfway through building a puppet should not lose the working sheet, and
+   *  every project saved before puppets existed still opens with its face on. */
+  puppetPath?: string;
   bgOpacity: number;     // default 0 (invisible disk)
   borderOpacity: number; // default 1
   bgColor: string;

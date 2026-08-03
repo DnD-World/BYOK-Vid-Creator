@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Turns viseme-sheet disk paths into blob URLs the preview can actually load.
+// Turns image paths on disk into blob URLs the preview can actually load.
 //
 // Why this is needed: the renderer runs with contextIsolation on and cannot
 // read from the filesystem, and a file:// background-image is blocked from the
@@ -7,12 +7,15 @@
 // and become an in-memory blob URL.
 //
 // Cached by path, and blob URLs are revoked when they stop being referenced —
-// a 12MB sheet leaked on every edit would add up fast.
+// a 12MB sheet leaked on every edit would add up fast. That mattered for a
+// handful of sprite sheets; it matters more now that a layered puppet is
+// twenty-odd files per character and switching character re-resolves all of
+// them.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useRef, useState } from "react";
 
-export function useSheetUrls(paths: (string | undefined)[]): Record<string, string> {
+export function useFileUrls(paths: (string | undefined)[]): Record<string, string> {
   const [urls, setUrls] = useState<Record<string, string>>({});
   // Kept in a ref as well so cleanup can revoke without re-running on state.
   const cacheRef = useRef<Record<string, string>>({});

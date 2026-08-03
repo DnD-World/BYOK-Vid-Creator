@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject, ReactNode } from "react";
 import { Toggle } from "./components/ui/Toggle";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
+import { PuppetAvatar } from "./components/canvas/PuppetAvatar";
 import { WaveformScene } from "./components/canvas/WaveformScene";
 import { SubtitleScene } from "./components/canvas/SubtitleScene";
 import { usePreviewClock } from "./lib/motion/usePreviewClock";
 import { buildCues } from "./lib/subtitles/wordTiming";
 import { buildSpeakerVisemeTracks } from "./lib/visemes/speakerTracks";
 import { visemeBlendAt } from "./lib/visemes/timeline";
-import { useSheetUrls } from "./lib/visemes/useSheetUrls";
+import { useFileUrls } from "./lib/assets/useFileUrls";
+import { usePuppets } from "./lib/puppets/usePuppets";
 import { CastPanel } from "./components/panels/CastPanel";
 import { ScenePanel } from "./components/panels/ScenePanel";
 import { buildTracks } from "./lib/waveform/buildTracks";
@@ -144,7 +146,8 @@ export default function App() {
     () => buildSpeakerVisemeTracks(narration?.segments ?? [], fps),
     [narration, fps]
   );
-  const sheetUrls = useSheetUrls(speakers.map((sp) => sp.sheetPath));
+  const sheetUrls = useFileUrls(speakers.map((sp) => sp.sheetPath));
+  const { puppets } = usePuppets(speakers.map((sp) => sp.puppetPath));
   const speakerColors = useMemo(
     () => Object.fromEntries(speakers.map((sp) => [sp.id, sp.borderColor])),
     [speakers]
@@ -375,7 +378,16 @@ export default function App() {
                 {render.width}×{render.height}
               </span>
 
-              {speakers.map((sp) => (
+              {speakers.map((sp) => {
+                // The puppet wins when a speaker has both. Resolved once here
+                // rather than inside the JSX, so the render's identical rule
+                // (electron/render/renderVideo.ts) has something to match.
+                const loaded = sp.puppetPath ? puppets[sp.puppetPath] : undefined;
+                const track = visemeTracks[sp.id];
+                const blend = track
+                  ? visemeBlendAt(track, previewTimeMs / 1000, visemeFadeMs / 1000)
+                  : { from: VISEME.NEUTRAL, to: VISEME.NEUTRAL, mix: 1 };
+                return (
                 <div
                   key={sp.id}
                   onPointerDown={(e) => {
@@ -408,25 +420,39 @@ export default function App() {
                   }}
                   className="z-10"
                 >
-                  <SpeakerAvatar
-                    sheetUrl={(sp.sheetPath && sheetUrls[sp.sheetPath]) || ""}
-                    {...(() => {
-                      const t = visemeTracks[sp.id];
-                      if (!t) return { viseme: VISEME.NEUTRAL };
-                      const b = visemeBlendAt(t, previewTimeMs / 1000, visemeFadeMs / 1000);
-                      return { viseme: b.to, prevViseme: b.from, mix: b.mix };
-                    })()}
-                    // size is a fraction of frame width; the render resolves it
-                    // against the output width the exact same way.
-                    size={sp.size * canvasSize.w}
-                    bgOpacity={sp.bgOpacity}
-                    borderOpacity={sp.borderOpacity}
-                    bgColor={sp.bgColor}
-                    borderColor={sp.borderColor}
-                    outlineShape={sp.outlineShape}
-                  />
+                  {loaded ? (
+                    <PuppetAvatar
+                      puppet={loaded.puppet}
+                      urls={loaded.urls}
+                      viseme={blend.to}
+                      prevViseme={blend.from}
+                      mix={blend.mix}
+                      // size is a fraction of frame width; the render resolves
+                      // it against the output width the exact same way.
+                      size={sp.size * canvasSize.w}
+                      bgOpacity={sp.bgOpacity}
+                      borderOpacity={sp.borderOpacity}
+                      bgColor={sp.bgColor}
+                      borderColor={sp.borderColor}
+                      outlineShape={sp.outlineShape}
+                    />
+                  ) : (
+                    <SpeakerAvatar
+                      sheetUrl={(sp.sheetPath && sheetUrls[sp.sheetPath]) || ""}
+                      viseme={blend.to}
+                      prevViseme={blend.from}
+                      mix={blend.mix}
+                      size={sp.size * canvasSize.w}
+                      bgOpacity={sp.bgOpacity}
+                      borderOpacity={sp.borderOpacity}
+                      bgColor={sp.bgColor}
+                      borderColor={sp.borderColor}
+                      outlineShape={sp.outlineShape}
+                    />
+                  )}
                 </div>
-              ))}
+                );
+              })}
 
               {/* Above the avatars, matching the render's layer order. */}
               <SubtitleScene

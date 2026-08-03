@@ -1,7 +1,7 @@
 {
   "name": "Τσίκα",
   "base": "tsika.png",
-  "dir": "viseme",
+  "dir": "../viseme",
   "head": {
     "cx": 0.501,
     "cy": 0.45,

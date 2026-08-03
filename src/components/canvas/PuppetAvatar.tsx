@@ -26,6 +26,10 @@ interface Props {
   urls: Record<string, string>;
   /** Viseme index 0–8. */
   viseme: number;
+  /** The mouth being faded out of, and how far through the fade we are
+   *  (1 = done). Omit for a hard cut. */
+  prevViseme?: number;
+  mix?: number;
   /** Lid state per eye, from `puppet.eyes.lids`. Different values wink. */
   lidLeft?: string;
   lidRight?: string;
@@ -57,7 +61,7 @@ function filterFor(l: PuppetLayer): string | undefined {
 }
 
 export function PuppetAvatar({
-  puppet, urls, viseme,
+  puppet, urls, viseme, prevViseme, mix = 1,
   lidLeft = "open", lidRight = "open",
   browLeft, browRight, size,
   bgOpacity, borderOpacity,
@@ -127,8 +131,10 @@ export function PuppetAvatar({
     };
   };
 
-  const draw = (l: PuppetLayer | undefined, key: string) =>
-    l && urls[l.file] ? <div key={key} style={layerStyle(l)} /> : null;
+  const draw = (l: PuppetLayer | undefined, key: string, opacity?: number) =>
+    l && urls[l.file] ? (
+      <div key={key} style={opacity === undefined ? layerStyle(l) : { ...layerStyle(l), opacity }} />
+    ) : null;
 
   const lids = puppet.eyes.lids;
   const lidL = lids[lidLeft] ?? lids.open;
@@ -136,6 +142,19 @@ export function PuppetAvatar({
   const browL = browLeft ? puppet.brows[browLeft]?.left : undefined;
   const browR = browRight ? puppet.brows[browRight]?.right : undefined;
   const mouth = puppet.mouths[String(viseme)] ?? puppet.mouths["0"];
+  const prevMouth =
+    prevViseme !== undefined && prevViseme !== viseme
+      ? puppet.mouths[String(prevViseme)] ?? puppet.mouths["0"]
+      : undefined;
+  // A TRUE crossfade, unlike the sprite sheet's, which stacks the outgoing cell
+  // opaque underneath the incoming one. That was necessary there because each
+  // cell is a whole face and fading both would let the background show through
+  // the middle of the transition. Here the face underneath is blank — the mouth
+  // is its own layer over solid skin — so there is nothing to show through, and
+  // fading both out and in is what actually reads as a mouth changing shape.
+  // Stacking would instead hold the old mouth at full strength until the last
+  // instant and then pop.
+  const fading = prevMouth !== undefined && mix < 1;
 
   return (
     <div style={{
@@ -169,7 +188,8 @@ export function PuppetAvatar({
         {draw(browL, "browL")}
         {draw(browR, "browR")}
         {puppet.extras?.map((l, i) => draw(l, `ex${i}`))}
-        {draw(mouth, "mouth")}
+        {fading && draw(prevMouth, "mouthPrev", 1 - mix)}
+        {draw(mouth, "mouth", fading ? mix : undefined)}
       </div>
     </div>
   );

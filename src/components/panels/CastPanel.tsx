@@ -18,6 +18,7 @@ import { WaveformControls } from "./WaveformControls";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
 import { useSpeakerLibraryStore } from "../../store/useSpeakerLibraryStore";
+import { usePuppetDefs } from "../../lib/puppets/usePuppets";
 import type { OutlineShape } from "../../store/types";
 
 const SHAPES: { id: OutlineShape; label: string }[] = [
@@ -38,6 +39,9 @@ export function CastPanel() {
   const musicColor = useProjectStore((s) => s.musicColor);
   const setMusicColor = useProjectStore((s) => s.setMusicColor);
   const voices = useVoicesStore((s) => s.voices);
+  // Definitions only, no art: this panel needs to know whether a puppet file
+  // is valid, not what it looks like.
+  const { errors: puppetErrors } = usePuppetDefs(speakers.map((sp) => sp.puppetPath));
 
   const addSpeakerFrom = useProjectStore((s) => s.addSpeakerFrom);
   const library = useSpeakerLibraryStore((s) => s.speakers);
@@ -221,8 +225,43 @@ export function CastPanel() {
               Keeps the face, voice, colours and waveform — not where they stand.
             </p>
 
+            {/* Two kinds of face, listed puppet-first because it is the better
+                one and the one being chosen from here on. The flattened sheet
+                stays for every project that already has one — and it is still
+                the only option for a character nobody has cut into layers. */}
             <section className="space-y-3">
               <div className="label-etched">Face</div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    const p = await window.byok.dialog.openFile([
+                      { name: "Puppet", extensions: ["json"] },
+                    ]);
+                    if (p) updateSpeaker(speaker.id, { puppetPath: p });
+                  }}
+                  className="label-etched underline hover:text-accent-bright"
+                >
+                  {speaker.puppetPath ? "Change puppet" : "Choose puppet…"}
+                </button>
+                {speaker.puppetPath && (
+                  <button
+                    onClick={() => updateSpeaker(speaker.id, { puppetPath: undefined })}
+                    className="label-etched underline text-neutral-500 hover:text-red-400"
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+              {speaker.puppetPath && (
+                <p className="text-sm text-neutral-500 truncate" title={speaker.puppetPath}>
+                  {speaker.puppetPath.split(/[\\/]/).pop()}
+                  {puppetErrors[speaker.puppetPath] && (
+                    <span className="text-red-400"> — {puppetErrors[speaker.puppetPath]}</span>
+                  )}
+                </p>
+              )}
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => {
@@ -233,7 +272,7 @@ export function CastPanel() {
                   }}
                   className="label-etched underline hover:text-accent-bright"
                 >
-                  {speaker.sheetPath ? "Change face" : "Choose face…"}
+                  {speaker.sheetPath ? "Change sheet" : "Choose sheet…"}
                 </button>
                 {speaker.sheetPath && (
                   <button
@@ -247,6 +286,11 @@ export function CastPanel() {
               {speaker.sheetPath && (
                 <p className="text-sm text-neutral-500 truncate" title={speaker.sheetPath}>
                   {speaker.sheetPath.split(/[\\/]/).pop()}
+                  {/* Silently ignoring the sheet would read as the picker being
+                      broken — say which one is actually on screen. */}
+                  {speaker.puppetPath && !puppetErrors[speaker.puppetPath] && (
+                    <span className="text-neutral-600"> — unused, the puppet is drawn</span>
+                  )}
                 </p>
               )}
             </section>

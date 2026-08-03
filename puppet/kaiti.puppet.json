@@ -1,7 +1,7 @@
 {
   "name": "Καίτη",
   "base": "kaiti.png",
-  "dir": "viseme",
+  "dir": "../viseme",
   "head": {
     "cx": 0.5,
     "cy": 0.61,

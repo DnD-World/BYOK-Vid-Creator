@@ -58,10 +58,21 @@ function stamp(layer, where) {
   return { ...layer, w: d.w, h: d.h };
 }
 
+// The spec's `dir` is relative to the repo root, because that is where the
+// tools are run from. The RUNTIME file has no such luxury: the app loads it
+// from an arbitrary path the user picked in a file dialog, with no notion of a
+// repo root at all. So it carries `dir` relative to ITS OWN location, which
+// makes the puppet folder movable as a unit and leaves only one thing for a
+// loader to do — resolve against the file it just read.
+const relDir = path
+  .relative(path.dirname(path.resolve(outPath)), path.resolve(dir))
+  .split(path.sep)
+  .join("/");
+
 const out = {
   name: spec.name,
   base: spec.base,
-  dir,
+  dir: relDir || ".",
   head: spec.head,
   sourceHeadWidth: spec.sourceHeadWidth,
   base_layers: (spec.base_layers ?? []).map((l, i) => stamp(l, `base_layers[${i}]`)),

@@ -119,8 +119,12 @@ export function RenderBar() {
           borderOpacity: sp.borderOpacity,
           outlineShape: sp.outlineShape,
           waveform: sp.waveform,
-          // Path, not a URL — main copies the file into the render's public dir.
+          // Paths, not URLs — main copies the files into the render's public
+          // dir. The puppet wins over the sheet there, as it does in the
+          // preview; both are sent so that precedence lives in exactly one
+          // place rather than being decided twice.
           sheetPath: sp.sheetPath,
+          puppetPath: sp.puppetPath,
         })),
         width: render.width,
         height: render.height,

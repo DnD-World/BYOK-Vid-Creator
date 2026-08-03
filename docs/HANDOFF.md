@@ -60,8 +60,19 @@ a wink.
 - `puppet/*.puppet.json` — runtime, generated, has layer pixel dims stamped in
 - `tools/make-puppet.mjs` — spec → runtime, validates
 - `tools/render-puppet.mjs` — offline render; `--contact`, `--one`, `--cells`
-- `src/components/canvas/PuppetAvatar.tsx` — live renderer (**typechecks, NOT wired in**)
+- `src/components/canvas/PuppetAvatar.tsx` — live renderer, used by **both** the
+  preview and the render
 - `src/store/puppetTypes.ts` — the spec type
+- `src/lib/puppets/puppetAssets.ts` — puppet → files on disk. Dependency-free on
+  purpose: the browser, Electron main and the tools all need this arithmetic and
+  share no runtime
+- `src/lib/puppets/usePuppets.ts` — preview loading. `usePuppetDefs` is the
+  JSON-only half, for panels that need validity but not art
+
+A speaker carries `puppetPath` **and** `sheetPath`; the puppet wins wherever
+both are set. They are not interchangeable — a sheet is nine baked faces — so
+the sheet stays rather than being migrated away, and old projects still open
+with their face on.
 
 **The geometry is specified once, in the puppet JSON.** The offline tool and
 the component both only apply it. If they ever disagree, that is the bug.
@@ -136,9 +147,13 @@ vs soft constraints. **Not settled.** The 2D puppet is the working answer now.
 
 ## 7. Next steps, in order
 
-1. **Wire `PuppetAvatar` into the app** — load puppets onto speakers, blob-URLs
-   for preview, copy layers into the render's public dir. Currently renders
-   still use old flattened sheets.
+1. ~~Wire `PuppetAvatar` into the app.~~ **Done.** Cast → Choose puppet, and a
+   real MP4 has been rendered from `kaiti.puppet.json` end to end. Two things
+   left over from it: the lids and brows are still pinned open/absent (nothing
+   drives them yet — that is step 2), and a puppet reads **smaller** than a
+   sheet at the same `size`, because a sheet's cells are cropped to the head
+   while a puppet's base image carries the artwork's own margins. Decide
+   whether that is a per-puppet scale or just a bigger `size`.
 2. **Blink track** — deterministic, time-based, drives the lid states.
 3. **Head tilt/shake** — one transform on the head group; the anchoring is done.
 4. **Punctuation-driven brows** — Greek `;` is a question mark.

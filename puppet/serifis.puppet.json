@@ -1,7 +1,7 @@
 {
   "name": "Σερίφης",
   "base": "serifis.png",
-  "dir": "viseme",
+  "dir": "../viseme",
   "head": {
     "cx": 0.5,
     "cy": 0.45,
