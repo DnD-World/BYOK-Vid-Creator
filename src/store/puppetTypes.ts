@@ -114,6 +114,16 @@ export interface Puppet {
    *  is the one measurement that sets it. */
   sourceHeadWidth: number;
 
+  /** Framing override. The base image is scaled by this before anything is
+   *  drawn, so the character can be pushed in or pulled back within the disk.
+   *
+   *  Omit it and the renderer auto-fits, so a puppet lands at roughly the same
+   *  apparent size as the sprite sheet it replaces — a sheet's cells are
+   *  cropped to the head, while a puppet's base carries the artwork's own
+   *  transparent margins. Set it only for a character that wants different
+   *  framing from the rest of the cast. */
+  zoom?: number;
+
   /** Always-on layers drawn under the features, in order. */
   base_layers?: PuppetLayer[];
 

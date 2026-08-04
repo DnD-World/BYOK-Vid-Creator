@@ -20,7 +20,10 @@ import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { deriveAccentShades } from "./lib/color/deriveShades";
 import { headMotion, motionTransform } from "./lib/motion/idleMotion";
-import { blinkAt, browAt, buildSpeakerBrowTracks } from "./lib/motion/facePerformance";
+import {
+  blinkAt, browAt, buildSpeakerBrowTracks,
+  buildSpeakerHeadTracks, headPoseAt,
+} from "./lib/motion/facePerformance";
 import { sampleAnalysis } from "./lib/waveform/audioAnalysis";
 import { useCornerFlare } from "./lib/motion/useCornerFlare";
 import { VISEME } from "./lib/visemes/visemeMap";
@@ -151,6 +154,10 @@ export default function App() {
   const { puppets } = usePuppets(speakers.map((sp) => sp.puppetPath));
   const browTracks = useMemo(
     () => buildSpeakerBrowTracks(narration?.segments ?? []),
+    [narration]
+  );
+  const headTracks = useMemo(
+    () => buildSpeakerHeadTracks(narration?.segments ?? []),
     [narration]
   );
   const speakerColors = useMemo(
@@ -436,6 +443,7 @@ export default function App() {
                       lidRight={blinkAt(sp.id, previewTimeMs, idleMotion)}
                       browLeft={browAt(browTracks[sp.id], previewTimeMs)}
                       browRight={browAt(browTracks[sp.id], previewTimeMs)}
+                      head={headPoseAt(sp.id, headTracks[sp.id], previewTimeMs, idleMotion)}
                       // size is a fraction of frame width; the render resolves
                       // it against the output width the exact same way.
                       size={sp.size * canvasSize.w}

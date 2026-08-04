@@ -19,7 +19,7 @@
 import type { CSSProperties } from "react";
 import type { Puppet, PuppetLayer } from "../../store/puppetTypes";
 import type { OutlineShape } from "../../store/types";
-import { BROW_REST } from "../../lib/motion/facePerformance";
+import { BROW_REST, HEAD_STILL, type HeadPose } from "../../lib/motion/facePerformance";
 
 interface Props {
   puppet: Puppet;
@@ -37,6 +37,9 @@ interface Props {
   /** Brow set per side, from `puppet.brows`. Different values raise one brow. */
   browLeft?: string;
   browRight?: string;
+  /** Rotation and offset of the head group. One transform carries every
+   *  feature, which is the whole point of anchoring them to the head. */
+  head?: HeadPose;
   /** Disk diameter in px. */
   size: number;
   bgOpacity: number;
@@ -65,13 +68,26 @@ export function PuppetAvatar({
   puppet, urls, viseme, prevViseme, mix = 1,
   lidLeft = "open", lidRight = "open",
   // Defaulted, not optional-and-absent, for the reason in `browSet` below.
-  browLeft = BROW_REST, browRight = BROW_REST, size,
+  browLeft = BROW_REST, browRight = BROW_REST, head: pose = HEAD_STILL, size,
   bgOpacity, borderOpacity,
   bgColor = "#1a1a1a", borderColor = "#d98a3d",
   outlineShape = "circle",
 }: Props) {
   const fill = outlineShape === "circle" || outlineShape === "none" ? 0.9 : 0.97;
-  const head = size * fill;
+
+  // `zoom` is opt-in and defaults to no change.
+  //
+  // An automatic fit was tried — scale the base until the head occupies a set
+  // fraction of the disk, so a puppet matches the sprite sheet it replaces.
+  // It made things worse, and the reason is worth recording: scaling alone
+  // does not RECENTRE. The head sits below the middle of the base image
+  // (cy ≈ 0.61), so enlarging about the element's centre pushes the head
+  // further down, clips the chin against the disk, and throws the shoulders
+  // out of frame entirely. A real fit has to translate by the head's offset as
+  // well as scale, and that is a framing decision per character rather than a
+  // formula. The knob is here for when someone makes that call with eyes on it.
+  const zoom = puppet.zoom ?? 1;
+  const head = size * fill * zoom;
 
   // The base image is square and drawn at the full disk size; the head is a
   // named box inside it. Everything else is measured against that box.
@@ -181,9 +197,23 @@ export function PuppetAvatar({
           : "none",
       overflow: "hidden",
     }}>
-      {/* The head group. A tilt or shake belongs on THIS element — every
-          feature is positioned inside it, so one transform moves the lot. */}
-      <div style={{ position: "relative", width: head, height: head, borderRadius: SHAPE_RADIUS[outlineShape] }}>
+      {/* The head group. The tilt and shake live on THIS element — every
+          feature is positioned inside it, so one transform moves the lot, and
+          that is exactly what anchoring the layers to the head bought.
+
+          The origin is the base of the head, not its centre: a head pivots
+          about the neck. Rotating about the centre swings the chin and the
+          crown in opposite directions, which reads as a floating mask rather
+          than as a head turning on a body. */}
+      <div style={{
+        position: "relative", width: head, height: head,
+        borderRadius: SHAPE_RADIUS[outlineShape],
+        transformOrigin: `50% ${(puppet.head.cy + puppet.head.w * 0.55) * 100}%`,
+        transform:
+          `translate(${(pose.dx * puppet.head.w * head).toFixed(2)}px, ` +
+          `${(pose.dy * puppet.head.w * head).toFixed(2)}px) ` +
+          `rotate(${pose.rotateDeg.toFixed(3)}deg)`,
+      }}>
         <div style={{
           position: "absolute", inset: 0,
           backgroundImage: `url(${urls[puppet.base] ?? ""})`,

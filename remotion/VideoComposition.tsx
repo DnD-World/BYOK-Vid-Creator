@@ -26,7 +26,10 @@ import { VISEME } from "../src/lib/visemes/visemeMap";
 import { useWaitForImages } from "./useWaitForImages";
 import { useSpectrumFile } from "./useSpectrumFile";
 import { headMotion, motionTransform } from "../src/lib/motion/idleMotion";
-import { blinkAt, browAt, buildSpeakerBrowTracks } from "../src/lib/motion/facePerformance";
+import {
+  blinkAt, browAt, buildSpeakerBrowTracks,
+  buildSpeakerHeadTracks, headPoseAt,
+} from "../src/lib/motion/facePerformance";
 import { sampleAnalysis } from "../src/lib/waveform/audioAnalysis";
 import type { RenderProps } from "./types";
 
@@ -84,6 +87,10 @@ export function VideoComposition({
   // same segments the subtitles and the mouth use.
   const browTracks = useMemo(
     () => buildSpeakerBrowTracks(narrationSegments),
+    [narrationSegments]
+  );
+  const headTracks = useMemo(
+    () => buildSpeakerHeadTracks(narrationSegments),
     [narrationSegments]
   );
 
@@ -190,6 +197,7 @@ export function VideoComposition({
                 lidRight={blinkAt(sp.id, timeMs, idleMotion)}
                 browLeft={browAt(browTracks[sp.id], timeMs)}
                 browRight={browAt(browTracks[sp.id], timeMs)}
+                head={headPoseAt(sp.id, headTracks[sp.id], timeMs, idleMotion)}
                 size={size}
                 bgOpacity={sp.bgOpacity}
                 borderOpacity={sp.borderOpacity}
