@@ -152,6 +152,22 @@ ipcMain.handle("storage:openOutputDir", async () => {
   return true;
 });
 
+/**
+ * Where the bundled character puppets live.
+ *
+ * The renderer cannot work this out for itself: it has no filesystem and no
+ * notion of where the app was installed. Returning the folder rather than the
+ * individual files keeps the cast list in the renderer, where it belongs, and
+ * leaves this handler as one line that never changes when a character is added.
+ */
+ipcMain.handle("storage:puppetDir", async () => {
+  // app.getAppPath() is the repo root in dev and the asar root when packaged;
+  // puppet/ sits beside package.json in both, provided it is listed in the
+  // build's `files`. The ART it references lives outside git and is resolved
+  // relative to each puppet.json, so it follows the same folder.
+  return path.join(app.getAppPath(), "puppet");
+});
+
 ipcMain.handle("storage:readFile", async (_e, filePath: string) => {
   const buf = await fsp.readFile(filePath);
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
