@@ -1,0 +1,264 @@
+{
+  "name": "Σερίφης",
+  "base": "serifis.png",
+  "dir": "../viseme",
+  "head": {
+    "cx": 0.5,
+    "cy": 0.45,
+    "w": 0.51
+  },
+  "sourceHeadWidth": 2500,
+  "base_layers": [],
+  "eyes": {
+    "whites": {
+      "file": "_0029_eyes.png",
+      "x": 0,
+      "y": -0.193,
+      "w": 1500,
+      "h": 663
+    },
+    "pupilLeft": {
+      "file": "_0018_Pupils.png",
+      "split": "left",
+      "x": -0.075,
+      "y": -0.17,
+      "w": 554,
+      "h": 181
+    },
+    "pupilRight": {
+      "file": "_0018_Pupils.png",
+      "split": "right",
+      "x": 0.078,
+      "y": -0.17,
+      "w": 554,
+      "h": 181
+    },
+    "lids": {
+      "open": {
+        "file": "_0027_open-eyes.png",
+        "x": 0,
+        "y": -0.193,
+        "w": 1559,
+        "h": 753
+      },
+      "half": {
+        "file": "_0030_lazy-eyes.png",
+        "x": 0,
+        "y": -0.193,
+        "saturation": 0.15,
+        "lightness": 0.92,
+        "w": 1669,
+        "h": 757
+      },
+      "closed": {
+        "file": "_0028_closed-eyes.png",
+        "x": 0,
+        "y": -0.193,
+        "saturation": 0.15,
+        "lightness": 0.92,
+        "w": 1639,
+        "h": 749
+      }
+    }
+  },
+  "brows": {
+    "serious": {
+      "left": {
+        "file": "_0019_R-eyebrow-serious.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": -0.155,
+        "y": -0.208,
+        "w": 729,
+        "h": 153
+      },
+      "right": {
+        "file": "_0020_L-eyebrow-serious.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": 0.155,
+        "y": -0.208,
+        "w": 729,
+        "h": 153
+      }
+    },
+    "angry": {
+      "left": {
+        "file": "_0021_R-eyebrow-angry.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": -0.155,
+        "y": -0.208,
+        "w": 751,
+        "h": 285
+      },
+      "right": {
+        "file": "_0022_L-eyebrow-angry.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": 0.155,
+        "y": -0.208,
+        "w": 751,
+        "h": 285
+      }
+    },
+    "sad": {
+      "left": {
+        "file": "_0023_R-eyebrow-sad.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": -0.155,
+        "y": -0.208,
+        "w": 768,
+        "h": 462
+      },
+      "right": {
+        "file": "_0024_L-eybrow-sad.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": 0.155,
+        "y": -0.208,
+        "w": 769,
+        "h": 461
+      }
+    },
+    "happy": {
+      "left": {
+        "file": "_0025_R-eyebrow-happy.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": -0.155,
+        "y": -0.208,
+        "w": 740,
+        "h": 318
+      },
+      "right": {
+        "file": "_0026_L-eyebrow-happy.png",
+        "scaleX": 1.45,
+        "scaleY": 2.6,
+        "tint": "#6b6a5e",
+        "anchor": "bottom-center",
+        "x": 0.155,
+        "y": -0.208,
+        "w": 739,
+        "h": 318
+      }
+    }
+  },
+  "extras": [],
+  "mouths": {
+    "0": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0008_Happy-M.png",
+      "w": 857,
+      "h": 370
+    },
+    "1": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0015_Happy-A.png",
+      "w": 943,
+      "h": 758
+    },
+    "2": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0016_Happy-E.png",
+      "w": 943,
+      "h": 582
+    },
+    "3": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0004_O,-u.png",
+      "w": 432,
+      "h": 553
+    },
+    "4": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0004_O,-u.png",
+      "w": 432,
+      "h": 553
+    },
+    "5": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0008_Happy-M.png",
+      "w": 857,
+      "h": 370
+    },
+    "6": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0011_Sad-F.png",
+      "w": 1081,
+      "h": 360
+    },
+    "7": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0012_Happy-R.png",
+      "w": 943,
+      "h": 575
+    },
+    "8": {
+      "x": 0,
+      "y": 0.42,
+      "anchor": "top-center",
+      "scale": 0.6,
+      "saturation": 0.3,
+      "lightness": 0.95,
+      "file": "_0010_Happy-S.png",
+      "w": 943,
+      "h": 576
+    }
+  }
+}

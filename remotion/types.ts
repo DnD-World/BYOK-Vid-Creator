@@ -7,7 +7,14 @@
 // instances, no Buffers.
 // ---------------------------------------------------------------------------
 
-import type { WaveformConfig } from "../src/store/types";
+import type {
+  AudioAnalysis,
+  NarrationSegment,
+  OutlineShape,
+  SubtitleConfig,
+  TrackWaveform,
+} from "../src/store/types";
+import type { Puppet } from "../src/store/puppetTypes";
 
 // Declared as `type` aliases rather than `interface` on purpose. Remotion
 // constrains composition props to `Record<string, unknown>`, and TypeScript
@@ -22,16 +29,38 @@ export type RenderSpeaker = {
   /** 0–1, fraction of frame width/height. Matches SpeakerConfig. */
   x: number;
   y: number;
-  /** Diameter, in pixels of the *preview* canvas. Scaled at render time. */
+  /** Diameter as a 0–1 fraction of frame width. Matches SpeakerConfig. */
   size: number;
   bgColor: string;
   borderColor: string;
   bgOpacity: number;
   borderOpacity: number;
+  outlineShape: OutlineShape;
+  /** This speaker's own waveform. Colour comes from borderColor above. */
+  waveform: TrackWaveform;
+  /** Filename (not path) of this speaker's viseme sheet inside Remotion's
+   *  public dir, or null for a faceless disk. The main process copies the
+   *  file in before bundling — same mechanism as the narration WAV, and for
+   *  the same reason: a file:// src is blocked from the bundle's http:// origin. */
+  sheetFileName: string | null;
+  /** This speaker's layered puppet, or null to fall back to `sheetFileName`.
+   *
+   *  The definition rides along in inputProps rather than as a file: it is a
+   *  few KB of geometry, and the composition needs it before it can lay out a
+   *  single frame. Its *art* is far too big for that and takes the same road
+   *  the sheets do — see `puppetFiles` below. */
+  puppet: Puppet | null;
+  /** Layer file name (as written in the puppet) -> filename inside Remotion's
+   *  public dir. Kept as a side map rather than rewriting `puppet.file` in
+   *  place, so what the composition draws is the same definition the author
+   *  tuned, and a mismatch shows up as a missing layer instead of as art that
+   *  is subtly the wrong one. */
+  puppetFiles: Record<string, string>;
 };
 
 export type RenderProps = {
-  waveform: WaveformConfig;
+  musicWaveform: TrackWaveform;
+  musicColor: string;
   speakers: RenderSpeaker[];
   width: number;
   height: number;
@@ -44,11 +73,35 @@ export type RenderProps = {
    */
   audioFileName: string | null;
   /**
-   * Width the speaker `size` values were authored against, so they can be
-   * scaled up to the real output resolution. The preview canvas is much
-   * smaller than 1080x1920, and without this every avatar renders as a dot.
+   * Loudness + active-speaker data for that audio. null when rendering silent,
+   * or when the user attached a file by hand that was never analysed — the
+   * waveform then falls back to its placeholder animation.
+   *
+   * Its `spectrum` is deliberately stripped: see spectrumFileName below.
    */
-  authoredWidth: number;
+  analysis: AudioAnalysis | null;
+  /**
+   * Filename (not path) of the packed per-band spectrum inside the public dir,
+   * or null if there isn't one.
+   *
+   * It travels as a file rather than inside inputProps because of its size: at
+   * 60Hz and 24 bands, ten minutes of narration is 1.7MB of raw bytes, and
+   * inputProps are serialised into the page for every render worker. The
+   * narration WAV and the viseme sheets already take this road for their own
+   * reasons, so the machinery to serve it was already here.
+   */
+  spectrumFileName: string | null;
+  /** Band count for that file — the composition needs it to split the bytes
+   *  into frames, and it is one number rather than a megabyte. */
+  spectrumBandCount: number;
+  subtitles: SubtitleConfig;
+  /** Crossfade between viseme cells, in ms. */
+  visemeFadeMs: number;
+  /** Idle head motion intensity, 0–1. */
+  idleMotion: number;
+  /** Narration lines with timing, from which subtitle cues are derived.
+   *  Empty means nothing to show. */
+  narrationSegments: NarrationSegment[];
 };
 
 export const COMPOSITION_ID = "byok-video";

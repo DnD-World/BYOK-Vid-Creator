@@ -26,6 +26,14 @@ function stripCodeFences(text: string): string {
   return fenceMatch ? fenceMatch[1].trim() : trimmed;
 }
 
+/** GLM-5.2 is a reasoning model. Depending on how NIM serves it, the chain of
+ *  thought arrives either in a separate `reasoning_content` field or inlined
+ *  into `content` wrapped in <think> tags. The second case would otherwise be
+ *  pasted straight into the user's script box as if it were dialogue. */
+function stripThinkBlocks(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 export async function draftScript(opts: DraftScriptOptions): Promise<string> {
   const apiKey = await keyStore.getKey("nvidia");
   if (!apiKey) {
@@ -56,7 +64,10 @@ export async function draftScript(opts: DraftScriptOptions): Promise<string> {
       { role: "user", content: userPrompt },
     ],
     temperature: 0.7,
-    max_tokens: 2048,
+    // Generous on purpose: reasoning tokens are billed against this same
+    // budget, so a tight limit gets consumed entirely by the model thinking
+    // and returns an empty `content` with finish_reason "length".
+    max_tokens: 8192,
   });
 
   const body = await new Promise<string>((resolve, reject) => {
@@ -70,7 +81,10 @@ export async function draftScript(opts: DraftScriptOptions): Promise<string> {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(payload),
         },
-        timeout: 60000,
+        // GLM-5.2 is a reasoning model on a free shared tier: it thinks before
+        // it answers, and queue time is on top of that. 60s was routinely too
+        // tight. This is a ceiling for a pathological stall, not a target.
+        timeout: 300000,
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -89,17 +103,42 @@ export async function draftScript(opts: DraftScriptOptions): Promise<string> {
     req.on("error", reject);
     req.on("timeout", () => {
       req.destroy();
-      reject(new Error("NVIDIA API request timed out."));
+      reject(
+        new Error(
+          "NVIDIA didn't respond within 5 minutes. The free tier queues requests behind " +
+            "paying traffic, so this usually means it's busy rather than broken — try again, " +
+            "or use a shorter topic."
+        )
+      );
     });
     req.write(payload);
     req.end();
   });
 
   const parsed = JSON.parse(body);
-  const content: string | undefined = parsed?.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("NVIDIA API response didn't include any content — check the raw response if this persists.");
+  const choice = parsed?.choices?.[0];
+  const finishReason: string | undefined = choice?.finish_reason;
+  const script = stripCodeFences(stripThinkBlocks(choice?.message?.content ?? ""));
+
+  if (!script) {
+    // Distinguish the two ways this realistically fails, because the fixes are
+    // completely different — one is ours to raise, the other is a bad response.
+    if (finishReason === "length") {
+      throw new Error(
+        "GLM-5.2 used its whole token budget thinking and never got to the script. " +
+          "Try a shorter, more specific topic."
+      );
+    }
+    const hadReasoning = Boolean(choice?.message?.reasoning_content);
+    if (hadReasoning) {
+      throw new Error("GLM-5.2 returned only its reasoning and no script. Try rephrasing the topic.");
+    }
+    // Include the actual response so an unexpected shape is diagnosable from
+    // the UI instead of needing a debugger attached to the main process.
+    throw new Error(
+      `NVIDIA API returned no script text. Raw response:\n${body.slice(0, 500)}`
+    );
   }
 
-  return stripCodeFences(content);
+  return script;
 }

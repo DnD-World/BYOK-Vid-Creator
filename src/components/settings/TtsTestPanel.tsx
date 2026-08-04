@@ -26,7 +26,15 @@ export default function TtsTestPanel() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
 
+  // Same rule as the Draft button: never disable for missing input, because a
+  // dead button tells the user nothing about what's wrong. Say it instead.
+  const [scanHint, setScanHint] = useState<string | null>(null);
   const runScan = async () => {
+    setScanHint(null);
+    if (!piperVoicesDir.trim()) {
+      setScanHint("Enter the folder holding your .onnx voice models first — the bundled one is ./piper-voices.");
+      return;
+    }
     await scan(piperVoicesDir);
     const found = useVoicesStore.getState().voices;
     if (found.length > 0) setSelectedVoice(found[0].onnxPath);
@@ -82,7 +90,7 @@ export default function TtsTestPanel() {
         <div className="flex items-center gap-3">
           <button
             onClick={runScan}
-            disabled={scanning || !piperVoicesDir}
+            disabled={scanning}
             className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-50"
           >
             {scanning ? "Scanning…" : "Scan for Voices"}
@@ -91,6 +99,7 @@ export default function TtsTestPanel() {
             <span className="text-sm text-emerald-400">{voices.length} voice(s) found</span>
           )}
           {scanError && <span className="text-sm text-red-400">{scanError}</span>}
+          {scanHint && <span className="text-sm text-accent-bright">{scanHint}</span>}
         </div>
 
         {voices.length > 0 && (

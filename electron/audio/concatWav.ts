@@ -66,7 +66,13 @@ function buildWavHeader(
   return buf;
 }
 
-export function concatWavBuffers(buffers: Buffer[]): ConcatResult {
+/**
+ * @param gapsMs Silence to insert BEFORE each segment, same length as
+ *   `buffers`. The first entry is normally 0 — leading silence just delays the
+ *   video. A returned segment's start time is after its own gap, so subtitles
+ *   and visemes stay tied to the audio rather than to the pause in front of it.
+ */
+export function concatWavBuffers(buffers: Buffer[], gapsMs: number[] = []): ConcatResult {
   if (buffers.length === 0) {
     throw new Error("No audio segments to concatenate.");
   }
@@ -90,7 +96,20 @@ export function concatWavBuffers(buffers: Buffer[]): ConcatResult {
   const pcmChunks: Buffer[] = [];
   let cursorMs = 0;
 
+  const blockAlign = numChannels * (bitsPerSample / 8);
+
   for (let i = 0; i < buffers.length; i++) {
+    // Digital silence, block-aligned so a gap can never shift the following
+    // samples off their frame boundary and turn the rest of the file to noise.
+    const gapMs = Math.max(0, gapsMs[i] ?? 0);
+    if (gapMs > 0) {
+      const bytes = Math.round((gapMs / 1000) * bytesPerSecond / blockAlign) * blockAlign;
+      if (bytes > 0) {
+        pcmChunks.push(Buffer.alloc(bytes));
+        cursorMs += (bytes / bytesPerSecond) * 1000;
+      }
+    }
+
     const { dataStart, dataSize } = infos[i];
     pcmChunks.push(buffers[i].subarray(dataStart, dataStart + dataSize));
     const durMs = (dataSize / bytesPerSecond) * 1000;

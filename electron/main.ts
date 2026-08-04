@@ -1,11 +1,13 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from "electron";
 import path from "node:path";
 import fsp from "node:fs/promises";
 import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import * as chatterbox from "./tts/chatterboxEngine";
 import { concatWavBuffers } from "./audio/concatWav";
+import { analyzeNarration } from "./audio/analyzeNarration";
 import { draftScript } from "./llm/glmScenePlanner";
+import { testProvider } from "./net/testProvider";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
 
 const isDev = !app.isPackaged;
@@ -38,6 +40,30 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  // Electron ships no right-click menu at all — without this, right-clicking a
+  // key field does literally nothing, which makes pasting an API key feel
+  // broken even though Ctrl+V works. Built from editFlags so the items are
+  // greyed out honestly rather than always looking available.
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    const { editFlags, isEditable, selectionText } = params;
+    const hasSelection = selectionText.trim().length > 0;
+    if (!isEditable && !hasSelection) return;
+
+    const template: Electron.MenuItemConstructorOptions[] = [];
+    if (isEditable) {
+      template.push({ role: "cut", enabled: editFlags.canCut });
+    }
+    template.push({ role: "copy", enabled: editFlags.canCopy });
+    if (isEditable) {
+      template.push(
+        { role: "paste", enabled: editFlags.canPaste },
+        { type: "separator" },
+        { role: "selectAll", enabled: editFlags.canSelectAll }
+      );
+    }
+    Menu.buildFromTemplate(template).popup({ window: mainWindow! });
   });
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -79,6 +105,25 @@ ipcMain.handle("keys:delete", async (_e, provider: string) => {
 ipcMain.handle("keys:encryptionAvailable", async () => {
   return keyStore.encryptionAvailable();
 });
+
+// Analyse an arbitrary audio file the user attached by hand. There are no
+// speaker segments for it — nobody said who is talking — so every frame is
+// marked "unknown speaker" and only the loudness envelope is real. That's
+// enough to make the waveform react, which is what the user expects the moment
+// they attach a file.
+ipcMain.handle("audio:analyzeFile", async (_e, filePath: string) => {
+  const buf = await fsp.readFile(filePath);
+  return analyzeNarration(buf, [], []);
+});
+
+// Runs in main rather than the renderer on purpose: the key never has to be
+// handed back across the bridge just to be tested.
+ipcMain.handle(
+  "keys:test",
+  async (_e, provider: string, opts?: { azureRegion?: string }) => {
+    return testProvider(provider, opts ?? {});
+  }
+);
 
 ipcMain.handle("dialog:openFile", async (_e, filters?: Electron.FileFilter[]) => {
   const res = await dialog.showOpenDialog(mainWindow!, {
@@ -196,13 +241,42 @@ ipcMain.handle("tts:chatterboxSynthesize", async (_e, opts: chatterbox.Synthesiz
 // the project state); this just executes synthesis + concatenation.
 // ---------------------------------------------------------------------------
 
-ipcMain.handle("tts:generateNarration", async (_e, segments: chatterbox.NarrationSegmentInput[]) => {
+ipcMain.handle("tts:generateNarration", async (
+  _e,
+  // Piper and Chatterbox can be mixed within one script — the engine is a
+  // per-speaker choice, so a fast Piper voice and a cloned Chatterbox voice
+  // can appear in the same narration.
+  segments: (chatterbox.NarrationSegmentInput & {
+    engine?: "chatterbox" | "piper";
+    piperPythonPath?: string;
+    piperOnnxPath?: string;
+  })[],
+  // Speaker ids in the order the canvas draws them, so the analysis's
+  // per-frame speaker index lines up with the waveform's tracks.
+  speakerOrder: string[] = [],
+  pauses: { sameMs: number; turnMs: number } = { sameMs: 0, turnMs: 0 }
+) => {
   if (segments.length === 0) {
     throw new Error("No script segments to generate — check your script matches your speaker labels.");
   }
 
   const buffers: Buffer[] = [];
   for (const seg of segments) {
+    if (seg.engine === "piper") {
+      if (!seg.piperPythonPath || !seg.piperOnnxPath) {
+        throw new Error(
+          `Speaker "${seg.speakerLabel}" is set to Piper but has no voice selected — pick one in the left rail.`
+        );
+      }
+      const { audioBuffer } = await synthesizeWithPiper(
+        seg.piperPythonPath,
+        seg.piperOnnxPath,
+        seg.text
+      );
+      buffers.push(Buffer.from(audioBuffer));
+      continue;
+    }
+
     const { audioBuffer } = await chatterbox.synthesize({
       text: seg.text,
       language: seg.language,
@@ -215,22 +289,31 @@ ipcMain.handle("tts:generateNarration", async (_e, segments: chatterbox.Narratio
     buffers.push(Buffer.from(audioBuffer));
   }
 
-  const { buffer, segments: timing } = concatWavBuffers(buffers);
+  // Nothing in front of the first line — leading silence only delays the video.
+  // After that, a breath between a speaker's own lines and a longer beat when
+  // the turn changes.
+  const gaps = segments.map((seg, i) =>
+    i === 0 ? 0 : seg.speakerId === segments[i - 1].speakerId ? pauses.sameMs : pauses.turnMs
+  );
+  const { buffer, segments: timing } = concatWavBuffers(buffers, gaps);
 
   await fsp.mkdir(outputDir(), { recursive: true });
   const filePath = path.join(outputDir(), `narration-${Date.now()}.wav`);
   await fsp.writeFile(filePath, buffer);
 
-  return {
-    filePath,
-    segments: segments.map((seg, i) => ({
-      speakerId: seg.speakerId,
-      speakerLabel: seg.speakerLabel,
-      text: seg.text,
-      startMs: timing[i].startMs,
-      endMs: timing[i].endMs,
-    })),
-  };
+  const resolved = segments.map((seg, i) => ({
+    speakerId: seg.speakerId,
+    speakerLabel: seg.speakerLabel,
+    text: seg.text,
+    startMs: timing[i].startMs,
+    endMs: timing[i].endMs,
+  }));
+
+  // Analysed once, here, while the audio is already in memory — rather than
+  // re-read and re-analysed on every render.
+  const analysis = analyzeNarration(buffer, resolved, speakerOrder);
+
+  return { filePath, segments: resolved, analysis };
 });
 
 // ---------------------------------------------------------------------------

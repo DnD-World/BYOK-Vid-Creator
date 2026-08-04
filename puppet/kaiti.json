@@ -1,0 +1,28 @@
+{
+  "character": "kaiti",
+  "base": "viseme/kaiti.png",
+  "parts": "viseme",
+  "out": "viseme-v2",
+
+  "layers": [
+    { "file": "_0002_eyes.png", "scale": 0.13, "x": 532, "y": 558, "anchor": "center" },
+    { "file": "_0000_pupils.png", "scale": 0.13, "x": 532, "y": 570, "anchor": "center" },
+    { "file": "_0005_Nose-front.png", "scale": 0.085, "x": 532, "y": 620, "anchor": "center" },
+    { "file": "_0016_R-eyebrow-happy.png", "scale": 0.115, "x": 483, "y": 500, "anchor": "center" },
+    { "file": "_0017_L-eyebrow-happy.png", "scale": 0.115, "x": 582, "y": 500, "anchor": "center" }
+  ],
+
+  "mouth": { "scale": 0.105, "x": 532, "y": 655, "anchor": "top-center" },
+
+  "visemes": {
+    "0": "_0007_Happy-M.png",
+    "1": "_0026_Happy-A.png",
+    "2": "_0004_Happy-E.png",
+    "3": "_0019_O,-u.png",
+    "4": "_0019_O,-u.png",
+    "5": "_0007_Happy-M.png",
+    "6": "_0022_Happy-F.png",
+    "7": "_0003_Happy-R.png",
+    "8": "_0021_Happy-S.png"
+  }
+}

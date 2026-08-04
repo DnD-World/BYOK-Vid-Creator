@@ -114,20 +114,78 @@ export async function synthesizeWithPiper(
   text: string
 ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> {
   const handle = await getOrStartServer(pythonPath, onnxPath);
+  try {
+    return await postSynthesize(handle.port, text);
+  } catch (e) {
+    // One retry, and only for a connection that died rather than answered.
+    // See the agent:false note below for why this happens at all; the retry
+    // covers the race that remains when the server closes a socket in the
+    // window between us opening it and writing to it.
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== "ECONNRESET" && code !== "EPIPE") throw e;
+    return postSynthesize(handle.port, text);
+  }
+}
 
+async function postSynthesize(
+  port: number,
+  text: string
+): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> {
+  // POST /synthesize with a JSON body. NOT `GET /?text=` — that was the old
+  // rhasspy/piper http_server contract. In piper-tts 1.x `GET /` serves an HTML
+  // demo page, so the old call silently returned a web page that then failed to
+  // parse as a WAV. Verified against piper-tts 1.6.0.
+  const payload = JSON.stringify({ text });
   const buf: Buffer = await new Promise((resolve, reject) => {
     const req = http.request(
       {
         host: "127.0.0.1",
-        port: handle.port,
-        path: `/?text=${encodeURIComponent(text)}`,
-        method: "GET",
-        timeout: 30000,
+        port,
+        path: "/synthesize",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+        // No connection pooling. Node's global agent has kept sockets alive by
+        // default since v19, and Piper's server closes idle ones — so a script
+        // that alternates between two voices leaves each connection idle for
+        // however long the other voice takes, and the next request reuses a
+        // socket the server has already dropped. That surfaced as
+        // "read ECONNRESET" partway through generating a multi-speaker
+        // narration, non-deterministically: whether it failed depended on how
+        // long the other speaker's line took to synthesise, which is why the
+        // same script succeeded one run and failed the next.
+        agent: false,
+        // Long lines on a CPU-only machine are genuinely slow; 30s was tight.
+        timeout: 120000,
       },
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (c) => chunks.push(c));
-        res.on("end", () => resolve(Buffer.concat(chunks)));
+        res.on("end", () => {
+          const body = Buffer.concat(chunks);
+          if ((res.statusCode ?? 500) >= 400) {
+            reject(
+              new Error(
+                `Piper server returned ${res.statusCode}: ${body.toString("utf-8").slice(0, 300)}`
+              )
+            );
+            return;
+          }
+          // Guard explicitly rather than handing a stray HTML page to the WAV
+          // parser, which is exactly how the previous bug stayed invisible.
+          if (body.subarray(0, 4).toString("ascii") !== "RIFF") {
+            reject(
+              new Error(
+                "Piper server did not return WAV audio. This usually means an " +
+                  "incompatible piper-tts version — expected POST /synthesize to return RIFF data."
+              )
+            );
+            return;
+          }
+          resolve(body);
+        });
         res.on("error", reject);
       }
     );
@@ -136,6 +194,7 @@ export async function synthesizeWithPiper(
       req.destroy();
       reject(new Error("Piper server timed out responding to a synthesis request."));
     });
+    req.write(payload);
     req.end();
   });
 

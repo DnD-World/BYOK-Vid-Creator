@@ -1,44 +1,88 @@
 import { CSSProperties } from "react";
-import { VisemeId } from "@/lib/visemes/visemeMap";
+// Relative, NOT the "@/" alias: this component is now rendered by the Remotion
+// bundle too, which is built by Remotion's own webpack and does not know the
+// app's tsconfig path aliases. An alias here fails the render but not the
+// preview — the worst kind of asymmetry.
+import type { VisemeId } from "../../lib/visemes/visemeMap";
+import type { OutlineShape } from "../../store/types";
 
 interface Props {
   sheetUrl: string;          // 3072x3072 (3x3 of 1024)
   viseme: VisemeId;          // 0-8
+  /** The cell being faded out of, and how far through the fade we are (1 =
+   *  done). Omit for a hard cut, which is what this did before. */
+  prevViseme?: VisemeId;
+  mix?: number;
   size: number;              // disk diameter in px
   bgOpacity: number;         // 0-1
   borderOpacity: number;     // 0-1
   bgColor?: string;
   borderColor?: string;
+  outlineShape?: OutlineShape;
 }
 
+/** Corner rounding per shape, as a CSS border-radius. "none" still rounds the
+ *  face itself — only the frame around it changes. */
+const SHAPE_RADIUS: Record<OutlineShape, string> = {
+  circle: "50%",
+  rounded: "18%",
+  square: "0%",
+  none: "50%",
+};
+
 export function SpeakerAvatar({
-  sheetUrl, viseme, size,
+  sheetUrl, viseme, prevViseme, mix = 1, size,
   bgOpacity, borderOpacity,
   bgColor = "#1a1a1a", borderColor = "#d98a3d",
+  outlineShape = "circle",
 }: Props) {
-  const col = viseme % 3;
-  const row = Math.floor(viseme / 3);
-  const head = size * 0.9; // 90% fill rule
+  // The face is clipped to the SAME shape as the frame around it. Leaving this
+  // at a hard 50% meant a square frame still circle-cropped the artwork, which
+  // looked like the shape control was broken.
+  const faceRadius = SHAPE_RADIUS[outlineShape];
 
-  const face: CSSProperties = {
-    width: head, height: head,
+  // A circle wastes its corners, so the face is inset to 90% and the ring sits
+  // clear of it. A square frame has no such waste and can run nearly edge to
+  // edge — insetting it there just prints a grey border around the artwork.
+  const fill = outlineShape === "circle" || outlineShape === "none" ? 0.9 : 0.97;
+  const head = size * fill;
+
+  const cell = (v: VisemeId): CSSProperties => ({
+    position: "absolute",
+    inset: 0,
     backgroundImage: `url(${sheetUrl})`,
     backgroundSize: `${head * 3}px ${head * 3}px`,
-    backgroundPosition: `-${col * head}px -${row * head}px`,
-    borderRadius: "50%",
-  };
+    backgroundPosition: `-${(v % 3) * head}px -${Math.floor(v / 3) * head}px`,
+    borderRadius: faceRadius,
+  });
+
+  // Both cells are drawn, the outgoing one underneath at full opacity and the
+  // incoming one fading in on top. Fading BOTH would let the background show
+  // through the middle of the transition; stacking them
+  // opaque-under-fading-in does not.
+  const fading = !!sheetUrl && prevViseme !== undefined && mix < 1 && prevViseme !== viseme;
 
   return (
     <div style={{
-      width: size, height: size, borderRadius: "50%",
+      width: size, height: size,
+      borderRadius: SHAPE_RADIUS[outlineShape],
       display: "grid", placeItems: "center",
       background: hexA(bgColor, bgOpacity),
-      border: `${Math.max(1, size * 0.015)}px solid ${hexA(borderColor, borderOpacity)}`,
-      boxShadow: borderOpacity > 0
-        ? `0 0 ${size * 0.06}px ${hexA(borderColor, borderOpacity * 0.6)}`
-        : "none",
+      // "none" keeps the face and any background but drops the frame entirely,
+      // which is the look you want when the avatar sits on a busy background.
+      border:
+        outlineShape === "none"
+          ? "none"
+          : `${Math.max(1, size * 0.015)}px solid ${hexA(borderColor, borderOpacity)}`,
+      boxShadow:
+        outlineShape !== "none" && borderOpacity > 0
+          ? `0 0 ${size * 0.06}px ${hexA(borderColor, borderOpacity * 0.6)}`
+          : "none",
     }}>
-      <div style={face} />
+      <div style={{ position: "relative", width: head, height: head }}>
+        {sheetUrl && fading && <div style={cell(prevViseme!)} />}
+        {sheetUrl && <div style={{ ...cell(viseme), opacity: fading ? mix : 1 }} />}
+      </div>
     </div>
   );
 }

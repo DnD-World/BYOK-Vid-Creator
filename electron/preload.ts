@@ -17,6 +17,11 @@ const api = {
       ipcRenderer.invoke("keys:delete", provider),
     encryptionAvailable: (): Promise<boolean> =>
       ipcRenderer.invoke("keys:encryptionAvailable"),
+    test: (
+      provider: string,
+      opts?: { azureRegion?: string }
+    ): Promise<{ ok: boolean; message: string }> =>
+      ipcRenderer.invoke("keys:test", provider, opts),
   },
 
   dialog: {
@@ -27,6 +32,13 @@ const api = {
       filters?: Electron.FileFilter[]
     ): Promise<string | null> =>
       ipcRenderer.invoke("dialog:saveFile", defaultName, filters),
+  },
+
+  audio: {
+    analyzeFile: (
+      filePath: string
+    ): Promise<{ hz: number; durationMs: number; amp: number[]; speaker: number[] } | null> =>
+      ipcRenderer.invoke("audio:analyzeFile", filePath),
   },
 
   storage: {
@@ -96,11 +108,17 @@ const api = {
         referenceAudioFilename?: string;
         exaggeration?: number;
         cfgWeight?: number;
-      }[]
+        engine?: "chatterbox" | "piper";
+        piperPythonPath?: string;
+        piperOnnxPath?: string;
+      }[],
+      speakerOrder: string[],
+      pauses?: { sameMs: number; turnMs: number }
     ): Promise<{
       filePath: string;
       segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
-    }> => ipcRenderer.invoke("tts:generateNarration", segments),
+      analysis: unknown;
+    }> => ipcRenderer.invoke("tts:generateNarration", segments, speakerOrder, pauses),
   },
 
   llm: {

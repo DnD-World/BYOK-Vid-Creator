@@ -1,0 +1,33 @@
+{
+  "character": "tsika",
+  "base": "viseme/tsika.png",
+  "parts": "viseme",
+  "out": "viseme-v2",
+
+  "layers": [
+    { "file": "_0029_eyes.png", "scale": 0.125, "x": 508, "y": 455, "anchor": "center" },
+    { "file": "_0018_Pupils.png", "scale": 0.125, "x": 508, "y": 468, "anchor": "center" },
+    { "file": "_0025_R-eyebrow-happy.png", "scale": 0.1, "x": 452, "y": 385, "anchor": "center" },
+    { "file": "_0026_L-eyebrow-happy.png", "scale": 0.1, "x": 566, "y": 385, "anchor": "center" }
+  ],
+
+  "mouth": {
+    "scale": 0.072,
+    "x": 510,
+    "y": 703,
+    "anchor": "top-center",
+    "saturation": 0.75
+  },
+
+  "visemes": {
+    "0": "_0008_Happy-M.png",
+    "1": "_0015_Happy-A.png",
+    "2": "_0016_Happy-E.png",
+    "3": "_0004_O,-u.png",
+    "4": "_0004_O,-u.png",
+    "5": "_0008_Happy-M.png",
+    "6": "_0011_Sad-F.png",
+    "7": "_0012_Happy-R.png",
+    "8": "_0010_Happy-S.png"
+  }
+}

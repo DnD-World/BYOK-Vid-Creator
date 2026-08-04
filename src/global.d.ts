@@ -1,5 +1,10 @@
 export {};
 
+// The real shape, not a hand-copied approximation of it. This file used to
+// re-declare the analysis inline, which meant adding `spectrum` to
+// AudioAnalysis left the renderer's view of the IPC boundary silently stale.
+import type { AudioAnalysis } from "./store/types";
+
 declare global {
   interface Window {
     byok: {
@@ -9,10 +14,17 @@ declare global {
         set: (provider: string, value: string) => Promise<boolean>;
         remove: (provider: string) => Promise<boolean>;
         encryptionAvailable: () => Promise<boolean>;
+        test: (
+          provider: string,
+          opts?: { azureRegion?: string }
+        ) => Promise<{ ok: boolean; message: string }>;
       };
       dialog: {
         openFile: (filters?: unknown) => Promise<string | null>;
         saveFile: (defaultName: string, filters?: unknown) => Promise<string | null>;
+      };
+      audio: {
+        analyzeFile: (filePath: string) => Promise<AudioAnalysis | null>;
       };
       storage: {
         outputDir: () => Promise<string>;
@@ -71,10 +83,16 @@ declare global {
             referenceAudioFilename?: string;
             exaggeration?: number;
             cfgWeight?: number;
-          }[]
+            engine?: "chatterbox" | "piper";
+            piperPythonPath?: string;
+            piperOnnxPath?: string;
+          }[],
+          speakerOrder: string[],
+          pauses?: { sameMs: number; turnMs: number }
         ) => Promise<{
           filePath: string;
           segments: { speakerId: string; speakerLabel: string; text: string; startMs: number; endMs: number }[];
+          analysis: AudioAnalysis | null;
         }>;
       };
       llm: {

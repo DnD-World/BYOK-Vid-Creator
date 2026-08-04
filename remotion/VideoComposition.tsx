@@ -12,8 +12,22 @@
 // layout-critical has to be an inline style.
 // ---------------------------------------------------------------------------
 
+import { useMemo } from "react";
 import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { WaveformScene } from "../src/components/canvas/WaveformScene";
+import { SubtitleScene } from "../src/components/canvas/SubtitleScene";
+import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
+import { PuppetAvatar } from "../src/components/canvas/PuppetAvatar";
+import { buildCues } from "../src/lib/subtitles/wordTiming";
+import { buildTracks } from "../src/lib/waveform/buildTracks";
+import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
+import { visemeBlendAt } from "../src/lib/visemes/timeline";
+import { VISEME } from "../src/lib/visemes/visemeMap";
+import { useWaitForImages } from "./useWaitForImages";
+import { useSpectrumFile } from "./useSpectrumFile";
+import { headMotion, motionTransform } from "../src/lib/motion/idleMotion";
+import { blinkAt, browAt, buildSpeakerBrowTracks } from "../src/lib/motion/facePerformance";
+import { sampleAnalysis } from "../src/lib/waveform/audioAnalysis";
 import type { RenderProps } from "./types";
 
 /** Apply an alpha to a #rgb/#rrggbb color. Speakers carry their fill and
@@ -32,33 +46,123 @@ function withAlpha(hex: string, alpha: number): string {
 }
 
 export function VideoComposition({
-  waveform,
+  musicWaveform,
+  musicColor,
   speakers,
   audioFileName,
-  authoredWidth,
+  analysis,
+  spectrumFileName,
+  spectrumBandCount,
+  subtitles,
+  visemeFadeMs,
+  idleMotion,
+  narrationSegments,
 }: RenderProps) {
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
+
+  // Must resolve before any frame is captured — the hook holds the render.
+  const spectrum = useSpectrumFile(
+    spectrumFileName ? staticFile(spectrumFileName) : null,
+    spectrumBandCount
+  );
+
+  // Cue layout depends only on the script and the wrap width, so it's computed
+  // once per worker rather than on every one of thousands of frames.
+  const cues = useMemo(
+    () => buildCues(narrationSegments, subtitles.maxChars),
+    [narrationSegments, subtitles.maxChars]
+  );
+
+  // Also once per worker, not per frame — the tracks are thousands of keyframes.
+  const visemeTracks = useMemo(
+    () => buildSpeakerVisemeTracks(narrationSegments, fps),
+    [narrationSegments, fps]
+  );
+
+  // Brows come off the script's punctuation, so they are derived once from the
+  // same segments the subtitles and the mouth use.
+  const browTracks = useMemo(
+    () => buildSpeakerBrowTracks(narrationSegments),
+    [narrationSegments]
+  );
+
+  // Every image any avatar might draw: a flattened sheet, or every layer of a
+  // layered puppet. Resolved to public-dir URLs here, once, and handed to the
+  // avatars below rather than recomputed per speaker per frame.
+  const puppetUrls = useMemo(
+    () =>
+      speakers.map((sp) =>
+        Object.fromEntries(
+          Object.entries(sp.puppetFiles).map(([file, name]) => [file, staticFile(name)])
+        )
+      ),
+    [speakers]
+  );
+
+  const faceUrls = useMemo(
+    () => [
+      ...speakers.map((sp) => (sp.sheetFileName ? staticFile(sp.sheetFileName) : "")).filter(Boolean),
+      ...puppetUrls.flatMap((m) => Object.values(m)),
+    ],
+    [speakers, puppetUrls]
+  );
+  // Must run before any frame is captured — see the hook for why. A puppet
+  // makes this matter more, not less: twenty layers that pop in over the first
+  // few frames is twenty chances to ship a frame with half a face.
+  useWaitForImages(faceUrls);
+
+  const tracks = useMemo(
+    () => buildTracks(speakers, musicWaveform, musicColor),
+    [speakers, musicWaveform, musicColor]
+  );
+
+  const speakerColors = useMemo(
+    () => Object.fromEntries(speakers.map((sp) => [sp.id, sp.borderColor])),
+    [speakers]
+  );
 
   // The single line that makes the export deterministic: time comes from the
   // frame index, never from a wall clock. Frame 240 at 30fps is 8000ms on
   // every worker, in any order, on every machine.
   const timeMs = (frame / fps) * 1000;
 
-  // Speaker sizes were authored against the small preview canvas; scale them
-  // to the real output width so a 120px avatar isn't a speck on a 1080p frame.
-  const speakerScale = authoredWidth > 0 ? width / authoredWidth : 1;
+  // Same source as the waveform's active-speaker gate, so the head that moves
+  // more is always the head whose waveform is lit.
+  const moment = sampleAnalysis(analysis, timeMs, spectrum);
+  const activeSpeakerId =
+    moment && moment.speaker >= 0 ? speakers[moment.speaker]?.id ?? null : null;
+
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0b0d" }}>
       {audioFileName ? <Audio src={staticFile(audioFileName)} /> : null}
 
       <div style={{ position: "absolute", inset: 0 }}>
-        <WaveformScene config={waveform} width={width} height={height} timeMs={timeMs} />
+        <WaveformScene
+          tracks={tracks}
+          width={width}
+          height={height}
+          timeMs={timeMs}
+          analysis={analysis}
+          spectrum={spectrum}
+        />
       </div>
 
-      {speakers.map((sp) => {
-        const size = Math.max(8, sp.size * speakerScale);
+      {speakers.map((sp, i) => {
+        const track = visemeTracks[sp.id];
+        const blend = track
+          ? visemeBlendAt(track, timeMs / 1000, visemeFadeMs / 1000)
+          : { from: VISEME.NEUTRAL, to: VISEME.NEUTRAL, mix: 1 };
+        // size is a fraction of frame width, so this resolves identically in
+        // the preview and here — no scaling factor to get wrong.
+        const size = Math.max(8, sp.size * width);
+        const motion = headMotion(
+          sp.id,
+          timeMs,
+          activeSpeakerId === sp.id,
+          idleMotion
+        );
         return (
           <div
             key={sp.id}
@@ -66,24 +170,60 @@ export function VideoComposition({
               position: "absolute",
               left: `${sp.x * 100}%`,
               top: `${sp.y * 100}%`,
-              transform: "translate(-50%, -50%)",
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              backgroundColor: withAlpha(sp.bgColor, sp.bgOpacity),
-              border: `${Math.max(1, size * 0.02)}px solid ${withAlpha(
-                sp.borderColor,
-                sp.borderOpacity
-              )}`,
-              boxSizing: "border-box",
+              transform: "translate(-50%, -50%)" + motionTransform(motion, size),
             }}
           >
-            {/* Placeholder for the viseme sprite sheet. Lip-sync needs the
-                sheet PNG resolvable from inside the render bundle, which is
-                its own piece of work — see the PR description. */}
+            {/* The very same components the preview draws. Duplicating the disk
+                markup here is what let the border width and glow drift apart
+                once already — there is only one implementation now. */}
+            {sp.puppet ? (
+              <PuppetAvatar
+                puppet={sp.puppet}
+                urls={puppetUrls[i]}
+                viseme={blend.to}
+                prevViseme={blend.from}
+                mix={blend.mix}
+                // Both eyes blink together. Per-eye lids exist for the wink,
+                // which is a directed choice rather than something an
+                // automatic track should ever produce on its own.
+                lidLeft={blinkAt(sp.id, timeMs, idleMotion)}
+                lidRight={blinkAt(sp.id, timeMs, idleMotion)}
+                browLeft={browAt(browTracks[sp.id], timeMs)}
+                browRight={browAt(browTracks[sp.id], timeMs)}
+                size={size}
+                bgOpacity={sp.bgOpacity}
+                borderOpacity={sp.borderOpacity}
+                bgColor={sp.bgColor}
+                borderColor={sp.borderColor}
+                outlineShape={sp.outlineShape}
+              />
+            ) : (
+              <SpeakerAvatar
+                sheetUrl={sp.sheetFileName ? staticFile(sp.sheetFileName) : ""}
+                viseme={blend.to}
+                prevViseme={blend.from}
+                mix={blend.mix}
+                size={size}
+                bgOpacity={sp.bgOpacity}
+                borderOpacity={sp.borderOpacity}
+                bgColor={sp.bgColor}
+                borderColor={sp.borderColor}
+                outlineShape={sp.outlineShape}
+              />
+            )}
           </div>
         );
       })}
+
+      {/* Last, so subtitles sit above the waveform and the avatars. */}
+      <SubtitleScene
+        cues={cues}
+        config={subtitles}
+        width={width}
+        height={height}
+        timeMs={timeMs}
+        speakerColors={speakerColors}
+      />
     </AbsoluteFill>
   );
 }
