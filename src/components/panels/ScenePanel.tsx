@@ -36,7 +36,7 @@ export function ScenePanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <h2 className="label-lit text-base mb-3">Scene</h2>
+      <h2 className="title-deco uppercase text-lg mb-3">Scene</h2>
 
       <Tabs
         tabs={[

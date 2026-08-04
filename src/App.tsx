@@ -321,7 +321,7 @@ export default function App() {
         className="panel-hud hud-flare-target relative m-3 px-6 py-3 flex items-center justify-between"
       >
         <HudCorners />
-        <h1 className="font-display font-semibold uppercase tracking-[0.25em] text-xl label-lit">
+        <h1 className="title-deco uppercase text-2xl">
           BYOK-Vid-Creator
         </h1>
         <div className="flex items-center gap-3">

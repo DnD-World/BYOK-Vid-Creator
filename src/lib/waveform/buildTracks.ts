@@ -73,5 +73,8 @@ export function defaultTrackWaveform(lane = 0): TrackWaveform {
     ringX: 0.5,
     ringY: 0.5,
     lane,
+    // Off by default. Glitter is a look, not a baseline — switching it on for
+    // every new track would make it the house style rather than a choice.
+    sparkle: 0,
   };
 }

@@ -100,6 +100,11 @@ export function WaveformControls({ value, onChange, label, canAnchorToFace = tru
             label="Lane Offset" value={value.lane} min={-3} max={3} step={0.1}
             onChange={(v) => onChange({ lane: v })} format={(v) => v.toFixed(1)}
           />
+          <Slider
+            label="Sparkle" value={value.sparkle} min={0} max={1} step={0.05}
+            onChange={(v) => onChange({ sparkle: v })}
+            format={(v) => (v === 0 ? "off" : `${Math.round(v * 100)}%`)}
+          />
 
           {value.style === "dots" && (
             <Slider

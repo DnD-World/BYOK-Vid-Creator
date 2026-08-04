@@ -22,6 +22,7 @@ import {
   shapedAmplitude,
   bandAmplitude,
 } from "../../lib/waveform/amplitude";
+import { sparklesFor } from "../../lib/waveform/sparkle";
 import { sampleAnalysis, type DecodedSpectrum } from "../../lib/waveform/audioAnalysis";
 
 export interface WaveformSceneProps {
@@ -246,9 +247,52 @@ export function WaveformScene({
         const spread = halo ? halo.r * 2 * Math.PI : frameMin * 0.9;
         const barWidth = Math.max(1, (spread / density / 2) * cfg.thickness);
 
+        // Glitter, thrown off the loud tips only. Rendered ABOVE the waveform
+        // itself for every style, so it is one element rather than something
+        // each branch of the switch has to remember to draw.
+        const sparks =
+          cfg.sparkle > 0 && active
+            ? sparklesFor({
+                amount: cfg.sparkle,
+                tips: points.map((p, i) => extend(p, amps[i] * maxLen)),
+                amps,
+                timeMs,
+                seed: ti + 1,
+                scale: Math.max(1.5, barWidth * 1.1),
+              })
+            : [];
+        const glitter = sparks.length > 0 && (
+          <g key={`sp-${ti}`} opacity={opacity}>
+            {sparks.map((s, i) => (
+              <g key={i} transform={`translate(${s.x.toFixed(2)} ${s.y.toFixed(2)}) rotate(${s.rotate.toFixed(1)})`}>
+                {/* A four-point glint: a bright core with two crossed
+                    strokes. A plain dot reads as a stray pixel; the cross is
+                    what makes it read as a spark of light. */}
+                <circle r={s.r} fill="#fff" opacity={s.opacity} />
+                <line x1={-s.r * 3} y1={0} x2={s.r * 3} y2={0}
+                  stroke={track.color} strokeWidth={s.r * 0.5}
+                  strokeLinecap="round" opacity={s.opacity * 0.8} />
+                <line x1={0} y1={-s.r * 3} x2={0} y2={s.r * 3}
+                  stroke={track.color} strokeWidth={s.r * 0.5}
+                  strokeLinecap="round" opacity={s.opacity * 0.8} />
+              </g>
+            ))}
+          </g>
+        );
+
+        const withGlitter = (body: JSX.Element) =>
+          glitter ? (
+            <g key={ti}>
+              {body}
+              {glitter}
+            </g>
+          ) : (
+            body
+          );
+
         switch (cfg.style) {
           case "bars":
-            return (
+            return withGlitter(
               <g key={ti} opacity={opacity}>
                 {points.map((p, i) => {
                   const tip = extend(p, amps[i] * maxLen);
@@ -274,7 +318,7 @@ export function WaveformScene({
               </g>
             );
           case "mirror":
-            return (
+            return withGlitter(
               <g key={ti} opacity={opacity}>
                 {points.map((p, i) => {
                   const out = extend(p, amps[i] * maxLen);
@@ -303,7 +347,7 @@ export function WaveformScene({
               </g>
             );
           case "dots":
-            return (
+            return withGlitter(
               <g key={ti} opacity={opacity}>
                 {points.map((p, i) => {
                   const tip = extend(p, amps[i] * maxLen);
@@ -319,7 +363,7 @@ export function WaveformScene({
           case "wave":
           default: {
             const outline = points.map((p, i) => extend(p, amps[i] * maxLen));
-            return (
+            return withGlitter(
               <path key={ti} d={toPathD(outline, closed, cfg.style === "wave")}
                 fill="none" stroke={track.color}
                 strokeWidth={Math.max(1, barWidth * 0.8)}

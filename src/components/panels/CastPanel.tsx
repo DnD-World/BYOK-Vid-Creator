@@ -100,7 +100,7 @@ export function CastPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="label-lit text-base">Cast</h2>
+        <h2 className="title-deco uppercase text-lg">Cast</h2>
         <button onClick={addSpeaker} className="label-etched underline hover:text-accent-bright">
           + Add speaker
         </button>

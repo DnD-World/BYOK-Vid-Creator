@@ -37,6 +37,10 @@ export interface TrackWaveform {
   ringY: number;
   /** Lateral offset so simultaneous tracks read as separate lanes. */
   lane: number;
+  /** Glitter thrown off the loud tips, 0–1. Amplitude-gated rather than
+   *  scattered evenly, so it reads as a second view of the audio instead of
+   *  decoration laid over it. */
+  sparkle: number;
 }
 
 export type OutlineShape = "circle" | "rounded" | "square" | "none";

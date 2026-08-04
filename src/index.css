@@ -308,6 +308,31 @@
   }
   .leverrow .tlabel { min-width: 0; }
 
+  /* ---------------------------------------------------------------------
+     DECORATIVE TYPE ONLY.
+
+     Poiret One is a genuine art-deco face — thin, wide, high-contrast — and
+     it is the right voice for the brand. It is also a poor working face: at
+     UI sizes its hairlines thin out and its wide letterforms cost horizontal
+     room that a dense control panel does not have.
+
+     So it is confined to things that are READ ONCE and never operated: the
+     app's name, panel titles. Buttons, labels, values and anything the user
+     scans repeatedly stay on Bahnschrift/Rajdhani, which were chosen for
+     exactly that job. Do not add this class to a control.
+  --------------------------------------------------------------------- */
+  .title-deco {
+    font-family: "Poiret One", var(--display), system-ui, sans-serif;
+    letter-spacing: 0.14em;
+    font-weight: 400;
+    /* Poiret has one weight and it is light, so presence comes from size and
+       tracking rather than from bolding it into a shape it does not have. */
+    background: linear-gradient(178deg, var(--accent-hi), var(--accent) 55%, var(--accent-lo));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   /* Engraved label text — technical mono, wide tracking, readable size. */
   .label-etched {
     @apply font-mono uppercase tracking-[0.2em] text-sm;
