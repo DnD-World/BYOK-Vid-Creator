@@ -8,6 +8,11 @@
     "w": 0.4
   },
   "sourceHeadWidth": 2320,
+  "neck": {
+    "y": 0.795,
+    "overlap": 0.035,
+    "feather": 0.008
+  },
   "base_layers": [],
   "eyes": {
     "whites": {

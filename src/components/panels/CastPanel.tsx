@@ -19,6 +19,8 @@ import { useProjectStore } from "../../store/useProjectStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
 import { useSpeakerLibraryStore } from "../../store/useSpeakerLibraryStore";
 import { usePuppetDefs } from "../../lib/puppets/usePuppets";
+import { BUILTIN_CAST, builtinPuppetPath, type BuiltinCharacter } from "../../store/builtinCast";
+import { defaultTrackWaveform } from "../../lib/waveform/buildTracks";
 import type { OutlineShape } from "../../store/types";
 
 const SHAPES: { id: OutlineShape; label: string }[] = [
@@ -61,6 +63,40 @@ export function CastPanel() {
 
   const speaker = speakers.find((s) => s.id === active);
 
+  // Where the bundled puppets live. Asked for once — it cannot change while
+  // the app is running, and it is a round trip to the main process.
+  const [puppetDir, setPuppetDir] = useState<string | null>(null);
+  const [castError, setCastError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    window.byok.storage
+      .puppetDir()
+      .then((d) => !cancelled && setPuppetDir(d))
+      .catch(() => !cancelled && setCastError("Couldn't locate the bundled characters."));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Add a built-in character, with their puppet already assigned. */
+  function addBuiltin(c: BuiltinCharacter) {
+    if (!puppetDir) return;
+    setCastError(null);
+    // Same defaults a blank speaker gets, so a built-in character differs only
+    // in the things that actually make them that character: name, face, colour.
+    addSpeakerFrom({
+      label: c.label,
+      puppetPath: builtinPuppetPath(puppetDir, c.file),
+      borderColor: c.borderColor,
+      bgColor: "#1a1a1a",
+      bgOpacity: 0,
+      borderOpacity: 1,
+      outlineShape: "none",
+      size: 0.28,
+      waveform: defaultTrackWaveform(speakers.length === 0 ? 0 : speakers.length % 2 === 1 ? 1 : -1),
+    });
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-2">
@@ -68,6 +104,32 @@ export function CastPanel() {
         <button onClick={addSpeaker} className="label-etched underline hover:text-accent-bright">
           + Add speaker
         </button>
+      </div>
+
+      {/* The cast that ships with the app. These were drawn, rigged and
+          committed, but nothing offered them: "Add speaker" produced a blank,
+          and the library below only appears once you have saved someone into
+          it yourself — so the built-in characters were invisible unless you
+          knew to hunt down their JSON in a file dialog. */}
+      <div className="mb-3">
+        <div className="label-etched mb-1.5">Characters</div>
+        <div className="flex flex-wrap gap-2">
+          {BUILTIN_CAST.map((c) => (
+            <HudButton
+              key={c.file}
+              onClick={() => addBuiltin(c)}
+              disabled={!puppetDir}
+              title={
+                puppetDir
+                  ? `${c.note} — adds ${c.label} with their puppet already assigned`
+                  : "Looking for the bundled characters…"
+              }
+            >
+              + {c.label}
+            </HudButton>
+          ))}
+        </div>
+        {castError && <p className="text-sm text-red-400 mt-1.5">{castError}</p>}
       </div>
 
       {/* Recall a saved speaker. A face, a voice and a look are properties of a

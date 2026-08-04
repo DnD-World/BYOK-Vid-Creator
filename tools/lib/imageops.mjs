@@ -66,6 +66,39 @@ export function over(dst, src, ox, oy) {
 
 /** Replace every visible pixel's colour, keeping alpha — the offline twin of
  *  the component's mask + background-colour. Only right for solid silhouettes. */
+/** Fill a silhouette with hard-edged horizontal bands instead of one colour.
+ *
+ *  Mirrors the `tintBands` branch in PuppetAvatar: equal shares, hard stops, in
+ *  the same order top-to-bottom. The component and this tool have to agree —
+ *  the whole point of the offline renderer is that what it shows is what the
+ *  app will draw, and a feature living in only one of them quietly breaks that.
+ *
+ *  Only the 180deg (top-to-bottom) case is implemented, which is the only angle
+ *  the puppets use; anything else falls back to the first colour rather than
+ *  silently drawing the wrong thing. */
+export function tintBands(img, colors, angle = 180) {
+  if (!colors || colors.length === 0) return img;
+  if (angle !== 180) return tint(img, colors[0]);
+  const rgb = colors.map((hex) => {
+    const n = parseInt(hex.replace("#", ""), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  });
+  const out = new PNG({ width: img.width, height: img.height });
+  img.data.copy(out.data);
+  for (let y = 0; y < out.height; y++) {
+    const band = Math.min(rgb.length - 1, Math.floor((y / out.height) * rgb.length));
+    const [r, g, b] = rgb[band];
+    for (let x = 0; x < out.width; x++) {
+      const i = (y * out.width + x) * 4;
+      if (out.data[i + 3] === 0) continue;
+      out.data[i] = r;
+      out.data[i + 1] = g;
+      out.data[i + 2] = b;
+    }
+  }
+  return out;
+}
+
 export function tint(img, hex) {
   const n = parseInt(hex.replace("#", ""), 16);
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;

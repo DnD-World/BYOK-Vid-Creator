@@ -60,6 +60,16 @@ export interface PuppetLayer {
    *  rather than an image, so it is exact — right for solid shapes like brows,
    *  wrong for anything with internal detail. */
   tint?: string;
+  /** Two or more colours banded across the silhouette instead of one flat
+   *  `tint`. A schnauzer's beard is not one grey, and a brow recoloured to a
+   *  single value next to it reads as a sticker rather than as fur.
+   *
+   *  Bands are hard-edged, not blended: the art is cel-shaded, and a smooth
+   *  gradient is the one thing that would look foreign against it. */
+  tintBands?: string[];
+  /** Direction of the banding, in degrees. 180 = light at the top, which is
+   *  where fur catches light. */
+  tintAngle?: number;
   /** Use only half of the source image, and place it where that half sat.
    *
    *  Eye lids are drawn as a PAIR in one file, so without this the two eyes
@@ -105,6 +115,39 @@ export interface Puppet {
   name: string;
   /** Base body image, with a blank face. Path relative to `dir`. */
   base: string;
+
+  /**
+   * Cut the head out of the base so it can move independently of the body.
+   *
+   * Without this the base is ONE drawing of a whole (short, South-Park-ish)
+   * body, so any rotation leans the entire character. With it the base is
+   * drawn twice: once with an ellipse over the head masked AWAY, and once
+   * masked to that ellipse ALONE, and only the second copy rotates. The
+   * features ride with it, as they always have.
+   *
+   * The cut is a HORIZONTAL LINE across the neck, not a shape around the head.
+   * An ellipse was tried and it fails on exactly the thing that matters: a head
+   * silhouette is not an ellipse. It sliced through Καίτη's ponytail and
+   * Σερίφης' muzzle, because those stick well outside any ellipse that doesn't
+   * also swallow the shoulders. A neck, by contrast, really is a narrow
+   * horizontal band — which is where a paper puppet is cut, for the same reason.
+   *
+   * `y` is that line as a fraction of the base image's height. The head keeps
+   * everything above it plus `overlap`, the body everything below it, so the
+   * two share a band that hides the join when the head turns.
+   *
+   * Omit the whole thing and the puppet leans as one piece, which is the right
+   * answer for art where the head genuinely cannot be separated.
+   */
+  neck?: {
+    /** The cut line, 0–1 down the base image. */
+    y: number;
+    /** How far below the line the head's copy continues, 0–1 of image height.
+     *  This overlap is what covers the seam; without it a turn opens a gap. */
+    overlap: number;
+    /** Softness of the cut edge, 0–1 of image height. */
+    feather?: number;
+  };
   /** Folder holding the base and every layer. Absolute on disk. */
   dir: string;
   head: PuppetHead;
@@ -113,6 +156,16 @@ export interface Puppet {
    *  layers were drawn on one canvas, so they share a single scale, and this
    *  is the one measurement that sets it. */
   sourceHeadWidth: number;
+
+  /** Framing override. The base image is scaled by this before anything is
+   *  drawn, so the character can be pushed in or pulled back within the disk.
+   *
+   *  Omit it and the renderer auto-fits, so a puppet lands at roughly the same
+   *  apparent size as the sprite sheet it replaces — a sheet's cells are
+   *  cropped to the head, while a puppet's base carries the artwork's own
+   *  transparent margins. Set it only for a character that wants different
+   *  framing from the rest of the cast. */
+  zoom?: number;
 
   /** Always-on layers drawn under the features, in order. */
   base_layers?: PuppetLayer[];

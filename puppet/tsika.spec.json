@@ -2,42 +2,105 @@
   "name": "Τσίκα",
   "dir": "viseme",
   "base": "tsika.png",
-
-  "head": { "cx": 0.501, "cy": 0.45, "w": 0.53 },
+  "head": {
+    "cx": 0.501,
+    "cy": 0.45,
+    "w": 0.53
+  },
   "sourceHeadWidth": 2500,
-
   "eyes": {
-    "whites": { "file": "_0002_eyes.png",  "x": 0, "y": -0.011 },
-    "pupilLeft":  { "file": "_0000_pupils.png", "split": "left",  "x": -0.066, "y": 0.013 },
-      "pupilRight": { "file": "_0000_pupils.png", "split": "right", "x":  0.069, "y": 0.013 },
+    "whites": {
+      "file": "_0002_eyes.png",
+      "x": 0,
+      "y": -0.011
+    },
+    "pupilLeft": {
+      "file": "_0000_pupils.png",
+      "split": "left",
+      "x": -0.066,
+      "y": 0.013
+    },
+    "pupilRight": {
+      "file": "_0000_pupils.png",
+      "split": "right",
+      "x": 0.069,
+      "y": 0.013
+    },
     "lids": {
-      "open":   { "file": "_0001_Open-eyes.png",       "x": 0, "y": -0.011 },
-      "half":   { "file": "_0020_Tired-eyes.png",      "x": 0, "y": -0.011, "saturation": 0.55 },
-      "closed": { "file": "_0028_closed-eyes (2).png", "x": 0, "y": -0.011, "saturation": 0.55 }
+      "open": {
+        "file": "_0001_Open-eyes.png",
+        "x": 0,
+        "y": -0.011
+      },
+      "half": {
+        "file": "_0020_Tired-eyes.png",
+        "x": 0,
+        "y": -0.011,
+        "saturation": 0.55
+      },
+      "closed": {
+        "file": "_0028_closed-eyes (2).png",
+        "x": 0,
+        "y": -0.011,
+        "saturation": 0.55
+      }
     }
   },
-
   "brows": {
     "happy": {
-      "left":  { "file": "_0016_R-eyebrow-happy.png", "x": -0.155, "y": -0.150 },
-      "right": { "file": "_0017_L-eyebrow-happy.png", "x":  0.155, "y": -0.150 }
+      "left": {
+        "file": "_0016_R-eyebrow-happy.png",
+        "x": -0.155,
+        "y": -0.15
+      },
+      "right": {
+        "file": "_0017_L-eyebrow-happy.png",
+        "x": 0.155,
+        "y": -0.15
+      }
     },
     "serious": {
-      "left":  { "file": "_0012_R-eyebrow-serious.png", "x": -0.155, "y": -0.140 },
-      "right": { "file": "_0013_L-eyebrow-serious.png", "x":  0.155, "y": -0.140 }
+      "left": {
+        "file": "_0012_R-eyebrow-serious.png",
+        "x": -0.155,
+        "y": -0.14
+      },
+      "right": {
+        "file": "_0013_L-eyebrow-serious.png",
+        "x": 0.155,
+        "y": -0.14
+      }
     },
     "angry": {
-      "left":  { "file": "_0015_R-eyebrow-angry.png", "x": -0.155, "y": -0.150 },
-      "right": { "file": "_0014_L-eyebrow-angry.png", "x":  0.155, "y": -0.150 }
+      "left": {
+        "file": "_0015_R-eyebrow-angry.png",
+        "x": -0.155,
+        "y": -0.15
+      },
+      "right": {
+        "file": "_0014_L-eyebrow-angry.png",
+        "x": 0.155,
+        "y": -0.15
+      }
     },
     "sad": {
-      "left":  { "file": "_0010_R-eyebrow-sad.png", "x": -0.155, "y": -0.155 },
-      "right": { "file": "_0011_L-eyebrow-sad.png", "x":  0.155, "y": -0.155 }
+      "left": {
+        "file": "_0010_R-eyebrow-sad.png",
+        "x": -0.155,
+        "y": -0.155
+      },
+      "right": {
+        "file": "_0011_L-eyebrow-sad.png",
+        "x": 0.155,
+        "y": -0.155
+      }
     }
   },
-
   "mouthDefaults": {
-    "x": 0, "y": 0.446, "anchor": "top-center", "scale": 0.30,
+    "x": 0,
+    "y": 0.446,
+    "anchor": "top-center",
+    "scale": 0.3,
     "saturation": 0.85
   },
   "mouths": {
@@ -50,5 +113,10 @@
     "6": "_0022_Happy-F.png",
     "7": "_0003_Happy-R.png",
     "8": "_0021_Happy-S.png"
+  },
+  "neck": {
+    "y": 0.705,
+    "overlap": 0.035,
+    "feather": 0.008
   }
 }
