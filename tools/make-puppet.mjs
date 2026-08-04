@@ -75,6 +75,10 @@ const out = {
   dir: relDir || ".",
   head: spec.head,
   sourceHeadWidth: spec.sourceHeadWidth,
+  // Optional. Present = the head is cut out of the base and moves on its own;
+  // absent = the whole character leans as one piece.
+  neck: spec.neck,
+  zoom: spec.zoom,
   base_layers: (spec.base_layers ?? []).map((l, i) => stamp(l, `base_layers[${i}]`)),
   eyes: {
     whites: stamp(spec.eyes?.whites, "eyes.whites"),

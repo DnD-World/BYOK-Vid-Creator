@@ -123,12 +123,28 @@ export function PuppetAvatar({
       width: w,
       height: h,
     };
-    // A tinted layer is a silhouette filled with a flat colour, so it is drawn
-    // as a mask rather than an image.
-    if (l.tint) {
+    // A tinted layer is a silhouette FILLED, so it is drawn as a mask rather
+    // than an image: the mask supplies the shape, the fill supplies the colour.
+    // The fill is either one flat colour or hard-edged bands.
+    if (l.tint || l.tintBands) {
+      const bands = l.tintBands;
+      const fill = bands
+        ? {
+            // Hard stops, not a blend. Each colour occupies an equal share and
+            // ends exactly where the next begins, which is what keeps it
+            // reading as cel-shaded fur rather than as an airbrushed gradient.
+            backgroundImage: `linear-gradient(${l.tintAngle ?? 180}deg, ${bands
+              .map((c, i) => {
+                const from = (i / bands.length) * 100;
+                const to = ((i + 1) / bands.length) * 100;
+                return `${c} ${from}%, ${c} ${to}%`;
+              })
+              .join(", ")})`,
+          }
+        : { backgroundColor: l.tint };
       return {
         ...box,
-        backgroundColor: l.tint,
+        ...fill,
         maskImage: `url(${url})`,
         WebkitMaskImage: `url(${url})`,
         maskSize: size,
@@ -184,6 +200,24 @@ export function PuppetAvatar({
   // instant and then pop.
   const fading = prevMouth !== undefined && mix < 1;
 
+  // ---- head / body separation -------------------------------------------
+  // A horizontal cut at the neck. The head's copy keeps everything above the
+  // line plus an overlap band; the body's keeps everything below the line.
+  // They share that band, and since the head draws on top it hides the join.
+  const neck = puppet.neck;
+  const cutPct = neck ? neck.y * 100 : 0;
+  const overlapPct = neck ? neck.overlap * 100 : 0;
+  const featherPct = neck ? (neck.feather ?? 0.008) * 100 : 0;
+  const headMask = neck
+    ? `linear-gradient(to bottom, #000 ${cutPct + overlapPct}%, ` +
+      `transparent ${cutPct + overlapPct + featherPct}%)`
+    : undefined;
+  const bodyMask = neck
+    ? `linear-gradient(to bottom, transparent ${Math.max(0, cutPct - featherPct)}%, #000 ${cutPct}%)`
+    : undefined;
+  // The head turns about the neck line, not about its own centre.
+  const pivotYPct = neck ? cutPct : (puppet.head.cy + puppet.head.w * 0.55) * 100;
+
   return (
     <div style={{
       width: size, height: size,
@@ -197,18 +231,31 @@ export function PuppetAvatar({
           : "none",
       overflow: "hidden",
     }}>
-      {/* The head group. The tilt and shake live on THIS element — every
+      {/* THE BODY. Only drawn separately when the puppet declares a neck: the
+          base is masked so the head's ellipse is punched OUT of it, leaving a
+          hole the rotating head covers. Without a neck this element isn't
+          rendered at all and the whole character leans as one piece. */}
+      {neck && (
+        <div style={{
+          position: "absolute", width: head, height: head,
+          backgroundImage: `url(${urls[puppet.base] ?? ""})`,
+          backgroundSize: "100% 100%",
+          maskImage: bodyMask,
+          WebkitMaskImage: bodyMask,
+        }} />
+      )}
+
+      {/* The head group. The tilt, shake and bob live on THIS element — every
           feature is positioned inside it, so one transform moves the lot, and
           that is exactly what anchoring the layers to the head bought.
 
-          The origin is the base of the head, not its centre: a head pivots
-          about the neck. Rotating about the centre swings the chin and the
-          crown in opposite directions, which reads as a floating mask rather
-          than as a head turning on a body. */}
+          The origin is the NECK, not the head's centre. Rotating about the
+          centre swings the chin and the crown in opposite directions, which
+          reads as a floating mask rather than as a head turning on a body. */}
       <div style={{
         position: "relative", width: head, height: head,
         borderRadius: SHAPE_RADIUS[outlineShape],
-        transformOrigin: `50% ${(puppet.head.cy + puppet.head.w * 0.55) * 100}%`,
+        transformOrigin: `${puppet.head.cx * 100}% ${pivotYPct}%`,
         transform:
           `translate(${(pose.dx * puppet.head.w * head).toFixed(2)}px, ` +
           `${(pose.dy * puppet.head.w * head).toFixed(2)}px) ` +
@@ -218,6 +265,10 @@ export function PuppetAvatar({
           position: "absolute", inset: 0,
           backgroundImage: `url(${urls[puppet.base] ?? ""})`,
           backgroundSize: "100% 100%",
+          // Masked to the head alone when a neck is declared, so the body
+          // below is NOT carried along by the rotation.
+          maskImage: neck ? headMask : undefined,
+          WebkitMaskImage: neck ? headMask : undefined,
         }} />
         {puppet.base_layers?.map((l, i) => draw(l, `bl${i}`))}
         {/* Whites first, then pupils, then a lid per eye on top — so the eye

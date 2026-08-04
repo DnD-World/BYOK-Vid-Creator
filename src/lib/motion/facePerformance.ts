@@ -204,7 +204,7 @@ export interface HeadPose {
 
 export const HEAD_STILL: HeadPose = { rotateDeg: 0, dx: 0, dy: 0 };
 
-export type HeadGestureKind = "tilt" | "shake" | "droop";
+export type HeadGestureKind = "tilt" | "shake" | "droop" | "bob";
 
 export interface HeadSpan {
   startMs: number;
@@ -221,6 +221,10 @@ export interface HeadSpan {
  * sentence.
  */
 const HEAD_FOR: { test: RegExp; kind: HeadGestureKind }[] = [
+  // Laughter first: "χαχα!" is a laugh, not an exclamation, and the general
+  // `!` rule below would otherwise claim it. Both the Greek χα and the Latin
+  // ha are matched, because a Greek script routinely carries both.
+  { test: /^(χα|χά|χο|ha|he){2,}[!.…]*$/i, kind: "bob" },
   { test: /(…|\.\.\.)$/, kind: "droop" },
   { test: /[;?]$/, kind: "tilt" },
   { test: /!$/, kind: "shake" },
@@ -325,6 +329,14 @@ export function headPoseAt(
       const local = (timeMs - s.startMs) / 1000;
       rotateDeg += Math.sin(local * Math.PI * 2 * 5.5) * 4.2 * a * Math.exp(-local * 2.2);
       dx += Math.sin(local * Math.PI * 2 * 5.5) * 0.014 * a * Math.exp(-local * 2.2);
+    } else if (s.kind === "bob") {
+      // Laughing: the head throws BACK and bounces, rather than nodding
+      // forward. The vertical bounce runs at twice the rotation's rate — the
+      // head comes up once per laugh but bobs on each syllable, which is what
+      // separates a laugh from a nod.
+      const local = (timeMs - s.startMs) / 1000;
+      rotateDeg += -3.5 * a + Math.sin(local * Math.PI * 2 * 3.2) * 2.2 * a;
+      dy += -0.014 * a + Math.abs(Math.sin(local * Math.PI * 2 * 6.4)) * 0.02 * a;
     } else {
       // Droop: down and slightly forward, the trailing-off gesture.
       rotateDeg += 3 * a;

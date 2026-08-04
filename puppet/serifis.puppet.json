@@ -8,6 +8,11 @@
     "w": 0.51
   },
   "sourceHeadWidth": 2500,
+  "neck": {
+    "y": 0.7,
+    "overlap": 0.035,
+    "feather": 0.008
+  },
   "base_layers": [],
   "eyes": {
     "whites": {
@@ -67,10 +72,15 @@
         "file": "_0019_R-eyebrow-serious.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": -0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 729,
         "h": 153
       },
@@ -78,10 +88,15 @@
         "file": "_0020_L-eyebrow-serious.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": 0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 729,
         "h": 153
       }
@@ -91,10 +106,15 @@
         "file": "_0021_R-eyebrow-angry.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": -0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 751,
         "h": 285
       },
@@ -102,10 +122,15 @@
         "file": "_0022_L-eyebrow-angry.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": 0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 751,
         "h": 285
       }
@@ -115,10 +140,15 @@
         "file": "_0023_R-eyebrow-sad.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": -0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 768,
         "h": 462
       },
@@ -126,10 +156,15 @@
         "file": "_0024_L-eybrow-sad.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": 0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 769,
         "h": 461
       }
@@ -139,10 +174,15 @@
         "file": "_0025_R-eyebrow-happy.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": -0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 740,
         "h": 318
       },
@@ -150,10 +190,15 @@
         "file": "_0026_L-eyebrow-happy.png",
         "scaleX": 1.45,
         "scaleY": 2.6,
-        "tint": "#6b6a5e",
         "anchor": "bottom-center",
         "x": 0.155,
         "y": -0.208,
+        "tintBands": [
+          "#6d655c",
+          "#57504a",
+          "#3f3a35"
+        ],
+        "tintAngle": 180,
         "w": 739,
         "h": 318
       }
