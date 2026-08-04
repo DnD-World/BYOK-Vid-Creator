@@ -8,6 +8,7 @@ import { concatWavBuffers } from "./audio/concatWav";
 import { analyzeNarration } from "./audio/analyzeNarration";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
+import { searchVideos, downloadTo, type MediaProvider } from "./net/mediaSearch";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
 
 const isDev = !app.isPackaged;
@@ -160,6 +161,29 @@ ipcMain.handle("storage:openOutputDir", async () => {
  * individual files keeps the cast list in the renderer, where it belongs, and
  * leaves this handler as one line that never changes when a character is added.
  */
+ipcMain.handle(
+  "media:searchVideos",
+  async (_e, query: string, providers?: MediaProvider[]) => searchVideos(query, { providers })
+);
+
+/** Fetch a clip into the app's media folder and hand back its path.
+ *
+ *  Named by provider and id rather than by the query that found it, so the
+ *  same clip picked twice reuses one file instead of accumulating copies. */
+ipcMain.handle("media:download", async (_e, id: string, url: string) => {
+  const dir = path.join(app.getPath("userData"), "media");
+  const ext = (url.split("?")[0].match(/\.(mp4|mov|webm|mp3|wav|ogg)$/i)?.[1] ?? "mp4").toLowerCase();
+  const dest = path.join(dir, `${id}.${ext}`);
+  try {
+    await fsp.access(dest);
+    return dest; // already have it
+  } catch {
+    /* not cached yet */
+  }
+  await downloadTo(url, dest);
+  return dest;
+});
+
 ipcMain.handle("storage:puppetDir", async () => {
   // app.getAppPath() is the repo root in dev and the asar root when packaged;
   // puppet/ sits beside package.json in both, provided it is listed in the

@@ -41,6 +41,13 @@ const api = {
       ipcRenderer.invoke("audio:analyzeFile", filePath),
   },
 
+  media: {
+    searchVideos: (query: string, providers?: ("pixabay" | "pexels")[]) =>
+      ipcRenderer.invoke("media:searchVideos", query, providers),
+    download: (id: string, url: string): Promise<string> =>
+      ipcRenderer.invoke("media:download", id, url),
+  },
+
   storage: {
     outputDir: (): Promise<string> => ipcRenderer.invoke("storage:outputDir"),
     openOutputDir: (): Promise<boolean> =>

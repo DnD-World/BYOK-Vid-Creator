@@ -47,6 +47,27 @@ declare global {
       audio: {
         analyzeFile: (filePath: string) => Promise<AudioAnalysis | null>;
       };
+      media: {
+        searchVideos: (
+          query: string,
+          providers?: ("pixabay" | "pexels")[]
+        ) => Promise<{
+          hits: {
+            id: string;
+            provider: "pixabay" | "pexels";
+            url: string;
+            thumbUrl: string;
+            width: number;
+            height: number;
+            durationSec: number;
+            author: string;
+            pageUrl: string;
+          }[];
+          notes: string[];
+        }>;
+        /** Returns the absolute path the clip was saved to. */
+        download: (id: string, url: string) => Promise<string>;
+      };
       storage: {
         outputDir: () => Promise<string>;
         openOutputDir: () => Promise<boolean>;
