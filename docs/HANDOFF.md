@@ -149,14 +149,18 @@ vs soft constraints. **Not settled.** The 2D puppet is the working answer now.
 
 1. ~~Wire `PuppetAvatar` into the app.~~ **Done.** Cast → Choose puppet, and a
    real MP4 has been rendered from `kaiti.puppet.json` end to end. Two things
-   left over from it: the lids and brows are still pinned open/absent (nothing
-   drives them yet — that is step 2), and a puppet reads **smaller** than a
+   left over from it: a puppet reads **smaller** than a
    sheet at the same `size`, because a sheet's cells are cropped to the head
    while a puppet's base image carries the artwork's own margins. Decide
    whether that is a per-puppet scale or just a bigger `size`.
-2. **Blink track** — deterministic, time-based, drives the lid states.
+2. ~~Blink track.~~ **Done** — `src/lib/motion/facePerformance.ts`. Seeded per
+   speaker so two avatars never blink in unison, ~16/min, with paired double
+   blinks. Gated on `idleMotion`: 0 means a genuinely still face.
 3. **Head tilt/shake** — one transform on the head group; the anchoring is done.
-4. **Punctuation-driven brows** — Greek `;` is a question mark.
+4. ~~Punctuation-driven brows.~~ **Done**, same module. `;`/`?` → raised,
+   `!` → furrowed, `…` → sad, else resting. Brows lead the voice by 220ms and
+   hold 320ms after. The mapping is one table, and giving the two sides
+   different sets is where the sceptical single raised brow comes from.
 5. Fonts (Google Fonts, Greek subset, download-and-cache — decided).
 6. Background video (Pixabay/Pexels keys saved and tested, nothing consumes them).
 

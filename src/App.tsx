@@ -20,6 +20,7 @@ import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { deriveAccentShades } from "./lib/color/deriveShades";
 import { headMotion, motionTransform } from "./lib/motion/idleMotion";
+import { blinkAt, browAt, buildSpeakerBrowTracks } from "./lib/motion/facePerformance";
 import { sampleAnalysis } from "./lib/waveform/audioAnalysis";
 import { useCornerFlare } from "./lib/motion/useCornerFlare";
 import { VISEME } from "./lib/visemes/visemeMap";
@@ -148,6 +149,10 @@ export default function App() {
   );
   const sheetUrls = useFileUrls(speakers.map((sp) => sp.sheetPath));
   const { puppets } = usePuppets(speakers.map((sp) => sp.puppetPath));
+  const browTracks = useMemo(
+    () => buildSpeakerBrowTracks(narration?.segments ?? []),
+    [narration]
+  );
   const speakerColors = useMemo(
     () => Object.fromEntries(speakers.map((sp) => [sp.id, sp.borderColor])),
     [speakers]
@@ -427,6 +432,10 @@ export default function App() {
                       viseme={blend.to}
                       prevViseme={blend.from}
                       mix={blend.mix}
+                      lidLeft={blinkAt(sp.id, previewTimeMs, idleMotion)}
+                      lidRight={blinkAt(sp.id, previewTimeMs, idleMotion)}
+                      browLeft={browAt(browTracks[sp.id], previewTimeMs)}
+                      browRight={browAt(browTracks[sp.id], previewTimeMs)}
                       // size is a fraction of frame width; the render resolves
                       // it against the output width the exact same way.
                       size={sp.size * canvasSize.w}

@@ -19,6 +19,7 @@
 import type { CSSProperties } from "react";
 import type { Puppet, PuppetLayer } from "../../store/puppetTypes";
 import type { OutlineShape } from "../../store/types";
+import { BROW_REST } from "../../lib/motion/facePerformance";
 
 interface Props {
   puppet: Puppet;
@@ -63,7 +64,8 @@ function filterFor(l: PuppetLayer): string | undefined {
 export function PuppetAvatar({
   puppet, urls, viseme, prevViseme, mix = 1,
   lidLeft = "open", lidRight = "open",
-  browLeft, browRight, size,
+  // Defaulted, not optional-and-absent, for the reason in `browSet` below.
+  browLeft = BROW_REST, browRight = BROW_REST, size,
   bgOpacity, borderOpacity,
   bgColor = "#1a1a1a", borderColor = "#d98a3d",
   outlineShape = "circle",
@@ -139,8 +141,18 @@ export function PuppetAvatar({
   const lids = puppet.eyes.lids;
   const lidL = lids[lidLeft] ?? lids.open;
   const lidR = lids[lidRight] ?? lids.open;
-  const browL = browLeft ? puppet.brows[browLeft]?.left : undefined;
-  const browR = browRight ? puppet.brows[browRight]?.right : undefined;
+  // A puppet asked for a brow set it doesn't have must not end up drawing NO
+  // brows: a browless face reads as missing artwork, not as a neutral
+  // expression, and it is the exact thing that shipped in the first render
+  // that used this component. Fall back to the resting set, then to whatever
+  // the puppet does have.
+  const browSet = (name: string | undefined) => {
+    if (!name) return undefined;
+    const sets = puppet.brows;
+    return sets[name] ?? sets[BROW_REST] ?? Object.values(sets)[0];
+  };
+  const browL = browSet(browLeft)?.left;
+  const browR = browSet(browRight)?.right;
   const mouth = puppet.mouths[String(viseme)] ?? puppet.mouths["0"];
   const prevMouth =
     prevViseme !== undefined && prevViseme !== viseme

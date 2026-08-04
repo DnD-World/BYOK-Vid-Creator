@@ -26,6 +26,7 @@ import { VISEME } from "../src/lib/visemes/visemeMap";
 import { useWaitForImages } from "./useWaitForImages";
 import { useSpectrumFile } from "./useSpectrumFile";
 import { headMotion, motionTransform } from "../src/lib/motion/idleMotion";
+import { blinkAt, browAt, buildSpeakerBrowTracks } from "../src/lib/motion/facePerformance";
 import { sampleAnalysis } from "../src/lib/waveform/audioAnalysis";
 import type { RenderProps } from "./types";
 
@@ -77,6 +78,13 @@ export function VideoComposition({
   const visemeTracks = useMemo(
     () => buildSpeakerVisemeTracks(narrationSegments, fps),
     [narrationSegments, fps]
+  );
+
+  // Brows come off the script's punctuation, so they are derived once from the
+  // same segments the subtitles and the mouth use.
+  const browTracks = useMemo(
+    () => buildSpeakerBrowTracks(narrationSegments),
+    [narrationSegments]
   );
 
   // Every image any avatar might draw: a flattened sheet, or every layer of a
@@ -175,6 +183,13 @@ export function VideoComposition({
                 viseme={blend.to}
                 prevViseme={blend.from}
                 mix={blend.mix}
+                // Both eyes blink together. Per-eye lids exist for the wink,
+                // which is a directed choice rather than something an
+                // automatic track should ever produce on its own.
+                lidLeft={blinkAt(sp.id, timeMs, idleMotion)}
+                lidRight={blinkAt(sp.id, timeMs, idleMotion)}
+                browLeft={browAt(browTracks[sp.id], timeMs)}
+                browRight={browAt(browTracks[sp.id], timeMs)}
                 size={size}
                 bgOpacity={sp.bgOpacity}
                 borderOpacity={sp.borderOpacity}
