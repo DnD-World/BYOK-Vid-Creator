@@ -5,8 +5,29 @@ export {};
 // AudioAnalysis left the renderer's view of the IPC boundary silently stale.
 import type { AudioAnalysis } from "./store/types";
 
+/** The vendored Deco Noir behaviour layer (src/styles/deco-noir.js). It is a
+ *  plain IIFE that attaches to window rather than an ES module, because the
+ *  same file has to run unchanged in a WordPress admin page and a browser
+ *  extension popup — neither of which can rely on a bundler. */
+interface DecoNoirApi {
+  init: (opts?: {
+    ground?: "steel" | "gold" | "off";
+    grain?: boolean;
+    glow?: boolean;
+    spark?: boolean;
+    reveal?: boolean;
+    glowSensitivity?: number;
+  }) => void;
+  /** Re-scan for `.dialwrap` elements mounted after init. */
+  dials: () => void;
+  setColorway: (name: string) => void;
+  setDress: (name: string) => void;
+  setGround: (name: "steel" | "gold" | "off") => void;
+}
+
 declare global {
   interface Window {
+    DecoNoir?: DecoNoirApi;
     byok: {
       keys: {
         list: () => Promise<string[]>;

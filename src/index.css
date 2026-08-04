@@ -1,74 +1,137 @@
+/* The Deco Noir identity system — github.com/DnD-World/deco-noir-template.
+   Vendored rather than installed: this app ships as an offline Electron build,
+   and a design system it cannot open without a registry is not a dependency
+   worth having.
+
+   @import has to come first — CSS requires it to precede every other statement,
+   and Vite hoists it with a warning otherwise. That puts it BEFORE Tailwind's
+   preflight, which is fine: preflight resets element selectors, and everything
+   here is a class, so specificity keeps it intact. The one thing that would
+   have collided is a `body` rule, which was stripped when vendoring because
+   this app sets its own height and overflow for the Electron shell. */
+@import "./styles/deco-noir.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* Default accent = amber. Overridden at runtime (as "R G B" triples) by
-     the Appearance color picker in Backend Settings — every accent-* class
-     and the glow effects below read these, so changing the picker recolors
-     the whole app live, no rebuild needed. */
-  --accent-rgb: 232 162 74;         /* #e8a24a */
-  --accent-bright-rgb: 255 197 122; /* #ffc57a */
-  --accent-deep-rgb: 176 109 35;    /* #b06d23 */
+  /* Default accent = brass. Overridden at runtime (as "R G B" triples) by the
+     Appearance color picker in Backend Settings — every accent-* class, the
+     glow effects below, AND the whole Deco Noir layer read these, so the
+     picker recolors the identity live rather than only the old chrome.
+
+     Deco Noir consumes --accent-rgb in exactly this space-separated form,
+     which is why the library was moved to that convention in v1.1 — one
+     spelling of the colour, not two kept in sync. */
+  --accent-rgb: 201 162 39;         /* #c9a227 brass */
+  --accent-bright-rgb: 242 220 160; /* #f2dca0 */
+  --accent-deep-rgb: 122 90 30;     /* #7a5a1e */
+
+  /* Hex mirrors of the same three, for the parts of Deco Noir that need a
+     colour rather than channels (color-mix, gradients). App.tsx keeps these
+     in step with the triples above on every picker change. */
+  --accent: #c9a227;
+  --accent-hi: #f2dca0;
+  --accent-lo: #7a5a1e;
+
   --cut: 14px; /* the angular corner-cut size used across panels/buttons/switches */
 }
 
 @layer base {
   html, body, #root { height: 100%; }
   body {
-    @apply bg-metal-900 text-neutral-200 font-body antialiased select-none;
+    /* The ground colour comes from Deco Noir's --bg, not Tailwind's palette,
+       so the brushed field and the page agree on one black. */
+    background: var(--bg);
+    @apply text-neutral-200 font-body antialiased select-none;
     overflow: hidden;
     font-size: 16px; /* explicit baseline — nothing in this app should read as "small text" */
   }
 }
 
 @layer components {
-  /* Fixed, full-viewport scanline overlay — the defining texture of the
-     amber-cyberpunk direction. Applied once at the app root. */
+  /* The scanline overlay belonged to the superseded cyberpunk direction.
+     Deco Noir's texture is film grain over brushed metal, which the library's
+     own #dn-field / #dn-grain layers provide — this element stays in the tree
+     but now only carries a faint vignette, so the canvas keeps its edges dark
+     without a second full-screen texture competing with the grain. */
   .scanlines {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 999;
-    background: repeating-linear-gradient(
-      180deg,
-      rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px,
-      transparent 1px, transparent 3px
-    );
-    mix-blend-mode: overlay;
+    background: radial-gradient(120% 100% at 50% 40%, transparent 55%, rgba(0,0,0,0.45));
   }
 
-  /* Angular HUD panel — replaces the old rounded "panel-metal" look.
-     Corners are cut with clip-path, not rounded. */
+  /* ---------------------------------------------------------------------
+     Deco Noir panel, as ONE element.
+     The library's `.frame` nests three divs because a clipped box cannot
+     carry a border. `.panel-hud` is used inline in existing markup and
+     rewriting every panel into three wrappers would be a large, risky diff
+     for no visual gain — so the same result is built out of the element's
+     own background plus two pseudo-elements:
+
+       background  = the brass trim
+       ::before    = the face, inset by 1px (the hairline IS that 1px)
+       ::after     = the double corner rules on the two cut corners
+
+     Children are lifted above ::before so nothing disappears behind the face.
+  --------------------------------------------------------------------- */
   .panel-hud {
     position: relative;
-    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 30%), #0c0e12;
+    isolation: isolate;
+    padding: 1px;
+    background: linear-gradient(140deg,
+      color-mix(in srgb, var(--accent) 42%, var(--line)),
+      var(--line) 38%, var(--metal-lo) 62%,
+      color-mix(in srgb, var(--accent) 26%, var(--line)));
     clip-path: polygon(
       var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)),
       calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)
     );
-    border: 1px solid rgb(var(--accent-rgb) / 0.28);
-    box-shadow: inset 0 0 40px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   }
   .panel-hud::before {
     content: "";
-    position: absolute; inset: 0;
+    position: absolute; inset: 1px;
+    z-index: -1;
     clip-path: inherit;
-    background: linear-gradient(115deg, rgb(var(--accent-rgb) / 0.10), transparent 30%, transparent 70%, rgb(var(--accent-rgb) / 0.10));
-    opacity: 0.5;
+    background: linear-gradient(165deg, var(--metal) 0%, var(--metal-lo) 55%, var(--bg-2) 100%);
     pointer-events: none;
   }
+  /* Two parallel brass rules on the top-left and bottom-right cuts, drawn as
+     one element with two backgrounds. --d is the chamfer's perpendicular
+     distance from the corner; everything nearer than that is clipped away, so
+     the stops start there. */
+  .panel-hud::after {
+    --d: calc(var(--cut) * 0.7071);
+    content: "";
+    position: absolute; inset: 0;
+    z-index: 1;
+    clip-path: inherit;
+    pointer-events: none;
+    opacity: var(--plate, 1);
+    background:
+      linear-gradient(135deg,
+        transparent 0 calc(var(--d) + 2px),
+        var(--accent-hi) calc(var(--d) + 2px) calc(var(--d) + 3.5px),
+        transparent calc(var(--d) + 3.5px) calc(var(--d) + 7px),
+        var(--accent) calc(var(--d) + 7px) calc(var(--d) + 8.5px),
+        transparent calc(var(--d) + 8.5px)) top left / calc(var(--cut) * 2.4) calc(var(--cut) * 2.4) no-repeat,
+      linear-gradient(315deg,
+        transparent 0 calc(var(--d) + 2px),
+        var(--accent-hi) calc(var(--d) + 2px) calc(var(--d) + 3.5px),
+        transparent calc(var(--d) + 3.5px) calc(var(--d) + 7px),
+        var(--accent) calc(var(--d) + 7px) calc(var(--d) + 8.5px),
+        transparent calc(var(--d) + 8.5px)) bottom right / calc(var(--cut) * 2.4) calc(var(--cut) * 2.4) no-repeat;
+  }
+  .panel-hud > * { position: relative; z-index: 0; }
 
-  /* Corner bracket accents — drop two of these (top-left + bottom-right)
-     inside any .panel-hud as absolutely-positioned children. */
-  .hud-corner {
-    position: absolute;
-    width: 14px; height: 14px;
-    pointer-events: none;
-    transition: transform 260ms ease-out, filter 260ms ease-out;
-  }
-  .hud-corner.tl { top: -1px; left: -1px; border-top: 2px solid rgb(var(--accent-rgb)); border-left: 2px solid rgb(var(--accent-rgb)); }
-  .hud-corner.br { bottom: -1px; right: -1px; border-bottom: 2px solid rgb(var(--accent-rgb)); border-right: 2px solid rgb(var(--accent-rgb)); }
+  /* The old corner brackets are what the double rule replaces. Kept as a
+     no-op so the four <HudCorners /> already in the tree cost nothing and
+     don't have to be hunted down in this pass. */
+  .hud-corner { display: none; }
 
   /* ---------------------------------------------------------------------
      Motion identity — three small, deliberately restrained effects, all
@@ -139,73 +202,120 @@
     box-shadow: inset 0 0 32px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(0,0,0,0.4);
   }
 
-  /* Angular HUD button. */
+  /* The old HUD button is now the Deco Noir illuminated key. Aliased rather
+     than replaced at 18 call sites: `.hud-btn` simply IS `.btn` now. */
   .hud-btn {
+    --k: var(--accent);
+    --c: 7px;
     position: relative;
-    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.10), rgb(var(--accent-rgb) / 0.02));
-    border: 1px solid rgb(var(--accent-rgb) / 0.35);
+    isolation: isolate;
     clip-path: polygon(
-      10px 0, 100% 0, 100% calc(100% - 10px),
-      calc(100% - 10px) 100%, 0 100%, 0 10px
+      var(--c) 0, 100% 0, 100% calc(100% - var(--c)),
+      calc(100% - var(--c)) 100%, 0 100%, 0 var(--c)
     );
-    text-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.55);
-    transition: box-shadow 0.2s, background 0.2s;
+    color: color-mix(in srgb, var(--k) 55%, var(--ink-3));
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 42%, var(--metal-hi)),
+      color-mix(in srgb, var(--accent) 22%, var(--metal)) 42%,
+      color-mix(in srgb, var(--accent) 12%, var(--metal-lo)));
+    box-shadow: 0 2px 5px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.20),
+                inset 0 -2px 3px rgba(0,0,0,.6);
+    filter: drop-shadow(0 0 calc(3px + var(--prox, 0) * 16px)
+      color-mix(in srgb, var(--accent) calc(var(--prox, 0) * 62%), transparent));
+    transition: color 260ms var(--ease), transform 90ms var(--ease),
+                box-shadow 260ms var(--ease), filter .25s ease-out;
+    text-shadow: none;
   }
-  .hud-btn:hover {
-    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.18), rgb(var(--accent-rgb) / 0.05));
-    box-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.35), inset 0 0 12px rgb(var(--accent-rgb) / 0.12);
+  .hud-btn::before {
+    content: "";
+    position: absolute; inset: 3px; z-index: -1;
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px),
+      calc(100% - 5px) 100%, 0 100%, 0 5px);
+    background: linear-gradient(180deg, #0c0c0a, #000 70%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+                inset 0 8px 14px -8px color-mix(in srgb, var(--accent) 26%, transparent);
+    transition: box-shadow 260ms var(--ease);
+  }
+  .hud-btn:hover { color: color-mix(in srgb, var(--k) 92%, #fff); }
+  .hud-btn:active {
+    transform: translateY(1.5px);
+    box-shadow: 0 0 2px rgba(0,0,0,.6), inset 0 2px 5px rgba(0,0,0,.75);
   }
   .hud-btn-active {
-    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.26), rgb(var(--accent-rgb) / 0.08));
-    box-shadow: 0 0 18px rgb(var(--accent-rgb) / 0.5), inset 0 0 14px rgb(var(--accent-rgb) / 0.18);
+    color: color-mix(in srgb, var(--k) 96%, #fff);
+    text-shadow: 0 0 9px color-mix(in srgb, var(--k) 55%, transparent);
+  }
+  .hud-btn-active::before {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 80%, transparent),
+                inset 0 10px 20px -8px color-mix(in srgb, var(--accent) 45%, transparent),
+                inset 0 -12px 22px -10px color-mix(in srgb, var(--accent) 32%, transparent);
   }
 
-  /* Oval fader-cap slider — a real native <input type="range"> underneath,
-     restyled via the thumb/track pseudo-elements so drag + keyboard control
-     keep working for free instead of reimplementing pointer tracking. */
+  /* The fader is the switch slot stretched, with the switch paddle riding in
+     it — see the Deco Noir layer for the full rules. `.hud-slider` inherits
+     them wholesale; only the class name is app-specific. */
   .hud-slider {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 22px;
+    height: 32px;
     background: transparent;
+    cursor: pointer;
   }
   .hud-slider::-webkit-slider-runnable-track {
-    height: 3px;
-    background: rgb(var(--accent-rgb) / 0.15);
+    height: 32px;
+    background: linear-gradient(180deg, #000, var(--metal-lo) 70%);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.95), inset 0 -1px 0 rgba(255,255,255,.07);
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px),
+      calc(100% - 5px) 100%, 0 100%, 0 5px);
   }
   .hud-slider::-moz-range-track {
-    height: 3px;
-    background: rgb(var(--accent-rgb) / 0.15);
+    height: 32px;
+    background: linear-gradient(180deg, #000, var(--metal-lo) 70%);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.95);
   }
   .hud-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 15px;
-    height: 22px;
-    margin-top: -9.5px;
-    border-radius: 7px;
-    background: linear-gradient(180deg, #2c2f35, #111318 50%, #0a0b0d);
-    border: 1px solid rgb(var(--accent-rgb));
-    box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.5), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -3px 5px rgba(0,0,0,.6);
+    width: 28px; height: 26px; margin-top: 3px;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px) center/14px 14px no-repeat,
+      linear-gradient(180deg, var(--accent-hi), var(--accent) 45%, var(--accent-lo));
+    box-shadow: 0 2px 5px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.45);
+    clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px),
+      calc(100% - 4px) 100%, 0 100%, 0 4px);
     cursor: grab;
   }
   .hud-slider::-moz-range-thumb {
-    width: 15px;
-    height: 22px;
-    border-radius: 7px;
-    background: linear-gradient(180deg, #2c2f35, #111318 50%, #0a0b0d);
-    border: 1px solid rgb(var(--accent-rgb));
-    box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.5), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -3px 5px rgba(0,0,0,.6);
+    border: 0;
+    width: 28px; height: 26px;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px) center/14px 14px no-repeat,
+      linear-gradient(180deg, var(--accent-hi), var(--accent) 45%, var(--accent-lo));
+    box-shadow: 0 2px 5px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.45);
+    clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px),
+      calc(100% - 4px) 100%, 0 100%, 0 4px);
     cursor: grab;
   }
 
-  /* Engraved label text — technical mono, wide tracking, readable size. */  .label-etched {
+  /* App-level override, kept OUT of the vendored stylesheet so that file stays
+     a clean copy of the library and can be replaced wholesale on an update.
+     The old Toggle was a full-width row with the label pushed left and the
+     switch right; the library's default is a compact inline group. Existing
+     panels are laid out expecting the former. */
+  .leverrow {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .leverrow .tlabel { min-width: 0; }
+
+  /* Engraved label text — technical mono, wide tracking, readable size. */
+  .label-etched {
     @apply font-mono uppercase tracking-[0.2em] text-sm;
-    color: #a89a89;
+    color: var(--ink-3);
   }
   .label-lit {
     @apply font-mono uppercase tracking-[0.2em] text-sm;
-    color: rgb(var(--accent-bright-rgb));
-    text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.6);
+    color: var(--accent-hi);
+    text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.5);
   }
 }

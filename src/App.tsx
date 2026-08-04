@@ -18,7 +18,7 @@ import BackendPanel from "./components/settings/BackendPanel";
 import NarrationPanel from "./components/settings/NarrationPanel";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
-import { deriveAccentShades } from "./lib/color/deriveShades";
+import { deriveAccentShades, rgbTripleToHex } from "./lib/color/deriveShades";
 import { headMotion, motionTransform } from "./lib/motion/idleMotion";
 import {
   blinkAt, browAt, buildSpeakerBrowTracks,
@@ -215,7 +215,37 @@ export default function App() {
     root.setProperty("--accent-rgb", base);
     root.setProperty("--accent-bright-rgb", bright);
     root.setProperty("--accent-deep-rgb", deep);
+    // Deco Noir needs the same three as colours, not channels — color-mix()
+    // and gradients can't take a bare "R G B" triple. Derived from the same
+    // source in the same effect so the two forms cannot drift apart.
+    root.setProperty("--accent", rgbTripleToHex(base));
+    root.setProperty("--accent-hi", rgbTripleToHex(bright));
+    root.setProperty("--accent-lo", rgbTripleToHex(deep));
   }, [accentColor]);
+
+  // Deco Noir's behaviour layer: the brushed ground, film grain and the
+  // edge-proximity border glow on keys. Mounted once — it installs document
+  // level listeners, so re-running it would stack them.
+  //
+  // `spark` and `reveal` are off deliberately. Sparks fire on every click in
+  // an app where clicking is constant work rather than an occasional flourish,
+  // and reveal-on-scroll belongs to a marketing page, not a control surface
+  // the user is already looking at.
+  useEffect(() => {
+    window.DecoNoir?.init({
+      ground: "steel",
+      grain: true,
+      glow: true,
+      spark: false,
+      reveal: false,
+    });
+  }, []);
+
+  // The grain is ambient motion, so it answers to the app's own motion toggle
+  // as well as to prefers-reduced-motion.
+  useEffect(() => {
+    document.body.dataset.tex = motionEnabled ? "on" : "off";
+  }, [motionEnabled]);
 
   // Gates the breathing glow / click flash / corner flare CSS effects.
   // prefers-reduced-motion is handled entirely in CSS and always wins
@@ -279,7 +309,9 @@ export default function App() {
   }, [draggingId, snapToGrid, updateSpeaker]);
 
   return (
-    <div className="h-full w-full flex flex-col bg-metal-900 text-neutral-200">
+    // No background class here on purpose: the brushed-metal ground is a fixed
+    // layer behind the whole app, and an opaque shell would paint over it.
+    <div className="h-full w-full flex flex-col text-neutral-200">
       <div className="scanlines" />
 
       {/* Top bar */}
