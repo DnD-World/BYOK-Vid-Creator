@@ -183,8 +183,34 @@ export interface NarrationResult {
   analysis: AudioAnalysis | null;
 }
 
+/** One background clip and the stretch of video it covers.
+ *
+ *  `filePath` is where it was downloaded to; the hit is kept beside it so the
+ *  UI can still show a thumbnail and credit the author without re-searching. */
+export interface BackgroundScene {
+  startMs: number;
+  endMs: number;
+  query: string;
+  reason: string;
+  note?: string;
+  filePath?: string;
+  hit: {
+    id: string;
+    provider: "pixabay" | "pexels";
+    url: string;
+    thumbUrl: string;
+    width: number;
+    height: number;
+    durationSec: number;
+    author: string;
+    pageUrl: string;
+  } | null;
+}
+
 export interface ProjectState {
   render: RenderSettings;
+  /** Background clips, in order. Empty means a plain dark background. */
+  backgrounds: BackgroundScene[];
   /** The music track's waveform, and its colour. Always animating — music
    *  doesn't take turns the way speakers do. */
   musicWaveform: TrackWaveform;

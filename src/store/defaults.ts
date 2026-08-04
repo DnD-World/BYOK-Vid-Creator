@@ -34,6 +34,7 @@ export const defaultProject: ProjectState = {
   fps: 24,
   speakers: [],
   script: "",
+  backgrounds: [],
   language: "el",
   narration: null,
   attachedAudio: null,

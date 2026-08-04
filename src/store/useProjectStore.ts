@@ -8,6 +8,7 @@ import {
   TrackWaveform,
   Fps,
   NarrationResult,
+  BackgroundScene,
 } from "./types";
 import type { ProjectPreset } from "./templatesTypes";
 import { defaultProject } from "./defaults";
@@ -56,6 +57,7 @@ interface Actions {
   /** Add a speaker from the library — everything except where they stand,
    *  which is assigned here so a recalled cast doesn't stack in one spot. */
   addSpeakerFrom: (preset: Omit<SpeakerConfig, "id" | "x" | "y">) => void;
+  setBackgrounds: (scenes: BackgroundScene[]) => void;
   removeSpeaker: (id: string) => void;
   updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
   loadSnapshot: (snap: ProjectPreset) => void;
@@ -103,6 +105,8 @@ export const useProjectStore = create<ProjectState & Actions>()(
   setLanguage: (lang) => set({ language: lang }),
 
   setNarration: (narration) => set({ narration }),
+
+  setBackgrounds: (backgrounds) => set({ backgrounds }),
 
   setAttachedAudio: (attachedAudio) => set({ attachedAudio }),
 

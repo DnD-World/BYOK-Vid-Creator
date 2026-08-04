@@ -8,13 +8,14 @@ import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { Tabs } from "../ui/Tabs";
+import { BackgroundPanel } from "./BackgroundPanel";
 import { RenderBar } from "../render/RenderBar";
 import { PresetsPanel } from "./PresetsPanel";
 import { RoadmapSection } from "../canvas/RoadmapSection";
 import { useProjectStore } from "../../store/useProjectStore";
 import type { Fps, SubtitleConfig } from "../../store/types";
 
-type Tab = "frame" | "subtitles" | "render" | "presets";
+type Tab = "frame" | "background" | "subtitles" | "render" | "presets";
 
 const FPS_OPTIONS: Fps[] = [10, 24, 30];
 const SUB_POS: SubtitleConfig["position"][] = ["top", "center", "bottom"];
@@ -41,6 +42,7 @@ export function ScenePanel() {
       <Tabs
         tabs={[
           { id: "frame", label: "Frame" },
+          { id: "background", label: "Background" },
           { id: "subtitles", label: "Subtitles" },
           { id: "render", label: "Render" },
           { id: "presets", label: "Presets" },
@@ -112,6 +114,8 @@ export function ScenePanel() {
             <RoadmapSection />
           </>
         )}
+
+        {tab === "background" && <BackgroundPanel />}
 
         {tab === "subtitles" && (
           <section className="space-y-4">
