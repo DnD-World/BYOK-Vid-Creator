@@ -67,6 +67,34 @@ declare global {
         }>;
         /** Returns the absolute path the clip was saved to. */
         download: (id: string, url: string) => Promise<string>;
+        /** Reads the script, plans a query per scene and picks a clip for each. */
+        autoBackgrounds: (opts: {
+          segments: { text: string; startMs: number; endMs: number; speakerLabel: string }[];
+          languageName: string;
+          portrait: boolean;
+          topic?: string;
+          minSceneMs?: number;
+        }) => Promise<{
+          look: string;
+          scenes: {
+            startMs: number;
+            endMs: number;
+            query: string;
+            reason: string;
+            note?: string;
+            hit: {
+              id: string;
+              provider: "pixabay" | "pexels";
+              url: string;
+              thumbUrl: string;
+              width: number;
+              height: number;
+              durationSec: number;
+              author: string;
+              pageUrl: string;
+            } | null;
+          }[];
+        }>;
       };
       storage: {
         outputDir: () => Promise<string>;

@@ -9,6 +9,7 @@ import { analyzeNarration } from "./audio/analyzeNarration";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
 import { searchVideos, downloadTo, type MediaProvider } from "./net/mediaSearch";
+import { planBackgrounds, pickBackgrounds } from "./llm/backgroundPlanner";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
 
 const isDev = !app.isPackaged;
@@ -153,14 +154,28 @@ ipcMain.handle("storage:openOutputDir", async () => {
   return true;
 });
 
-/**
- * Where the bundled character puppets live.
- *
- * The renderer cannot work this out for itself: it has no filesystem and no
- * notion of where the app was installed. Returning the folder rather than the
- * individual files keeps the cast list in the renderer, where it belongs, and
- * leaves this handler as one line that never changes when a character is added.
- */
+/** Plan and pick in one call. They are separate functions because they fail
+ *  for different reasons — no API key vs nothing found — but the UI only ever
+ *  wants both, and splitting the round trip would just make the renderer hold
+ *  a plan it cannot use. */
+ipcMain.handle(
+  "media:autoBackgrounds",
+  async (
+    _e,
+    opts: {
+      segments: { text: string; startMs: number; endMs: number; speakerLabel: string }[];
+      languageName: string;
+      portrait: boolean;
+      topic?: string;
+      minSceneMs?: number;
+    }
+  ) => {
+    const plan = await planBackgrounds(opts);
+    const chosen = await pickBackgrounds(plan, { portrait: opts.portrait });
+    return { look: plan.look, scenes: chosen };
+  }
+);
+
 ipcMain.handle(
   "media:searchVideos",
   async (_e, query: string, providers?: MediaProvider[]) => searchVideos(query, { providers })
@@ -184,6 +199,14 @@ ipcMain.handle("media:download", async (_e, id: string, url: string) => {
   return dest;
 });
 
+/**
+ * Where the bundled character puppets live.
+ *
+ * The renderer cannot work this out for itself: it has no filesystem and no
+ * notion of where the app was installed. Returning the folder rather than the
+ * individual files keeps the cast list in the renderer, where it belongs, and
+ * leaves this handler as one line that never changes when a character is added.
+ */
 ipcMain.handle("storage:puppetDir", async () => {
   // app.getAppPath() is the repo root in dev and the asar root when packaged;
   // puppet/ sits beside package.json in both, provided it is listed in the

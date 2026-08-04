@@ -46,6 +46,7 @@ const api = {
       ipcRenderer.invoke("media:searchVideos", query, providers),
     download: (id: string, url: string): Promise<string> =>
       ipcRenderer.invoke("media:download", id, url),
+    autoBackgrounds: (opts: unknown) => ipcRenderer.invoke("media:autoBackgrounds", opts),
   },
 
   storage: {
