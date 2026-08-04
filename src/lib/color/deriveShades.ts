@@ -60,6 +60,17 @@ function hslToRgb(h: number, s: number, l: number) {
   };
 }
 
+/** "201 162 39" -> "#c9a227".
+ *
+ *  The triples above are what Tailwind's rgb(var(--x) / <alpha>) pattern
+ *  wants; color-mix() and gradients want a colour. Rather than derive the two
+ *  independently — which is how they end up disagreeing after someone edits
+ *  one — the hex form is produced from the triple that was already computed. */
+export function rgbTripleToHex(triple: string): string {
+  const [r, g, b] = triple.trim().split(/\s+/).map((n) => Math.max(0, Math.min(255, parseInt(n, 10) || 0)));
+  return "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
+}
+
 export function deriveAccentShades(hex: string) {
   const { r, g, b } = hexToRgb(hex);
   const { h, s, l } = rgbToHsl(r, g, b);
