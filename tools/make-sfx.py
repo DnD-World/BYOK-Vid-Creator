@@ -1,0 +1,146 @@
+"""
+Generate the sound-effects library from sfx/wanted.csv, locally, with
+Stable Audio Open.
+
+WHY LOCAL AND WHY THIS MODEL. Every sound this app can use has to clear the
+same licence bar as its video sources: commercial use, no attribution, and no
+per-project registration. Stable Audio Open clears it two ways at once. The
+weights are under Stability's Community License, which is free for commercial
+use below USD 1M annual revenue and states plainly that you own the outputs.
+And unusually for a generative audio model, it was trained only on CC0, CC-BY
+and CC Sampling+ recordings — about 47k of them from Freesound — so the
+provenance of what comes out is not an open question the way it is for models
+trained on scraped audio.
+
+RESUMABLE ON PURPOSE. A row whose .wav already exists is skipped. Building a
+library is not one run; it is a list you keep adding to, re-running as it
+grows. Deleting a file is how you ask for it to be made again.
+
+DETERMINISTIC ON PURPOSE. The seed for each row is derived from its name, so
+re-running reproduces the same audio rather than quietly giving you a different
+bark than the one you approved. Pass --seed-offset to get a different take of
+everything, or --take N for a different take of one row.
+
+Usage (from the project root):
+
+  ./stableaudio-venv/Scripts/python.exe tools/make-sfx.py
+  ./stableaudio-venv/Scripts/python.exe tools/make-sfx.py --only dog-bark-single
+  ./stableaudio-venv/Scripts/python.exe tools/make-sfx.py --only dog-bark-single --take 2
+  ./stableaudio-venv/Scripts/python.exe tools/make-sfx.py --steps 250
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+WANTED = ROOT / "sfx" / "wanted.csv"
+OUTDIR = ROOT / "sfx" / "library"
+
+MODEL = "stabilityai/stable-audio-open-1.0"
+
+# The docs are explicit that a negative prompt materially improves output, and
+# that this is the phrasing to reach for. It is not decoration.
+NEGATIVE = "low quality, average quality, noisy, distorted"
+
+
+def seed_for(name: str, take: int, offset: int) -> int:
+    """A stable seed per row, so the same row always yields the same audio.
+
+    Hashed rather than an enumeration index: adding a line to the middle of the
+    CSV must not renumber — and therefore change — every sound after it.
+    """
+    h = hashlib.sha256(f"{name}#{take}#{offset}".encode("utf-8")).hexdigest()
+    return int(h[:8], 16)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", help="generate just this one name from the CSV")
+    ap.add_argument("--take", type=int, default=1, help="alternate version of the same row")
+    ap.add_argument("--seed-offset", type=int, default=0, help="shift every seed at once")
+    ap.add_argument("--steps", type=int, default=200, help="denoising steps; higher is slower and cleaner")
+    ap.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is present")
+    args = ap.parse_args()
+
+    if not WANTED.exists():
+        print(f"No list found at {WANTED}", file=sys.stderr)
+        return 1
+
+    with WANTED.open(newline="", encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f) if r.get("name")]
+
+    if args.only:
+        rows = [r for r in rows if r["name"] == args.only]
+        if not rows:
+            print(f"No row named {args.only!r} in {WANTED.name}", file=sys.stderr)
+            return 1
+
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+
+    suffix = "" if args.take == 1 else f"-take{args.take}"
+    todo = [r for r in rows if not (OUTDIR / f"{r['name']}{suffix}.wav").exists()]
+    skipped = len(rows) - len(todo)
+    if skipped:
+        print(f"{skipped} already made, skipping those. Delete a .wav to redo it.")
+    if not todo:
+        print("Nothing left to generate.")
+        return 0
+
+    # Imported late so that --help works without waiting for torch to load.
+    import torch
+    import soundfile as sf
+    from diffusers import StableAudioPipeline
+
+    use_cuda = torch.cuda.is_available() and not args.cpu
+    device = "cuda" if use_cuda else "cpu"
+    dtype = torch.float16 if use_cuda else torch.float32
+    print(f"Device: {device}" + (f" ({torch.cuda.get_device_name(0)})" if use_cuda else ""))
+
+    print(f"Loading {MODEL} — first run downloads a few GB, later runs are instant.")
+    pipe = StableAudioPipeline.from_pretrained(MODEL, torch_dtype=dtype)
+    pipe = pipe.to(device)
+    if use_cuda:
+        # 8GB cards fit this comfortably at fp16, but offloading costs almost
+        # nothing here and turns a possible out-of-memory into a slower run
+        # rather than a failed one.
+        pipe.enable_model_cpu_offload()
+
+    print(f"Generating {len(todo)} sound(s) into {OUTDIR}\n")
+    for i, row in enumerate(todo, 1):
+        name = row["name"]
+        prompt = row["prompt"]
+        seconds = float(row.get("seconds") or 3)
+        dest = OUTDIR / f"{name}{suffix}.wav"
+
+        seed = seed_for(name, args.take, args.seed_offset)
+        gen = torch.Generator(device).manual_seed(seed)
+
+        print(f"[{i}/{len(todo)}] {name}  ({seconds:g}s)  {prompt[:60]}...")
+        t0 = time.time()
+        audio = pipe(
+            prompt,
+            negative_prompt=NEGATIVE,
+            num_inference_steps=args.steps,
+            audio_end_in_s=seconds,
+            num_waveforms_per_prompt=1,
+            generator=gen,
+        ).audios
+
+        # (channels, samples) -> (samples, channels), which is what a WAV wants.
+        out = audio[0].T.float().cpu().numpy()
+        sf.write(str(dest), out, pipe.vae.sampling_rate)
+        print(f"        -> {dest.name}  ({time.time() - t0:.0f}s)\n")
+
+    print(f"Done. Files are in {OUTDIR}")
+    print("Load them in the app with Cast > SFX > Add from disk.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

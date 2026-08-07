@@ -1,0 +1,25 @@
+name,prompt,seconds,notes
+dog-bark-single,"A single sharp dog bark, close up, clean recording, no background noise",3,Attention beat / punctuation
+dog-bark-double,"Two quick dog barks in a row, medium sized dog, clear and close",3,Alarm or excitement
+dog-bark-small,"A small dog yapping twice, high pitched, chihuahua, close up clean",3,For Tsika
+dog-bark-big,"A deep single bark from a large dog, close up, clean recording",3,For Serifis
+dog-whine,"A dog whining softly, sad, close up, clean recording",4,Sympathy beat
+dog-happy-pant,"A happy dog panting quickly, close up, clean",4,Bed under a cheerful line
+dog-growl-soft,"A soft low dog growl, close up, clean recording, not aggressive",3,Warning beat
+collar-jingle,"Metal dog tags jingling on a collar, close up, clean",3,Movement / a dog arriving
+lead-clip,"A metal clip on a dog lead snapping shut, single click, close up",2,Going out
+dog-lapping-water,"A dog lapping water from a bowl, close up, clean",4,Everyday scene
+kibble-into-bowl,"Dry dog food pouring into a metal bowl, close up, clean",3,Feeding
+squeaky-toy,"A rubber squeaky dog toy being squeezed twice, close up, clean",2,Playful beat
+door-knock,"Three knocks on a wooden door, close up, clean",3,Visitor / setup for a bark
+doorbell,"A simple two tone doorbell ring, clean recording",3,Visitor
+notification-pop,"A short soft UI notification pop, clean, minimal",1,On-screen text appearing
+whoosh-short,"A short clean whoosh transition, airy, no music",1,Scene change
+whoosh-soft,"A soft gentle whoosh, low and short, clean",2,Gentle scene change
+pop-in,"A single soft pop, clean and short, no reverb",1,Element appearing
+ding-correct,"A single bright pleasant ding, clean, positive",2,Correct / good advice
+buzz-wrong,"A short soft buzzer, low and dull, not harsh",2,Wrong / warning
+heartbeat-slow,"A slow calm human heartbeat, deep and soft, clean",4,Tension under a serious warning
+clock-tick,"A clock ticking steadily, close up, clean",4,Urgency under a vet warning
+paper-rustle,"Paper being picked up and rustled once, close up, clean",2,Facts / documents
+camera-shutter,"A single camera shutter click, clean and close",1,Photo moment

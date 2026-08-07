@@ -20,3 +20,12 @@ viseme-sheets/
 viseme/
 viseme-v2/
 viseme-sheets-v2/
+
+# Local Stable Audio virtualenv, same reasoning as piper-venv: a few GB of
+# torch that must never be shared with another tool's environment.
+stableaudio-venv/
+# Generated sound effects. Deliberately NOT committed, for the same reason the
+# viseme cells aren't: they are large, binary, and rebuildable — sfx/wanted.csv
+# is the recipe and that IS committed. Losing the wavs costs a re-run; losing
+# the list costs the thinking.
+sfx/library/
