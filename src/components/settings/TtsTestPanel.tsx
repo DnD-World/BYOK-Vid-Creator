@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
+import { Picker } from "../ui/Picker";
 
 /**
  * Phase 2, step 1: prove the whole TTS pipeline (persistent Piper server ->
@@ -103,17 +104,13 @@ export default function TtsTestPanel() {
         </div>
 
         {voices.length > 0 && (
-          <select
+          <Picker
+            aria-label="Piper voice"
+            className="w-full"
             value={selectedVoice}
-            onChange={(e) => setSelectedVoice(e.target.value)}
-            className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-          >
-            {voices.map((v) => (
-              <option key={v.id} value={v.onnxPath}>
-                {v.name}
-              </option>
-            ))}
-          </select>
+            options={voices.map((v) => ({ value: v.onnxPath, label: v.name }))}
+            onChange={setSelectedVoice}
+          />
         )}
       </div>
 

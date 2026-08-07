@@ -11,6 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
+import { Picker } from "../ui/Picker";
 import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { Tabs } from "../ui/Tabs";
@@ -185,23 +186,22 @@ export function CastPanel() {
           most repetitive thing in the app. */}
       {library.length > 0 && (
         <div className="flex items-center gap-2 mb-3">
-          <select
+          <Picker
+            aria-label="Add a saved speaker from the library"
+            className="flex-1 min-w-0"
             value=""
-            onChange={(e) => {
-              const entry = library.find((l) => l.savedId === e.target.value);
+            placeholder="Add from library…"
+            options={[
+              { value: "", label: "Add from library…" },
+              ...library.map((l) => ({ value: l.savedId, label: l.label })),
+            ]}
+            onChange={(v) => {
+              const entry = library.find((l) => l.savedId === v);
               if (!entry) return;
               const { savedId: _s, savedAt: _a, ...rest } = entry;
               addSpeakerFrom(rest);
             }}
-            className="flex-1 min-w-0 bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
-          >
-            <option value="">Add from library…</option>
-            {library.map((l) => (
-              <option key={l.savedId} value={l.savedId}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       )}
 
@@ -523,29 +523,40 @@ export function CastPanel() {
 
             <section className="space-y-3">
               <div className="label-etched">Voice</div>
-              <select
+              <Picker
+                aria-label="Voice engine"
+                className="w-full"
                 value={speaker.ttsEngine ?? "chatterbox"}
-                onChange={(e) =>
-                  updateSpeaker(speaker.id, { ttsEngine: e.target.value as "chatterbox" | "piper" })
+                options={[
+                  { value: "piper", label: "Piper — fast, local" },
+                  { value: "chatterbox", label: "Chatterbox — higher quality" },
+                ]}
+                onChange={(v) =>
+                  updateSpeaker(speaker.id, { ttsEngine: v as "chatterbox" | "piper" })
                 }
-                className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-              >
-                <option value="piper">Piper — fast, local</option>
-                <option value="chatterbox">Chatterbox — higher quality</option>
-              </select>
+              />
               {(speaker.ttsEngine ?? "chatterbox") === "piper" && (
-                <select
+                <Picker
+                  aria-label="Piper voice"
+                  className="w-full"
+                  placeholder={
+                    voices.length === 0
+                      ? "No voices — scan in Backend Settings"
+                      : "Saved voice not found — pick another"
+                  }
                   value={speaker.voiceId ?? ""}
-                  onChange={(e) => updateSpeaker(speaker.id, { voiceId: e.target.value || undefined })}
-                  className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-                >
-                  <option value="">
-                    {voices.length === 0 ? "No voices — scan in Backend Settings" : "No voice assigned"}
-                  </option>
-                  {voices.map((v) => (
-                    <option key={v.id} value={v.onnxPath}>{v.name}</option>
-                  ))}
-                </select>
+                  options={[
+                    {
+                      value: "",
+                      label:
+                        voices.length === 0
+                          ? "No voices — scan in Backend Settings"
+                          : "No voice assigned",
+                    },
+                    ...voices.map((v) => ({ value: v.onnxPath, label: v.name })),
+                  ]}
+                  onChange={(v) => updateSpeaker(speaker.id, { voiceId: v || undefined })}
+                />
               )}
               <p className="text-sm text-neutral-500">
                 Chatterbox voices are assigned in the Narration tab.

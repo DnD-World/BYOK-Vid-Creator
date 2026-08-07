@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 import { Knob } from "../ui/Knob";
+import { Picker } from "../ui/Picker";
 
 const LANGUAGES = [
   { code: "el", label: "Greek" },
@@ -150,17 +151,13 @@ export default function ChatterboxTestPanel() {
           </div>
 
           {activeVoiceList.length > 0 ? (
-            <select
+            <Picker
+              aria-label="Chatterbox voice"
+              className="w-full"
               value={selectedVoice}
-              onChange={(e) => setSelectedVoice(e.target.value)}
-              className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-            >
-              {activeVoiceList.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
+              options={activeVoiceList.map((v) => ({ value: v.id, label: v.label }))}
+              onChange={setSelectedVoice}
+            />
           ) : (
             <p className="text-sm text-neutral-500">
               {voiceMode === "clone"
@@ -169,17 +166,13 @@ export default function ChatterboxTestPanel() {
             </p>
           )}
 
-          <select
+          <Picker
+            aria-label="Language"
+            className="w-full"
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+            options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
+            onChange={setLanguage}
+          />
 
           <div className="flex items-center justify-center gap-10 py-2">
             <Knob

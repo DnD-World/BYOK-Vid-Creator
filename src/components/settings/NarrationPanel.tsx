@@ -5,6 +5,7 @@ import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
 import { parseScript } from "../../lib/narration/parseScript";
 import { Slider } from "../ui/Slider";
+import { Picker } from "../ui/Picker";
 
 const LANGUAGES = [
   { code: "el", label: "Greek" },
@@ -202,57 +203,68 @@ export default function NarrationPanel() {
           <div key={sp.id} className="flex flex-wrap items-center gap-3 border-b border-accent/10 pb-3 last:border-0 last:pb-0">
             <span className="text-base text-neutral-200 min-w-[100px]">{sp.label}</span>
 
-            <select
+            <Picker
+              aria-label={`Voice engine for ${sp.label}`}
+              className="min-w-[170px]"
               value={sp.ttsEngine ?? "chatterbox"}
-              onChange={(e) => updateSpeaker(sp.id, { ttsEngine: e.target.value as "chatterbox" | "piper" })}
-              className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
-            >
-              <option value="piper">Piper (fast)</option>
-              <option value="chatterbox">Chatterbox (quality)</option>
-            </select>
+              options={[
+                { value: "piper", label: "Piper (fast)" },
+                { value: "chatterbox", label: "Chatterbox (quality)" },
+              ]}
+              onChange={(v) => updateSpeaker(sp.id, { ttsEngine: v as "chatterbox" | "piper" })}
+            />
 
             {(sp.ttsEngine ?? "chatterbox") === "piper" ? (
-              <select
+              <Picker
+                aria-label={`Piper voice for ${sp.label}`}
+                className="flex-1 min-w-[160px]"
+                placeholder={
+                  piperVoices.length === 0
+                    ? "No voices — scan in Backend Settings"
+                    : "Saved voice not found — pick another"
+                }
                 value={sp.voiceId ?? ""}
-                onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
-                className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
-              >
-                <option value="">
-                  {piperVoices.length === 0 ? "No voices — scan in Backend Settings" : "No voice assigned"}
-                </option>
-                {piperVoices.map((v) => (
-                  <option key={v.id} value={v.onnxPath}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  {
+                    value: "",
+                    label:
+                      piperVoices.length === 0
+                        ? "No voices — scan in Backend Settings"
+                        : "No voice assigned",
+                  },
+                  ...piperVoices.map((v) => ({ value: v.onnxPath, label: v.name })),
+                ]}
+                onChange={(v) => updateSpeaker(sp.id, { voiceId: v || undefined })}
+              />
             ) : (
               <>
-                <select
+                <Picker
+                  aria-label={`Chatterbox voice mode for ${sp.label}`}
+                  className="min-w-[140px]"
                   value={sp.chatterboxVoiceMode ?? "predefined"}
-                  onChange={(e) =>
+                  options={[
+                    { value: "predefined", label: "Predefined" },
+                    { value: "clone", label: "Clone" },
+                  ]}
+                  onChange={(v) =>
                     updateSpeaker(sp.id, {
-                      chatterboxVoiceMode: e.target.value as "predefined" | "clone",
+                      chatterboxVoiceMode: v as "predefined" | "clone",
                       chatterboxVoiceRef: undefined,
                     })
                   }
-                  className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
-                >
-                  <option value="predefined">Predefined</option>
-                  <option value="clone">Clone</option>
-                </select>
-                <select
+                />
+                <Picker
+                  aria-label={`Chatterbox voice for ${sp.label}`}
+                  className="flex-1 min-w-[160px]"
                   value={sp.chatterboxVoiceRef ?? ""}
-                  onChange={(e) => updateSpeaker(sp.id, { chatterboxVoiceRef: e.target.value || undefined })}
-                  className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
-                >
-                  <option value="">No voice assigned</option>
-                  {(sp.chatterboxVoiceMode === "clone" ? referenceFiles : predefinedVoices).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: "No voice assigned" },
+                    ...(sp.chatterboxVoiceMode === "clone" ? referenceFiles : predefinedVoices).map(
+                      (v) => ({ value: v.id, label: v.label })
+                    ),
+                  ]}
+                  onChange={(v) => updateSpeaker(sp.id, { chatterboxVoiceRef: v || undefined })}
+                />
               </>
             )}
           </div>
@@ -261,17 +273,13 @@ export default function NarrationPanel() {
 
       <div className="flex items-center gap-3">
         <span className="label-etched text-sm">Language</span>
-        <select
+        <Picker
+          aria-label="Language"
+          className="min-w-[180px]"
           value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className="bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
-        </select>
+          options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
+          onChange={setLanguage}
+        />
       </div>
 
       <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
