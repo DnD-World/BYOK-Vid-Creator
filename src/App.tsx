@@ -431,8 +431,14 @@ export default function App() {
           // height, so the stage's h-full resolved against nothing and never
           // shrank when the window did. The stage stretches; the centring
           // happens inside it.
+          //
+          // `items-stretch` is stated rather than left to the default, and that
+          // is not belt-and-braces. The stretch IS the layout: the stage is
+          // measured to size the canvas, so anything that lets it shrink to its
+          // content collapses it to zero and keeps it there. Leaving it implicit
+          // is what let a stylesheet turn the whole preview off by accident.
           className={`panel-hud hud-flare-target relative flex-1 p-6 min-h-0 ${
-            view === "canvas" ? "grid" : "overflow-hidden"
+            view === "canvas" ? "grid items-stretch" : "overflow-hidden"
           }`}
         >
           <HudCorners />

@@ -825,8 +825,20 @@ tbody tr:hover td{background:rgb(var(--accent-rgb) / .06);color:var(--ink)}
 
 /* align-items:start so a frame is as tall as its own contents. Stretching
    every card to the tallest in the row is what left dead slabs of empty metal
-   under the short ones. */
-.grid{display:grid;gap:var(--gap);align-items:start}
+   under the short ones.
+
+   RENAMED WHEN VENDORING, from `.grid` to `.dn-grid`. Upstream this class is
+   only ever seen next to .g2/.g3/.g4, but in THIS app the same name is also a
+   Tailwind utility, and Tailwind's `grid` sets display and nothing else — so
+   the library's align-items:start silently landed on every Tailwind grid in
+   the app. It squashed the preview stage to 2px tall (a grid item aligned to
+   `start` is only as tall as its content, and the stage's content is sized
+   FROM its own measured height, so it collapsed to zero and stayed there) and
+   the canvas rendered nothing at all. Same reasoning as the `body` rule that
+   was stripped when vendoring: a name that means one thing to the library and
+   another to Tailwind cannot stay ambiguous. If this file is re-vendored,
+   re-apply the rename. */
+.dn-grid{display:grid;gap:var(--gap);align-items:start}
 .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 .g3{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
 .g4{grid-template-columns:repeat(auto-fit,minmax(158px,1fr))}
