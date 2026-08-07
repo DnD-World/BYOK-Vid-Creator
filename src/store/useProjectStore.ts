@@ -124,7 +124,34 @@ export const useProjectStore = create<ProjectState & Actions>()(
 
   setLanguage: (lang) => set({ language: lang }),
 
-  setNarration: (narration) => set({ narration }),
+  // Setting narration also gives a length to any background that was picked
+  // before there was one.
+  //
+  // "Search by hand" stamps a whole-video clip with `endMs` read from the
+  // narration, and with no narration that is 0. backgroundTiming() then drops
+  // every clip whose endMs isn't greater than its startMs — correctly, since a
+  // zero-length clip has no frames to draw — so the clip vanished from the
+  // preview AND the render and stayed vanished, because nothing recomputed it
+  // once the narration finally existed. Picking a background before writing the
+  // script is not a mistake; silently keeping a dead clip is.
+  //
+  // Only spans that are still unresolved are touched (start 0, no usable end).
+  // A clip with a real range was either planned per scene or trimmed by hand,
+  // and neither should be overwritten just because narration was regenerated.
+  setNarration: (narration) =>
+    set((s) => {
+      const endMs = narration?.segments.at(-1)?.endMs ?? 0;
+      if (endMs <= 0) return { narration };
+      let changed = false;
+      const backgrounds = s.backgrounds.map((b) => {
+        if (b.startMs === 0 && !(b.endMs > 0)) {
+          changed = true;
+          return { ...b, endMs };
+        }
+        return b;
+      });
+      return changed ? { narration, backgrounds } : { narration };
+    }),
 
   setBackgrounds: (backgrounds) => set({ backgrounds }),
 
