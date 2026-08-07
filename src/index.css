@@ -202,54 +202,10 @@
     box-shadow: inset 0 0 32px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(0,0,0,0.4);
   }
 
-  /* The old HUD button is now the Deco Noir illuminated key. Aliased rather
-     than replaced at 18 call sites: `.hud-btn` simply IS `.btn` now. */
-  .hud-btn {
-    --k: var(--accent);
-    --c: 7px;
-    position: relative;
-    isolation: isolate;
-    clip-path: polygon(
-      var(--c) 0, 100% 0, 100% calc(100% - var(--c)),
-      calc(100% - var(--c)) 100%, 0 100%, 0 var(--c)
-    );
-    color: color-mix(in srgb, var(--k) 55%, var(--ink-3));
-    background: linear-gradient(180deg,
-      color-mix(in srgb, var(--accent) 42%, var(--metal-hi)),
-      color-mix(in srgb, var(--accent) 22%, var(--metal)) 42%,
-      color-mix(in srgb, var(--accent) 12%, var(--metal-lo)));
-    box-shadow: 0 2px 5px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.20),
-                inset 0 -2px 3px rgba(0,0,0,.6);
-    filter: drop-shadow(0 0 calc(3px + var(--prox, 0) * 16px)
-      color-mix(in srgb, var(--accent) calc(var(--prox, 0) * 62%), transparent));
-    transition: color 260ms var(--ease), transform 90ms var(--ease),
-                box-shadow 260ms var(--ease), filter .25s ease-out;
-    text-shadow: none;
-  }
-  .hud-btn::before {
-    content: "";
-    position: absolute; inset: 3px; z-index: -1;
-    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px),
-      calc(100% - 5px) 100%, 0 100%, 0 5px);
-    background: linear-gradient(180deg, #0c0c0a, #000 70%);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
-                inset 0 8px 14px -8px color-mix(in srgb, var(--accent) 26%, transparent);
-    transition: box-shadow 260ms var(--ease);
-  }
-  .hud-btn:hover { color: color-mix(in srgb, var(--k) 92%, #fff); }
-  .hud-btn:active {
-    transform: translateY(1.5px);
-    box-shadow: 0 0 2px rgba(0,0,0,.6), inset 0 2px 5px rgba(0,0,0,.75);
-  }
-  .hud-btn-active {
-    color: color-mix(in srgb, var(--k) 96%, #fff);
-    text-shadow: 0 0 9px color-mix(in srgb, var(--k) 55%, transparent);
-  }
-  .hud-btn-active::before {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 80%, transparent),
-                inset 0 10px 20px -8px color-mix(in srgb, var(--accent) 45%, transparent),
-                inset 0 -12px 22px -10px color-mix(in srgb, var(--accent) 32%, transparent);
-  }
+  /* `.hud-btn` deliberately no longer exists. It was a hand-rolled copy of the
+     library's illuminated key that stopped matching it, which is why the
+     bezels looked flat. Components use `.btn cut-sm` directly now, so there is
+     exactly one implementation and it cannot drift again. */
 
   /* The fader is the switch slot stretched, with the switch paddle riding in
      it — see the Deco Noir layer for the full rules. `.hud-slider` inherits
@@ -343,4 +299,38 @@
     color: var(--accent-hi);
     text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.5);
   }
+
+  /* ---------------------------------------------------------------------
+     Scrollbars, in the theme.
+
+     Styled for WebKit (which is what Electron is) and with the standard
+     scrollbar-color as a fallback. Kept deliberately narrow and quiet: a
+     scrollbar is a position indicator, not a control to be admired, and a
+     brass one down every list would compete with the content.
+  --------------------------------------------------------------------- */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--accent-rgb) / 0.35) transparent;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, #000, var(--metal-lo));
+    box-shadow: inset 0 0 3px rgba(0,0,0,.9);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 55%, var(--metal-hi)),
+      color-mix(in srgb, var(--accent) 25%, var(--metal-lo)));
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    /* The same chamfer as everything else, at the only size that reads on a
+       10px-wide part. */
+    clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px),
+      calc(100% - 3px) 100%, 0 100%, 0 3px);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-corner { background: transparent; }
 }

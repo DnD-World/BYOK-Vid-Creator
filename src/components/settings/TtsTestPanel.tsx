@@ -66,7 +66,7 @@ export default function TtsTestPanel() {
   return (
     <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
       <h3 className="label-lit text-sm">Local TTS Test (Piper)</h3>
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm">
         Proves the full pipeline — start a persistent Piper server, get
         audio, play it — before wiring in XTTS-v2. First synthesis per voice
         is slower (server warm-up); after that it's fast.
@@ -91,7 +91,7 @@ export default function TtsTestPanel() {
           <button
             onClick={runScan}
             disabled={scanning}
-            className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-50"
+            className="btn cut-sm px-4 py-2 text-sm font-display uppercase tracking-[0.1em] hover:text-accent-bright disabled:opacity-50"
           >
             {scanning ? "Scanning…" : "Scan for Voices"}
           </button>
@@ -99,7 +99,7 @@ export default function TtsTestPanel() {
             <span className="text-sm text-emerald-400">{voices.length} voice(s) found</span>
           )}
           {scanError && <span className="text-sm text-red-400">{scanError}</span>}
-          {scanHint && <span className="text-sm text-accent-bright">{scanHint}</span>}
+          {scanHint && <span className="text-sm">{scanHint}</span>}
         </div>
 
         {voices.length > 0 && (
@@ -127,7 +127,7 @@ export default function TtsTestPanel() {
         <button
           onClick={runSynthesize}
           disabled={synthesizing || !selectedVoice}
-          className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
+          className="btn cut-sm btn-primary px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
         >
           {synthesizing ? "Synthesizing…" : "Synthesize & Play"}
         </button>

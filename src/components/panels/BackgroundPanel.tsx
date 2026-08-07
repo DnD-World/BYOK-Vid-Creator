@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { useProjectStore } from "../../store/useProjectStore";
@@ -239,60 +240,98 @@ export function BackgroundPanel() {
         ))}
       </div>
 
-      {/* Manual search. Expands to fill the window because judging stock
-          footage from postage stamps is how the wrong clip gets picked. */}
-      {searchOpen && (
-        <div
-          className={
-            expanded
-              ? "fixed inset-4 z-50 panel-hud p-4 flex flex-col"
-              : "fixed inset-x-8 bottom-8 top-32 z-50 panel-hud p-4 flex flex-col"
-          }
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runSearch()}
-              placeholder="dog running in park"
-              className="flex-1 bg-black/60 px-3 py-2 text-neutral-200 outline-none"
-            />
-            <HudButton onClick={runSearch} disabled={!!busy}>Search</HudButton>
-            <HudButton onClick={() => setExpanded((v) => !v)}>
-              {expanded ? "Restore" : "Maximize"}
-            </HudButton>
-            <HudButton onClick={() => setSearchOpen(false)}>Close</HudButton>
-          </div>
+      {/* PORTALLED TO document.body, and that is not a detail.
+          This lives inside a .panel-hud, which is chamfered with clip-path —
+          and a clip-path clips EVERY descendant, including position:fixed ones.
+          Rendered in place, the search panel was sliced down to the rail's own
+          width: a half-visible input you could neither read nor reliably click.
+          A portal is the only way out of an ancestor's clip. */}
+      {searchOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] grid place-items-center p-6"
+            style={{ background: "rgba(0,0,0,.72)", backdropFilter: "blur(3px)" }}
+            onMouseDown={(e) => e.target === e.currentTarget && setSearchOpen(false)}
+          >
+            <div
+              className={`panel-hud flex flex-col p-5 ${
+                expanded ? "w-[96vw] h-[92vh]" : "w-[min(1100px,88vw)] h-[min(760px,82vh)]"
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-1">
+                <h3 className="title-deco uppercase text-lg">Find a background</h3>
+                <div className="flex-1" />
+                <HudButton onClick={() => setExpanded((v) => !v)}>
+                  {expanded ? "Restore" : "Maximize"}
+                </HudButton>
+                <HudButton onClick={() => setSearchOpen(false)}>Close</HudButton>
+              </div>
+              <p className="text-sm text-neutral-500 mb-3">
+                Searches Pixabay and Pexels together. English terms work best — both
+                libraries are indexed in English.
+              </p>
 
-          {notes.map((n, i) => (
-            <p key={i} className="text-sm text-amber-400 mb-1">{n}</p>
-          ))}
-
-          <div className="flex-1 overflow-y-auto grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
-            {hits.map((h) => (
-              <button
-                key={h.id}
-                onClick={() => useHit(h)}
-                className="text-left group"
-                title={`${h.provider} · ${h.author} · ${h.width}×${h.height}`}
-              >
-                <div className="aspect-video bg-black/60 overflow-hidden cut-sm">
-                  {h.thumbUrl && (
-                    <img
-                      src={h.thumbUrl}
-                      alt=""
-                      className="w-full h-full object-cover group-hover:opacity-80"
-                    />
-                  )}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="frame cut-sm inwrap flex-1">
+                  <div className="bevel cut-sm">
+                    <div className="face cut-sm">
+                      <input
+                        autoFocus
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") runSearch();
+                          if (e.key === "Escape") setSearchOpen(false);
+                        }}
+                        placeholder="dog running in park"
+                        className="input"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <p className="label-etched truncate mt-1">
-                  {h.durationSec}s · {h.provider}
+                <HudButton onClick={runSearch} disabled={!!busy}>
+                  {busy ? "Searching…" : "Search"}
+                </HudButton>
+              </div>
+
+              {notes.map((n, i) => (
+                <p key={i} className="text-sm text-amber-400 mb-1">{n}</p>
+              ))}
+              {error && <p className="text-sm text-red-400 mb-1">{error}</p>}
+              {!busy && hits.length === 0 && (
+                <p className="text-sm text-neutral-500">
+                  Type a search and press Enter.
                 </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+              )}
+
+              <div className="flex-1 overflow-y-auto grid content-start grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 pr-1">
+                {hits.map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => useHit(h)}
+                    className="text-left group"
+                    title={`${h.provider} · ${h.author} · ${h.width}×${h.height}`}
+                  >
+                    <div className="aspect-video bg-black/60 overflow-hidden cut-sm">
+                      {h.thumbUrl && (
+                        <img
+                          src={h.thumbUrl}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-opacity group-hover:opacity-75"
+                        />
+                      )}
+                    </div>
+                    <p className="label-etched truncate mt-1">
+                      {Math.round(h.durationSec)}s · {h.provider}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

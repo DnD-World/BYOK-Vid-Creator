@@ -86,6 +86,15 @@ export function SfxPanel() {
         </HudButton>
       </div>
 
+      {/* Stated plainly because the obvious question is "why isn't Pixabay
+          here too, like it is for backgrounds". */}
+      <p className="text-sm text-neutral-500">
+        Search covers <strong className="text-neutral-300">Freesound, CC0 only</strong> — nothing
+        found here needs crediting or a licence. Pixabay and Envato have no public
+        audio API, so their sounds can't be searched from inside the app; download
+        them in a browser and bring them in with <em>Add from disk</em>.
+      </p>
+
       <div className="flex items-center gap-2">
         <input
           value={query}

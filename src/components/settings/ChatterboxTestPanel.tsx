@@ -87,7 +87,7 @@ export default function ChatterboxTestPanel() {
   return (
     <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
       <h3 className="label-lit text-sm">Chatterbox Multilingual (TTS + Voice Cloning)</h3>
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm">
         One-time setup needed first: clone{" "}
         <span className="text-accent-bright">devnen/Chatterbox-TTS-Server</span>, run{" "}
         <span className="text-accent-bright">start.bat</span> once (Portable Mode recommended), and
@@ -113,7 +113,7 @@ export default function ChatterboxTestPanel() {
           <button
             onClick={startServer}
             disabled={starting || !installPath}
-            className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
+            className="btn cut-sm btn-primary px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
           >
             {starting ? "Starting… (can take a while first run)" : serverRunning ? "Restart Server" : "Start Server"}
           </button>
@@ -125,7 +125,7 @@ export default function ChatterboxTestPanel() {
       {serverRunning && (
         <div className="space-y-3 pt-2 border-t border-accent/15">
           <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-base text-neutral-300">
+            <label className="flex items-center gap-2 text-base">
               <input
                 type="radio"
                 checked={voiceMode === "predefined"}
@@ -136,7 +136,7 @@ export default function ChatterboxTestPanel() {
               />
               Predefined voice
             </label>
-            <label className="flex items-center gap-2 text-base text-neutral-300">
+            <label className="flex items-center gap-2 text-base">
               <input
                 type="radio"
                 checked={voiceMode === "clone"}
@@ -207,7 +207,7 @@ export default function ChatterboxTestPanel() {
           <button
             onClick={runSynthesize}
             disabled={synthesizing || !selectedVoice}
-            className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
+            className="btn cut-sm btn-primary px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
           >
             {synthesizing ? "Synthesizing…" : "Synthesize & Play"}
           </button>

@@ -182,7 +182,7 @@ export default function NarrationPanel() {
   return (
     <div className="p-6 space-y-4 overflow-y-auto h-full">
       <h2 className="label-lit text-base">Narration</h2>
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm">
         Write your script as one line per speech, formatted "Label: text" — the label must match a
         speaker's label exactly (case-insensitive). Generates one combined audio file, with each
         segment's timing preserved for later subtitle/lip-sync work.
@@ -205,7 +205,7 @@ export default function NarrationPanel() {
             <select
               value={sp.ttsEngine ?? "chatterbox"}
               onChange={(e) => updateSpeaker(sp.id, { ttsEngine: e.target.value as "chatterbox" | "piper" })}
-              className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+              className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
             >
               <option value="piper">Piper (fast)</option>
               <option value="chatterbox">Chatterbox (quality)</option>
@@ -215,7 +215,7 @@ export default function NarrationPanel() {
               <select
                 value={sp.voiceId ?? ""}
                 onChange={(e) => updateSpeaker(sp.id, { voiceId: e.target.value || undefined })}
-                className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+                className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
               >
                 <option value="">
                   {piperVoices.length === 0 ? "No voices — scan in Backend Settings" : "No voice assigned"}
@@ -236,7 +236,7 @@ export default function NarrationPanel() {
                       chatterboxVoiceRef: undefined,
                     })
                   }
-                  className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+                  className="bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
                 >
                   <option value="predefined">Predefined</option>
                   <option value="clone">Clone</option>
@@ -244,7 +244,7 @@ export default function NarrationPanel() {
                 <select
                   value={sp.chatterboxVoiceRef ?? ""}
                   onChange={(e) => updateSpeaker(sp.id, { chatterboxVoiceRef: e.target.value || undefined })}
-                  className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm text-neutral-300 outline-none focus:border-accent"
+                  className="flex-1 min-w-[160px] bg-metal-900 border border-accent/25 px-2 py-1.5 text-sm outline-none focus:border-accent"
                 >
                   <option value="">No voice assigned</option>
                   {(sp.chatterboxVoiceMode === "clone" ? referenceFiles : predefinedVoices).map((v) => (
@@ -276,7 +276,7 @@ export default function NarrationPanel() {
 
       <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
         <h3 className="label-lit text-sm">Pacing</h3>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm">
           Silence inserted between lines. Two people swapping turns with no gap
           at all is the clearest tell that a conversation was assembled rather
           than recorded. Takes effect the next time you generate.
@@ -295,7 +295,7 @@ export default function NarrationPanel() {
 
       <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-2">
         <h3 className="label-lit text-sm">Draft Script with GLM-5.2</h3>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm">
           Optional — describe what the video should be about and get a starting draft in the right
           format, which you can then edit freely below. Needs an NVIDIA key in Backend Settings.
         </p>
@@ -318,7 +318,7 @@ export default function NarrationPanel() {
           // Only ever disabled while a request is in flight. Disabling it for
           // missing input is what hid the reason from the user.
           disabled={drafting}
-          className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-40"
+          className="btn cut-sm px-4 py-2 text-sm font-display uppercase tracking-[0.1em] hover:text-accent-bright disabled:opacity-40"
         >
           {drafting ? `Drafting… ${draftSec}s` : "Generate Draft"}
         </button>
@@ -352,7 +352,7 @@ export default function NarrationPanel() {
       <button
         onClick={generate}
         disabled={generating || !script.trim()}
-        className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
+        className="btn cut-sm btn-primary px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
       >
         {generating ? "Generating…" : "Generate Narration"}
       </button>
@@ -365,11 +365,11 @@ export default function NarrationPanel() {
           <p className="text-sm text-neutral-500">Saved to: {result.filePath}</p>
           <div className="space-y-1">
             {result.segments.map((seg, i) => (
-              <div key={i} className="text-sm text-neutral-400 flex gap-2">
+              <div key={i} className="text-sm flex gap-2">
                 <span className="text-accent-bright shrink-0">
                   {(seg.startMs / 1000).toFixed(1)}s–{(seg.endMs / 1000).toFixed(1)}s
                 </span>
-                <span className="shrink-0 text-neutral-300">{seg.speakerLabel}:</span>
+                <span className="shrink-0">{seg.speakerLabel}:</span>
                 <span>{seg.text}</span>
               </div>
             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { Toggle } from "../ui/Toggle";
+import { HudButton } from "../ui/HudButton";
 import TtsTestPanel from "./TtsTestPanel";
 import ChatterboxTestPanel from "./ChatterboxTestPanel";
 
@@ -9,6 +10,21 @@ import ChatterboxTestPanel from "./ChatterboxTestPanel";
 // "instant" vs "approval" is the difference between a key you can have in two
 // minutes and one you wait days for, and not knowing which is which is what
 // makes this screen feel like a wall.
+/** The shipped accent. Kept beside the picker rather than imported from the
+ *  settings store's initial state, so "Default" means a stated value rather
+ *  than whatever the store happened to be constructed with. */
+const DEFAULT_ACCENT = "#e8a24a";
+
+/** The four colourways the identity system ships, offered as one click each.
+ *  A freeform picker is still there — this is for the common case. */
+const ACCENT_PRESETS = [
+  { name: "Brass", hex: "#c9a227" },
+  { name: "Amber", hex: "#e8a24a" },
+  { name: "Nickel", hex: "#9fc6d8" },
+  { name: "Jade", hex: "#5fc9a5" },
+  { name: "Oxblood", hex: "#d8c39b" },
+];
+
 type Access = "instant" | "approval" | "future";
 
 interface Provider {
@@ -89,7 +105,7 @@ const ACCESS_BADGE: Record<Access, { text: string; className: string }> = {
   },
   future: {
     text: "COMING SOON",
-    className: "bg-accent-deep/25 text-accent-bright",
+    className: "bg-accent-deep/25",
   },
 };
 
@@ -164,7 +180,7 @@ export default function BackendPanel() {
   return (
     <div className="p-6 space-y-4 overflow-y-auto h-full">
       <h2 className="label-lit text-base">API Keys &amp; Backend</h2>
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm">
         Keys are encrypted with your OS keychain and never leave this machine.
         Paste a key, press Save, then press Test to confirm it actually works —
         Test makes one real call to the provider.
@@ -172,16 +188,38 @@ export default function BackendPanel() {
 
       <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
         <h3 className="label-lit text-sm">Appearance</h3>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <input
             type="color"
             value={accentColor}
             onChange={(e) => setAccentColor(e.target.value)}
             className="h-9 w-9 border border-accent/30 bg-transparent p-0"
           />
-          <span className="text-sm text-neutral-400">
+          <span className="text-sm flex-1 min-w-[16rem]">
             Accent color — recolors glows, highlights, and active states everywhere
           </span>
+          {/* A colour picker with no way back is a trap: pick something unusable
+              and the control you would use to fix it is now unreadable. */}
+          <HudButton
+            onClick={() => setAccentColor(DEFAULT_ACCENT)}
+            disabled={accentColor.toLowerCase() === DEFAULT_ACCENT}
+            title={`Back to the default brass (${DEFAULT_ACCENT})`}
+          >
+            Default
+          </HudButton>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="label-etched">Presets</span>
+          {ACCENT_PRESETS.map((p) => (
+            <button
+              key={p.hex}
+              onClick={() => setAccentColor(p.hex)}
+              title={`${p.name} — ${p.hex}`}
+              aria-label={p.name}
+              className="h-7 w-7 cut-sm border border-white/15 hover:border-white/50 transition-colors"
+              style={{ background: p.hex }}
+            />
+          ))}
         </div>
         <Toggle
           label="Interface motion (breathing glow & click effects)"
@@ -225,7 +263,7 @@ export default function BackendPanel() {
               )}
             </div>
 
-            <p className="text-sm text-neutral-400 mb-2">{p.what}</p>
+            <p className="text-sm mb-2">{p.what}</p>
 
             <a
               href={p.url}
@@ -250,7 +288,7 @@ export default function BackendPanel() {
                   />
                   <button
                     onClick={() => save(p.id)}
-                    className="hud-btn hud-btn-active px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright"
+                    className="btn cut-sm btn-primary px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em]"
                   >
                     Save
                   </button>
@@ -259,13 +297,13 @@ export default function BackendPanel() {
                       <button
                         onClick={() => test(p.id)}
                         disabled={state?.busy}
-                        className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-300 hover:text-accent-bright disabled:opacity-40"
+                        className="btn cut-sm px-4 py-2 text-sm font-display uppercase tracking-[0.1em] hover:text-accent-bright disabled:opacity-40"
                       >
                         {state?.busy ? "Testing…" : "Test"}
                       </button>
                       <button
                         onClick={() => remove(p.id)}
-                        className="hud-btn px-4 py-2 text-sm font-display uppercase tracking-[0.1em] text-neutral-400 hover:text-red-400"
+                        className="btn cut-sm px-4 py-2 text-sm font-display uppercase tracking-[0.1em] hover:text-red-400"
                       >
                         Clear
                       </button>
@@ -307,7 +345,7 @@ export default function BackendPanel() {
 
       <div className="border border-accent/25 bg-metal-800/60 p-4">
         <h3 className="label-lit text-sm mb-2">Voice Engines — no API key needed</h3>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm">
           Chatterbox and Piper run entirely on your own machine, so there's
           nothing to sign up for and nothing to paste. What they ask for below
           are <em>folder paths</em> on this computer — where you installed them —

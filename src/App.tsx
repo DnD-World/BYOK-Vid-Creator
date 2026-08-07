@@ -81,9 +81,16 @@ function Rail({
           onToggle();
         }}
         title={open ? `Collapse ${title}` : `Expand ${title}`}
-        className={`absolute top-2 z-20 h-6 w-6 grid place-items-center text-accent-bright/70 hover:text-accent-bright ${
-          side === "left" ? "right-2" : "left-2"
-        }`}
+        aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+        // Was h-6 w-6 — a 24px target for the control that reshapes the whole
+        // window, and the one you reach for most on a 1280px screen. 36px with
+        // its own chamfered plate, so it reads as a control rather than as a
+        // stray glyph floating in the corner of the panel.
+        className={`absolute top-2 z-20 h-9 w-9 grid place-items-center text-lg leading-none
+          text-accent-bright/80 hover:text-accent-bright cut-sm
+          bg-[color-mix(in_srgb,var(--accent)_16%,var(--metal-lo))]
+          hover:bg-[color-mix(in_srgb,var(--accent)_30%,var(--metal-lo))]
+          transition-colors ${side === "left" ? "right-2" : "left-2"}`}
       >
         {glyph}
       </button>
