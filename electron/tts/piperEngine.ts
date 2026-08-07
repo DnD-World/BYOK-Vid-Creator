@@ -43,10 +43,34 @@ function pingServer(port: number): Promise<boolean> {
   });
 }
 
+/**
+ * Wait for the server to be up AND STAYING up.
+ *
+ * A single successful ping is not readiness. The first moment the port answers
+ * is the moment it is least stable: the very next request could land as the
+ * socket is being handed over, and comes back `ECONNRESET`. That is what made
+ * the FIRST narration after launching the app fail every time while a second
+ * attempt, seconds later, always worked.
+ *
+ * Two consecutive good pings with a gap between them is the cheapest thing that
+ * distinguishes "answered once" from "serving". It costs a few hundred
+ * milliseconds on a path that already waits several seconds for a model to
+ * load, and it is the difference between an unattended batch run starting and
+ * failing on its first row.
+ */
 async function waitUntilReady(port: number, timeoutMs = 20000): Promise<void> {
   const start = Date.now();
+  let consecutive = 0;
   while (Date.now() - start < timeoutMs) {
-    if (await pingServer(port)) return;
+    if (await pingServer(port)) {
+      if (++consecutive >= 2) {
+        // One more settle before anyone writes to it.
+        await new Promise((r) => setTimeout(r, 250));
+        return;
+      }
+    } else {
+      consecutive = 0;
+    }
     await new Promise((r) => setTimeout(r, 300));
   }
   throw new Error("Piper server didn't come up in time — check the python path and model file.");
@@ -114,16 +138,29 @@ export async function synthesizeWithPiper(
   text: string
 ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> {
   const handle = await getOrStartServer(pythonPath, onnxPath);
-  try {
-    return await postSynthesize(handle.port, text);
-  } catch (e) {
-    // One retry, and only for a connection that died rather than answered.
-    // See the agent:false note below for why this happens at all; the retry
-    // covers the race that remains when the server closes a socket in the
-    // window between us opening it and writing to it.
-    const code = (e as NodeJS.ErrnoException).code;
-    if (code !== "ECONNRESET" && code !== "EPIPE") throw e;
-    return postSynthesize(handle.port, text);
+
+  // Retries, and only for a connection that died rather than answered. See the
+  // agent:false note below for why this happens at all.
+  //
+  // THREE attempts with a growing pause, not one immediate repeat. A single
+  // retry fired straight away is still inside the window that broke the first
+  // one, which is why "first generation after opening the app fails, second
+  // works" was reproducible: the retry happened microseconds after the failure
+  // and lost the same race. Backing off is what makes the retry mean anything.
+  //
+  // Only connection-level failures are retried. A 500 from the server, or a
+  // response that isn't WAV, is a real answer about a real problem and must
+  // surface rather than be attempted twice more and reported late.
+  const RETRY_DELAYS_MS = [400, 1200];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await postSynthesize(handle.port, text);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      const retryable = code === "ECONNRESET" || code === "EPIPE" || code === "ECONNREFUSED";
+      if (!retryable || attempt >= RETRY_DELAYS_MS.length) throw e;
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+    }
   }
 }
 
