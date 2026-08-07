@@ -11,7 +11,7 @@
 // so testing is free and instant on all of these providers' free tiers.
 // ---------------------------------------------------------------------------
 
-import https from "node:https";
+import { request } from "./http";
 import * as keyStore from "../keyStore";
 
 export interface ProviderTestResult {
@@ -20,45 +20,6 @@ export interface ProviderTestResult {
   message: string;
 }
 
-interface HttpResponse {
-  status: number;
-  body: string;
-}
-
-function request(
-  url: string,
-  init: { method?: string; headers?: Record<string, string> } = {}
-): Promise<HttpResponse> {
-  const u = new URL(url);
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        host: u.host,
-        path: `${u.pathname}${u.search}`,
-        method: init.method ?? "GET",
-        headers: init.headers ?? {},
-        timeout: 15000,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () =>
-          resolve({
-            status: res.statusCode ?? 0,
-            body: Buffer.concat(chunks).toString("utf-8"),
-          })
-        );
-        res.on("error", reject);
-      }
-    );
-    req.on("error", reject);
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error("Request timed out after 15s."));
-    });
-    req.end();
-  });
-}
 
 /** Maps an HTTP status to the thing the user actually needs to do about it. */
 function interpret(status: number, body: string): ProviderTestResult {

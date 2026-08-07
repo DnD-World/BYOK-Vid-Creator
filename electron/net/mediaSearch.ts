@@ -19,7 +19,7 @@
 // Runs in MAIN. It holds the API keys, and they must never reach the renderer.
 // ---------------------------------------------------------------------------
 
-import https from "node:https";
+import { request, downloadToFile } from "./http";
 import * as keyStore from "../keyStore";
 
 export type MediaProvider = "pixabay" | "pexels";
@@ -49,36 +49,6 @@ export interface MediaSearchResult {
    *  succeeds on whatever else answered — one missing key must not produce an
    *  empty screen with no explanation. */
   notes: string[];
-}
-
-interface HttpResponse {
-  status: number;
-  body: string;
-}
-
-function request(url: string, headers: Record<string, string> = {}): Promise<HttpResponse> {
-  const u = new URL(url);
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        host: u.host,
-        path: `${u.pathname}${u.search}`,
-        method: "GET",
-        headers,
-        timeout: 20000,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () =>
-          resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf-8") })
-        );
-      }
-    );
-    req.on("timeout", () => req.destroy(new Error("Timed out")));
-    req.on("error", reject);
-    req.end();
-  });
 }
 
 interface PixabayFile {
@@ -149,7 +119,7 @@ async function searchPexels(query: string, perPage: number): Promise<MediaHit[]>
   const url =
     `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}` +
     `&per_page=${perPage}`;
-  const res = await request(url, { Authorization: key });
+  const res = await request(url, { headers: { Authorization: key } });
   if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
   const data = JSON.parse(res.body) as {
     videos: {
@@ -237,43 +207,8 @@ export async function searchVideos(
  * their media from a CDN behind one.
  */
 export async function downloadTo(url: string, destPath: string): Promise<void> {
-  const fsp = await import("node:fs/promises");
-  const fs = await import("node:fs");
-
-  const body = await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
-    const hop = (target: string, depth: number) => {
-      if (depth > 5) return reject(new Error("Too many redirects"));
-      const u = new URL(target);
-      https
-        .get(
-          { host: u.host, path: `${u.pathname}${u.search}`, timeout: 60000 },
-          (res) => {
-            const loc = res.headers.location;
-            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && loc) {
-              res.resume();
-              return hop(new URL(loc, target).toString(), depth + 1);
-            }
-            if (res.statusCode !== 200) {
-              res.resume();
-              return reject(new Error(`HTTP ${res.statusCode}`));
-            }
-            resolve(res);
-          }
-        )
-        .on("timeout", function (this: { destroy: (e: Error) => void }) {
-          this.destroy(new Error("Timed out"));
-        })
-        .on("error", reject);
-    };
-    hop(url, 0);
-  });
-
-  await fsp.mkdir(destPath.replace(/[\\/][^\\/]+$/, ""), { recursive: true });
-  await new Promise<void>((resolve, reject) => {
-    const out = fs.createWriteStream(destPath);
-    body.pipe(out);
-    out.on("finish", () => resolve());
-    out.on("error", reject);
-    body.on("error", reject);
-  });
+  // Redirect hopping used to be hand-rolled here because both providers serve
+  // media from a CDN behind one. Chromium follows redirects itself, so that
+  // whole loop — and its 5-hop limit — is now the network stack's problem.
+  await downloadToFile(url, destPath, { timeoutMs: 120000 });
 }

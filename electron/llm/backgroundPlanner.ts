@@ -23,7 +23,7 @@
 // night kitchen — is the failure mode this exists to prevent.
 // ---------------------------------------------------------------------------
 
-import https from "node:https";
+import { request } from "../net/http";
 import * as keyStore from "../keyStore";
 import { searchVideos, type MediaHit } from "../net/mediaSearch";
 
@@ -60,37 +60,20 @@ interface Segment {
   speakerLabel: string;
 }
 
-function postJson(apiKey: string, payload: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        host: "integrate.api.nvidia.com",
-        path: "/v1/chat/completions",
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-        },
-        timeout: 120000,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const body = Buffer.concat(chunks).toString("utf-8");
-          if (res.statusCode !== 200) {
-            return reject(new Error(`NVIDIA returned HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
-          }
-          resolve(body);
-        });
-      }
-    );
-    req.on("timeout", () => req.destroy(new Error("Timed out waiting for the model.")));
-    req.on("error", reject);
-    req.write(payload);
-    req.end();
+async function postJson(apiKey: string, payload: string): Promise<string> {
+  const res = await request("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: payload,
+    timeoutMs: 120000,
   });
+  if (res.status !== 200) {
+    throw new Error(`NVIDIA returned HTTP ${res.status}: ${res.body.slice(0, 200)}`);
+  }
+  return res.body;
 }
 
 /** Pull the first JSON object out of a reply.

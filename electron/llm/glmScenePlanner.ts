@@ -1,4 +1,4 @@
-import https from "node:https";
+import { request } from "../net/http";
 import * as keyStore from "../keyStore";
 
 // ---------------------------------------------------------------------------
@@ -70,50 +70,30 @@ export async function draftScript(opts: DraftScriptOptions): Promise<string> {
     max_tokens: 8192,
   });
 
-  const body = await new Promise<string>((resolve, reject) => {
-    const req = https.request(
-      {
-        host: NVIDIA_HOST,
-        path: "/v1/chat/completions",
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-        },
-        // GLM-5.2 is a reasoning model on a free shared tier: it thinks before
-        // it answers, and queue time is on top of that. 60s was routinely too
-        // tight. This is a ceiling for a pathological stall, not a target.
-        timeout: 300000,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf-8");
-          if ((res.statusCode ?? 500) >= 400) {
-            reject(new Error(`NVIDIA API returned ${res.statusCode}: ${text}`));
-          } else {
-            resolve(text);
-          }
-        });
-        res.on("error", reject);
-      }
-    );
-    req.on("error", reject);
-    req.on("timeout", () => {
-      req.destroy();
-      reject(
-        new Error(
-          "NVIDIA didn't respond within 5 minutes. The free tier queues requests behind " +
-            "paying traffic, so this usually means it's busy rather than broken — try again, " +
-            "or use a shorter topic."
-        )
-      );
-    });
-    req.write(payload);
-    req.end();
+  const res = await request(`https://${NVIDIA_HOST}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: payload,
+    // GLM-5.2 is a reasoning model on a free shared tier: it thinks before it
+    // answers, and queue time is on top of that. 60s was routinely too tight.
+    // This is a ceiling for a pathological stall, not a target.
+    timeoutMs: 300000,
+  }).catch((e) => {
+    if (e instanceof Error && e.message === "Timed out") {
+      throw new Error("NVIDIA didn't respond within 5 minutes. The free tier queues requests behind " +
+          "paying traffic, so this usually means it's busy rather than broken — try again, " +
+          "or use a shorter topic.");
+    }
+    throw e;
   });
+
+  if (res.status >= 400) {
+    throw new Error(`NVIDIA API returned ${res.status}: ${res.body}`);
+  }
+  const body = res.body;
 
   const parsed = JSON.parse(body);
   const choice = parsed?.choices?.[0];

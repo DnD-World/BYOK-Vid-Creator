@@ -19,7 +19,7 @@
 // Runs in MAIN: it writes to disk and talks to the network.
 // ---------------------------------------------------------------------------
 
-import https from "node:https";
+import { request, requestBuffer } from "./http";
 import fsp from "node:fs/promises";
 import path from "node:path";
 
@@ -74,50 +74,18 @@ export const SUBTITLE_FONTS: { family: string; weights: number[]; greek: boolean
   { family: "Lato", weights: [700, 900], greek: false },
 ];
 
-function get(url: string): Promise<{ status: number; body: string }> {
-  const u = new URL(url);
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      { host: u.host, path: `${u.pathname}${u.search}`, headers: { "User-Agent": UA }, timeout: 20000 },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () =>
-          resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf-8") })
-        );
-      }
-    );
-    req.on("timeout", () => req.destroy(new Error("Timed out")));
-    req.on("error", reject);
-    req.end();
-  });
+// The User-Agent is not decoration. Google Fonts serves a DIFFERENT css2
+// response depending on what asks: a modern browser string gets woff2, an
+// unknown client gets older formats. Asking as a browser is how the Greek
+// subset arrives at all.
+function get(url: string) {
+  return request(url, { headers: { "User-Agent": UA } });
 }
 
-function getBinary(url: string, depth = 0): Promise<Buffer> {
-  if (depth > 5) return Promise.reject(new Error("Too many redirects"));
-  const u = new URL(url);
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      { host: u.host, path: `${u.pathname}${u.search}`, headers: { "User-Agent": UA }, timeout: 30000 },
-      (res) => {
-        const loc = res.headers.location;
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && loc) {
-          res.resume();
-          return getBinary(new URL(loc, url).toString(), depth + 1).then(resolve, reject);
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`HTTP ${res.statusCode}`));
-        }
-        const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => resolve(Buffer.concat(chunks)));
-      }
-    );
-    req.on("timeout", () => req.destroy(new Error("Timed out")));
-    req.on("error", reject);
-    req.end();
-  });
+async function getBinary(url: string): Promise<Buffer> {
+  const res = await requestBuffer(url, { headers: { "User-Agent": UA }, timeoutMs: 30000 });
+  if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+  return res.body;
 }
 
 /** Does a CSS unicode-range cover this code point? */
