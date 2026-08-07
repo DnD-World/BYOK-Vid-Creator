@@ -85,6 +85,11 @@ export interface SubtitleConfig {
   uppercase: boolean;
   /** Characters per cue before the text wraps to a new cue. */
   maxChars: number;
+  /** Google Fonts family name, downloaded and cached locally, or null/absent
+   *  for the system stack. Only the NAME is project data — the files are a
+   *  cache, re-fetchable on any machine. */
+  fontFamily?: string | null;
+  fontWeight?: number;
 }
 
 export interface SpeakerConfig {
@@ -207,10 +212,35 @@ export interface BackgroundScene {
   } | null;
 }
 
+/** One sound effect, pinned to a moment in the video.
+ *
+ *  Deliberately just a file and a time. There is no envelope, no fade, no
+ *  trimming: a bark is a bark. Anything more and this becomes a DAW, which is
+ *  a different app. */
+export interface SfxClip {
+  id: string;
+  filePath: string;
+  /** Shown in the list — the file name, or what it was searched for. */
+  label: string;
+  /** When it fires, in ms from the start of the video. */
+  atMs: number;
+  /** 0–1. Effects sit on top of the mix rather than under it, so this starts
+   *  lower than it looks like it should. */
+  volume: number;
+}
+
 export interface ProjectState {
   render: RenderSettings;
   /** Background clips, in order. Empty means a plain dark background. */
   backgrounds: BackgroundScene[];
+  /** Scrim over the background clips, 0–1. Backgrounds sit under the waveform,
+   *  the avatars and the subtitles, and stock footage at full brightness takes
+   *  the frame over — the waveform disappears into it and white subtitles land
+   *  on whatever the clip happens to be doing. */
+  backgroundDim: number;
+  /** Crossfade between one background clip and the next, in ms. 0 = hard cut.
+   *  Capped at half the shortest clip when it is applied. */
+  backgroundCrossfadeMs: number;
   /** The music track's waveform, and its colour. Always animating — music
    *  doesn't take turns the way speakers do. */
   musicWaveform: TrackWaveform;
@@ -238,4 +268,17 @@ export interface ProjectState {
    *  no speaker segments — nobody said who is talking — so it drives the
    *  waveform but not subtitles or lip-sync. */
   attachedAudio: { filePath: string; analysis: AudioAnalysis | null } | null;
+  /** Background music. Mixed under the narration, and — unlike `attachedAudio`,
+   *  which replaces it — played alongside. Its analysis is what finally gives
+   *  the music waveform something of its own to animate to. */
+  music: { filePath: string; analysis: AudioAnalysis | null } | null;
+  /** Sound effects, each pinned to its own moment. Order is irrelevant — they
+   *  are placed by time, not sequenced. */
+  sfx: SfxClip[];
+  /** Music level when nobody is speaking, 0–1. */
+  musicVolume: number;
+  /** How far the music drops while someone speaks, 0–1. 0 = no ducking,
+   *  1 = silence under speech. Applied to `musicVolume`, so the two are
+   *  independent: a loud bed can duck hard, a quiet one barely at all. */
+  musicDuck: number;
 }

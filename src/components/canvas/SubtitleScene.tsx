@@ -32,6 +32,16 @@ export interface SubtitleSceneProps {
   speakerColors?: Record<string, string>;
 }
 
+// The fallback, and what is used when no font has been chosen. Segoe UI
+// resolves identically in the preview and in the render — both are Chromium on
+// Windows — which is why the app's own Rajdhani is NOT used here: it is loaded
+// by a <link> in index.html that does not exist inside the render bundle.
+//
+// A chosen font is downloaded and registered on both sides under the same
+// family name, so it resolves identically for the same reason. It always keeps
+// this stack behind it: a Greek line in a Latin-only family falls back per
+// glyph, and falling back to Segoe UI is better than to whatever the browser
+// picks unaided.
 const FONT_STACK = '"Segoe UI", system-ui, -apple-system, Roboto, sans-serif';
 
 export function SubtitleScene({
@@ -74,8 +84,10 @@ export function SubtitleScene({
         style={{
           maxWidth: width * 0.86,
           textAlign: "center",
-          fontFamily: FONT_STACK,
-          fontWeight: 800,
+          fontFamily: config.fontFamily
+            ? `"${config.fontFamily}", ${FONT_STACK}`
+            : FONT_STACK,
+          fontWeight: config.fontWeight ?? 800,
           fontSize,
           lineHeight: 1.25,
           letterSpacing: "0.01em",

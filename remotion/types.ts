@@ -58,6 +58,21 @@ export type RenderSpeaker = {
   puppetFiles: Record<string, string>;
 };
 
+/** One background clip, reduced to what the composition needs to draw it.
+ *
+ *  `sourceSec` is the provider's own reported length, carried across rather
+ *  than measured: the file is on disk in the main process but its duration
+ *  isn't known there without probing it, and the composition needs the number
+ *  before it can decide whether a clip has to loop to fill its scene. */
+export type RenderBackground = {
+  startMs: number;
+  endMs: number;
+  /** Filename (not path) inside Remotion's public dir — same road the
+   *  narration WAV and the viseme art take, for the same cross-origin reason. */
+  fileName: string;
+  sourceSec: number;
+};
+
 export type RenderProps = {
   musicWaveform: TrackWaveform;
   musicColor: string;
@@ -94,7 +109,46 @@ export type RenderProps = {
   /** Band count for that file — the composition needs it to split the bytes
    *  into frames, and it is one number rather than a megabyte. */
   spectrumBandCount: number;
+  /**
+   * Filename (not path) of the music bed inside the public dir, or null. It is
+   * mixed UNDER the narration rather than replacing it, and ducks out of the
+   * way whenever `analysis` says somebody is speaking.
+   */
+  musicFileName: string | null;
+  /** The music's own loudness + spectrum, so its waveform animates to the music
+   *  instead of to the narration. null when it couldn't be analysed. */
+  musicAnalysis: AudioAnalysis | null;
+  /** Same file-not-inputProps arrangement the narration spectrum uses. */
+  musicSpectrumFileName: string | null;
+  musicSpectrumBandCount: number;
+  /** Music level with nobody speaking, 0–1, and how much of it is given up
+   *  under speech, 0–1. */
+  musicVolume: number;
+  musicDuck: number;
+  /** Sound effects, already copied into the public dir. Each fires once at its
+   *  own moment and is never ducked — an effect that gets out of the way of the
+   *  voice it is punctuating is an effect nobody hears. */
+  sfx: { fileName: string; atMs: number; volume: number }[];
+  /** Background clips, in order. Empty renders the plain dark frame. */
+  backgrounds: RenderBackground[];
+  /** Scrim over the clips, 0–1. */
+  backgroundDim: number;
+  /** Crossfade between clips, in ms. */
+  backgroundCrossfadeMs: number;
   subtitles: SubtitleConfig;
+  /** The subtitle typeface, already downloaded and copied into the public dir,
+   *  or null for the system stack. One entry per unicode subset — Greek and
+   *  Latin are separate files, which is why this is a list and not a filename.
+   *
+   *  The composition registers these with @font-face and holds the render until
+   *  they have loaded: a frame captured before the font arrives is a frame in
+   *  the fallback typeface, and it would be scattered through the video rather
+   *  than obviously wrong at the start. */
+  subtitleFont: {
+    family: string;
+    weight: number;
+    faces: { fileName: string; unicodeRange: string }[];
+  } | null;
   /** Crossfade between viseme cells, in ms. */
   visemeFadeMs: number;
   /** Idle head motion intensity, 0–1. */

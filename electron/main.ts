@@ -9,6 +9,8 @@ import { analyzeNarration } from "./audio/analyzeNarration";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
 import { searchVideos, downloadTo, type MediaProvider } from "./net/mediaSearch";
+import { ensureFont, SUBTITLE_FONTS } from "./net/fonts";
+import { searchSounds } from "./net/soundSearch";
 import { planBackgrounds, pickBackgrounds } from "./llm/backgroundPlanner";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
 
@@ -181,6 +183,11 @@ ipcMain.handle(
   async (_e, query: string, providers?: MediaProvider[]) => searchVideos(query, { providers })
 );
 
+/** Sound effects. CC0 only — the filter lives in searchSounds and is not a
+ *  parameter, deliberately. Downloads reuse media:download below, since a clip
+ *  and a bark want exactly the same caching. */
+ipcMain.handle("sound:search", async (_e, query: string) => searchSounds(query));
+
 /** Fetch a clip into the app's media folder and hand back its path.
  *
  *  Named by provider and id rather than by the query that found it, so the
@@ -215,6 +222,16 @@ ipcMain.handle("storage:puppetDir", async () => {
   return path.join(app.getAppPath(), "puppet");
 });
 
+// Subtitle fonts. The cache lives beside the media cache, under userData, so
+// that clearing app data clears both and neither ends up in the install dir.
+const fontsDir = () => path.join(app.getPath("userData"), "fonts");
+
+ipcMain.handle("fonts:list", async () => SUBTITLE_FONTS);
+
+ipcMain.handle("fonts:ensure", async (_e, family: string, weight: number) =>
+  ensureFont(family, weight, fontsDir())
+);
+
 ipcMain.handle("storage:readFile", async (_e, filePath: string) => {
   const buf = await fsp.readFile(filePath);
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -244,6 +261,7 @@ ipcMain.handle("render:start", async (_e, job: RenderJob) => {
     const result = await renderVideo(job, {
       projectRoot: app.getAppPath(),
       outputDir: outputDir(),
+      fontsDir: fontsDir(),
       onProgress: send,
     });
     return { ok: true as const, jobId, ...result };

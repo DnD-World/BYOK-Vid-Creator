@@ -20,9 +20,15 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import { bundle } from "@remotion/bundler";
 import { selectComposition, renderMedia, ensureBrowser } from "@remotion/renderer";
-import { COMPOSITION_ID, type RenderProps, type RenderSpeaker } from "../../remotion/types";
+import {
+  COMPOSITION_ID,
+  type RenderBackground,
+  type RenderProps,
+  type RenderSpeaker,
+} from "../../remotion/types";
 import type { Puppet } from "../../src/store/puppetTypes";
 import { puppetAssetPaths, validatePuppet } from "../../src/lib/puppets/puppetAssets";
+import { ensureFont } from "../net/fonts";
 
 export interface RenderJob {
   musicWaveform: RenderProps["musicWaveform"];
@@ -42,6 +48,29 @@ export interface RenderJob {
   audioFilePath?: string | null;
   /** Precomputed by the narration step; null for hand-attached audio. */
   analysis?: RenderProps["analysis"];
+  /** A music bed, mixed under the narration rather than replacing it. Its
+   *  analysis drives the music waveform; the NARRATION's analysis is what
+   *  decides when it ducks. */
+  musicFilePath?: string | null;
+  musicAnalysis?: RenderProps["analysis"];
+  musicVolume?: number;
+  musicDuck?: number;
+  /** Sound effects: a file and the moment it fires. */
+  sfx?: { filePath: string; atMs: number; volume: number; label?: string }[];
+  /** Background clips as the project holds them: a path on disk, plus the
+   *  provider's reported length so the composition can loop a clip that is
+   *  shorter than the scene it has to cover. A scene with no file is dropped
+   *  here rather than in the composition, which has no way to check. */
+  backgrounds?: {
+    startMs: number;
+    endMs: number;
+    filePath?: string | null;
+    sourceSec?: number;
+    /** Only for the warning text when a file can't be read. */
+    query?: string;
+  }[];
+  backgroundDim?: number;
+  backgroundCrossfadeMs?: number;
   subtitles: RenderProps["subtitles"];
   visemeFadeMs?: number;
   idleMotion?: number;
@@ -52,11 +81,15 @@ export interface RenderContext {
   /** Repo root in dev — the folder containing remotion/ and package.json. */
   projectRoot: string;
   outputDir: string;
+  /** Where downloaded subtitle fonts are cached. Passed in rather than derived
+   *  here because only main knows where userData is. */
+  fontsDir: string;
   onProgress: (pct: number, note: string) => void;
 }
 
 const AUDIO_PUBLIC_NAME = "narration.wav";
 const SPECTRUM_PUBLIC_NAME = "spectrum.bin";
+const MUSIC_SPECTRUM_PUBLIC_NAME = "music-spectrum.bin";
 
 /** Weights for turning three sequential stages into one 0-100 bar. Renders
  *  dominate on repeat runs, which is the case the user sees most often. */
@@ -125,6 +158,38 @@ export async function renderVideo(
       );
       spectrumFileName = SPECTRUM_PUBLIC_NAME;
       spectrumBandCount = spectrum.bandCount;
+    }
+
+    // The music bed, and its own spectrum by the same route. Its extension is
+    // kept: unlike the narration, which this app always produces as a WAV, this
+    // is whatever file the user picked, and an mp3 renamed .wav is a file no
+    // decoder will touch.
+    let musicFileName: string | null = null;
+    if (job.musicFilePath) {
+      const name = `music${path.extname(job.musicFilePath) || ".mp3"}`;
+      try {
+        await fsp.copyFile(job.musicFilePath, path.join(publicDir, name));
+        musicFileName = name;
+      } catch {
+        // Silent video with music missing is wrong; a video with no music is
+        // merely plainer. Carry on and say so.
+        warnings.push("[byok] The music file couldn't be read; rendering without it.");
+      }
+    }
+
+    const musicSpectrum = musicFileName ? job.musicAnalysis?.spectrum ?? null : null;
+    let musicSpectrumFileName: string | null = null;
+    let musicSpectrumBandCount = 0;
+    if (musicSpectrum && musicSpectrum.bandCount > 0) {
+      await fsp.writeFile(
+        path.join(publicDir, MUSIC_SPECTRUM_PUBLIC_NAME),
+        Buffer.concat([
+          Buffer.from(musicSpectrum.bands, "base64"),
+          Buffer.from(musicSpectrum.peaks, "base64"),
+        ])
+      );
+      musicSpectrumFileName = MUSIC_SPECTRUM_PUBLIC_NAME;
+      musicSpectrumBandCount = musicSpectrum.bandCount;
     }
 
     // Viseme sheets travel the same road as the audio, for the same reason: the
@@ -212,6 +277,89 @@ export async function renderVideo(
       });
     }
 
+    // Sound effects. Deduplicated by path, because the same bark placed four
+    // times is one file and four moments.
+    const sfxNameByPath = new Map<string, string>();
+    const sfx: RenderProps["sfx"] = [];
+    for (const clip of job.sfx ?? []) {
+      if (!clip.filePath) continue;
+      let name = sfxNameByPath.get(clip.filePath);
+      if (!name) {
+        name = `sfx-${sfxNameByPath.size}${path.extname(clip.filePath) || ".wav"}`;
+        try {
+          await fsp.copyFile(clip.filePath, path.join(publicDir, name));
+          sfxNameByPath.set(clip.filePath, name);
+        } catch {
+          warnings.push(
+            `[byok] The sound effect "${clip.label ?? clip.filePath}" couldn't be read; skipped.`
+          );
+          continue;
+        }
+      }
+      sfx.push({ fileName: name, atMs: clip.atMs, volume: clip.volume });
+    }
+
+    // Background clips take exactly the same road as the audio and the art, and
+    // for the same reason — and, like everything else here, they must be in the
+    // public dir BEFORE bundle() runs or they are simply not served.
+    //
+    // Deduplicated by source path: the same clip covering two scenes is one
+    // copy, and these are megabytes each rather than kilobytes.
+    const bgNameByPath = new Map<string, string>();
+    const backgrounds: RenderBackground[] = [];
+    for (const bg of job.backgrounds ?? []) {
+      if (!bg.filePath) continue;
+      let name = bgNameByPath.get(bg.filePath);
+      if (!name) {
+        name = `bg-${bgNameByPath.size}${path.extname(bg.filePath) || ".mp4"}`;
+        try {
+          await fsp.copyFile(bg.filePath, path.join(publicDir, name));
+          bgNameByPath.set(bg.filePath, name);
+        } catch {
+          // One unreadable clip is one plain stretch of video, not a failed
+          // render — same rule as a missing viseme sheet.
+          warnings.push(
+            `[byok] Background clip for "${bg.query ?? "a scene"}" couldn't be read; ` +
+              `that stretch renders without one.`
+          );
+          continue;
+        }
+      }
+      backgrounds.push({
+        startMs: bg.startMs,
+        endMs: bg.endMs,
+        fileName: name,
+        sourceSec: bg.sourceSec ?? 0,
+      });
+    }
+
+    // The subtitle typeface. Downloaded on first use and cached, so this is
+    // usually a directory read; the network is only touched for a font that has
+    // never been used on this machine. A failure here costs the chosen font,
+    // not the render — the composition falls back to the system stack.
+    let subtitleFont: RenderProps["subtitleFont"] = null;
+    if (job.subtitles.fontFamily) {
+      try {
+        const font = await ensureFont(
+          job.subtitles.fontFamily,
+          job.subtitles.fontWeight ?? 800,
+          ctx.fontsDir
+        );
+        const faces: { fileName: string; unicodeRange: string }[] = [];
+        for (let i = 0; i < font.faces.length; i++) {
+          const name = `font-${i}.woff2`;
+          await fsp.copyFile(font.faces[i].path, path.join(publicDir, name));
+          faces.push({ fileName: name, unicodeRange: font.faces[i].unicodeRange });
+        }
+        subtitleFont = { family: font.family, weight: font.weight, faces };
+      } catch (e) {
+        warnings.push(
+          `[byok] Couldn't prepare the subtitle font "${job.subtitles.fontFamily}" ` +
+            `(${e instanceof Error ? e.message : String(e)}); using the default typeface.`
+        );
+      }
+    }
+
     onProgress(STAGE.browser.from, "Checking render browser…");
     await ensureBrowser({
       onBrowserDownload: () => ({
@@ -248,7 +396,19 @@ export async function renderVideo(
       analysis: job.analysis ? { ...job.analysis, spectrum: null } : null,
       spectrumFileName,
       spectrumBandCount,
+      musicFileName,
+      // Stripped for the same reason the narration's is: it is in the file.
+      musicAnalysis: job.musicAnalysis ? { ...job.musicAnalysis, spectrum: null } : null,
+      musicSpectrumFileName,
+      musicSpectrumBandCount,
+      musicVolume: job.musicVolume ?? 0,
+      musicDuck: job.musicDuck ?? 0,
+      sfx,
+      backgrounds,
+      backgroundDim: job.backgroundDim ?? 0,
+      backgroundCrossfadeMs: job.backgroundCrossfadeMs ?? 0,
       subtitles: job.subtitles,
+      subtitleFont,
       visemeFadeMs: job.visemeFadeMs ?? 0,
       idleMotion: job.idleMotion ?? 0,
       narrationSegments: job.narrationSegments ?? [],

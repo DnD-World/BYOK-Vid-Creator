@@ -23,6 +23,10 @@ export interface ProjectPreset {
   musicWaveform?: TrackWaveform;
   musicColor?: string;
   subtitles?: SubtitleConfig;
+  /** How background clips are treated — not *which* clips, which belong to the
+   *  script rather than to the look. */
+  backgroundDim?: number;
+  backgroundCrossfadeMs?: number;
   savedAt: number;
   /** Shown in the preset list. Built-ins use it to say what they're for. */
   description?: string;

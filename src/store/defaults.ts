@@ -25,6 +25,8 @@ export const defaultProject: ProjectState = {
     activeFromSpeaker: true,
     uppercase: false,
     maxChars: 42,
+    fontFamily: null,
+    fontWeight: 800,
   },
   bgRelevancy: 0.5,
   pauseSameMs: 120,
@@ -35,7 +37,17 @@ export const defaultProject: ProjectState = {
   speakers: [],
   script: "",
   backgrounds: [],
+  // Dark enough that the waveform and the subtitles still read over daylight
+  // footage, light enough that you can tell what the clip is of.
+  backgroundDim: 0.45,
+  backgroundCrossfadeMs: 600,
   language: "el",
   narration: null,
   attachedAudio: null,
+  music: null,
+  sfx: [],
+  // A bed, not a soundtrack: loud enough to hear under speech, quiet enough
+  // that nobody reaches for the volume.
+  musicVolume: 0.28,
+  musicDuck: 0.7,
 };

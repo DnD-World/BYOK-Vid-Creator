@@ -49,6 +49,19 @@ const api = {
     autoBackgrounds: (opts: unknown) => ipcRenderer.invoke("media:autoBackgrounds", opts),
   },
 
+  sound: {
+    /** Freesound, hard-filtered to CC0. Downloading uses media.download. */
+    search: (query: string) => ipcRenderer.invoke("sound:search", query),
+  },
+
+  fonts: {
+    list: () => ipcRenderer.invoke("fonts:list"),
+    /** Downloads on first use, then reads from the cache. Returns the files
+     *  and, honestly, whether the family really has Greek. */
+    ensure: (family: string, weight: number) =>
+      ipcRenderer.invoke("fonts:ensure", family, weight),
+  },
+
   storage: {
     outputDir: (): Promise<string> => ipcRenderer.invoke("storage:outputDir"),
     openOutputDir: (): Promise<boolean> =>

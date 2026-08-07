@@ -36,6 +36,12 @@ export interface WaveformSceneProps {
    *  public dir instead of from inputProps. The preview leaves this unset and
    *  the spectrum inside `analysis` is used. */
   spectrum?: DecodedSpectrum | null;
+  /** The music file's own analysis, when one is loaded. The music track reads
+   *  this instead of the narration: a music waveform that dances to the voice
+   *  is the tell that it is decoration rather than a meter. Absent, it falls
+   *  back to the narration exactly as it always did. */
+  musicAnalysis?: AudioAnalysis | null;
+  musicSpectrum?: DecodedSpectrum | null;
 }
 
 function offsetPoints(
@@ -134,12 +140,15 @@ function RingEllipse({
 }
 
 export function WaveformScene({
-  tracks, width, height, timeMs, analysis, spectrum,
+  tracks, width, height, timeMs, analysis, spectrum, musicAnalysis, musicSpectrum,
 }: WaveformSceneProps) {
   if (width <= 0 || height <= 0 || tracks.length === 0) return null;
 
   const frameMin = Math.min(width, height);
   const moment = sampleAnalysis(analysis, timeMs, spectrum);
+  const musicMoment = musicAnalysis
+    ? sampleAnalysis(musicAnalysis, timeMs, musicSpectrum)
+    : null;
 
   return (
     <svg
@@ -177,16 +186,21 @@ export function WaveformScene({
           : isMusic || placeholderActiveTrack(tracks.length, timeMs) === ti;
         const opacity = active ? 1 : moment ? 0.5 : 0.22;
 
+        // The music track animates to the music when there is any, and to the
+        // narration when there isn't — which is what it has always done, and is
+        // still better than a placeholder sine.
+        const src = isMusic && musicMoment ? musicMoment : moment;
+
         // Three sources, in order of how real they are: the spectrum, the bare
         // loudness envelope, and the placeholder animation.
         const ampAt = (i: number, count: number, ring: boolean) =>
-          moment?.bands
-            ? bandAmplitude(moment.bands, moment.bandCount, i, count, ring)
-            : moment
-              ? shapedAmplitude(ti, i, timeMs, moment.level)
+          src?.bands
+            ? bandAmplitude(src.bands, src.bandCount, i, count, ring)
+            : src
+              ? shapedAmplitude(ti, i, timeMs, src.level)
               : placeholderAmplitude(ti, i, timeMs);
         const peakAt = (i: number, count: number, ring: boolean) =>
-          moment?.peaks ? bandAmplitude(moment.peaks, moment.bandCount, i, count, ring) : 0;
+          src?.peaks ? bandAmplitude(src.peaks, src.bandCount, i, count, ring) : 0;
 
         if (cfg.style === "rings") {
           const cx = width * cfg.ringX;

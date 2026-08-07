@@ -13,11 +13,14 @@
 // ---------------------------------------------------------------------------
 
 import { useMemo } from "react";
-import { AbsoluteFill, Audio, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { WaveformScene } from "../src/components/canvas/WaveformScene";
 import { SubtitleScene } from "../src/components/canvas/SubtitleScene";
 import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
 import { PuppetAvatar } from "../src/components/canvas/PuppetAvatar";
+import { BackgroundLayer } from "./BackgroundLayer";
+import { MusicTrack } from "./MusicTrack";
+import { SubtitleFont } from "./SubtitleFont";
 import { buildCues } from "../src/lib/subtitles/wordTiming";
 import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
@@ -56,18 +59,34 @@ export function VideoComposition({
   analysis,
   spectrumFileName,
   spectrumBandCount,
+  musicFileName,
+  musicAnalysis,
+  musicSpectrumFileName,
+  musicSpectrumBandCount,
+  musicVolume,
+  musicDuck,
+  sfx,
+  backgrounds,
+  backgroundDim,
+  backgroundCrossfadeMs,
   subtitles,
+  subtitleFont,
   visemeFadeMs,
   idleMotion,
   narrationSegments,
 }: RenderProps) {
   const frame = useCurrentFrame();
-  const { width, height, fps } = useVideoConfig();
+  const { width, height, fps, durationInFrames } = useVideoConfig();
 
   // Must resolve before any frame is captured — the hook holds the render.
   const spectrum = useSpectrumFile(
     spectrumFileName ? staticFile(spectrumFileName) : null,
     spectrumBandCount
+  );
+  // The music's own spectrum, by the same road and for the same size reason.
+  const musicSpectrum = useSpectrumFile(
+    musicSpectrumFileName ? staticFile(musicSpectrumFileName) : null,
+    musicSpectrumBandCount
   );
 
   // Cue layout depends only on the script and the wrap width, so it's computed
@@ -145,6 +164,37 @@ export function VideoComposition({
     <AbsoluteFill style={{ backgroundColor: "#0b0b0d" }}>
       {audioFileName ? <Audio src={staticFile(audioFileName)} /> : null}
 
+      <MusicTrack
+        fileName={musicFileName}
+        musicAnalysis={musicAnalysis}
+        narrationAnalysis={analysis}
+        volume={musicVolume}
+        duck={musicDuck}
+        durationInFrames={durationInFrames}
+      />
+
+      {/* Each effect is its own one-shot sequence. `layout="none"` because
+          these draw nothing — a Sequence would otherwise wrap them in an
+          AbsoluteFill and stack invisible divs over the picture. */}
+      {(sfx ?? []).map((s, i) => (
+        <Sequence
+          key={`${s.fileName}-${i}`}
+          from={Math.max(0, Math.round((s.atMs / 1000) * fps))}
+          layout="none"
+          name={`SFX ${i + 1}`}
+        >
+          <Audio src={staticFile(s.fileName)} volume={s.volume} />
+        </Sequence>
+      ))}
+
+      {/* First, so everything else draws over it. */}
+      <BackgroundLayer
+        backgrounds={backgrounds ?? []}
+        fps={fps}
+        crossfadeMs={backgroundCrossfadeMs}
+        dim={backgroundDim}
+      />
+
       <div style={{ position: "absolute", inset: 0 }}>
         <WaveformScene
           tracks={tracks}
@@ -153,6 +203,8 @@ export function VideoComposition({
           timeMs={timeMs}
           analysis={analysis}
           spectrum={spectrum}
+          musicAnalysis={musicAnalysis}
+          musicSpectrum={musicSpectrum}
         />
       </div>
 
@@ -222,6 +274,8 @@ export function VideoComposition({
           </div>
         );
       })}
+
+      <SubtitleFont font={subtitleFont} />
 
       {/* Last, so subtitles sit above the waveform and the avatars. */}
       <SubtitleScene

@@ -160,29 +160,77 @@ registration**, which is the whole reason they were chosen.
   appended to every query.
 - `src/components/panels/BackgroundPanel.tsx` — Scene → Background. Shows each
   scene's query and the model's reason, so a bad pick is diagnosable. Manual
-  search maximizes.
+  search maximizes. Carries the two look knobs: **Dim** and **Crossfade**.
+- **The clips render.** `src/lib/background/backgroundTiming.ts` decides *when*
+  each clip is on screen and is the only thing allowed to; `remotion/Background‑
+  Layer.tsx` draws it with `TransitionSeries` + `OffthreadVideo` (looping any
+  clip shorter than its scene), `src/components/canvas/BackgroundScene.tsx`
+  draws the same frames in the preview with `<video>` and an opacity ramp.
+  Two mechanisms, one arithmetic — see §10.
+
+  Measured off a rendered MP4 rather than asserted: three clips at 0/3/8s, dim
+  0.4, 600ms crossfade. A pure-red source read `rgb(153,0,0)` — exactly
+  255×0.6 — held until 3.000s to the frame, crossed over between 3.0 and 3.6,
+  and a 2s source covering a 5s scene read identically at 4.0s and 6.0s, which
+  is the loop.
 
 **NOT done, and the branch is not shippable without it:**
-1. **Nothing renders the clips.** The composition ignores `backgrounds`
-   entirely. `@remotion/transitions` is installed and unused.
+1. **The preview path is written but never run.** It needs the app; the render
+   path is the one that was measured.
 2. **Never verified against live APIs.** Keys live in Electron `safeStorage`, so
    this needs the running app. The Pixabay video thumbnail field is the known
    uncertainty — it reads the API's value first and falls back to a CDN path.
 3. **No asset ledger.** Deferred by Ak. Author and page URL are already captured
    on every hit, so the data exists when it is wanted.
 
+## 8a. Audio, subtitles and type — built, measured off the output
+
+Four things the README promised or the plan listed as missing. Each was checked
+against a rendered file, not asserted.
+
+- **SRT export** — `src/lib/subtitles/srt.ts`, button in Scene → Subtitles.
+  Built from the SAME `buildCues` the video burns in, so the file and the
+  picture cannot disagree about timing or where a line breaks. Carries no
+  styling: an .srt is text and timing. Verified against Greek, an empty
+  segment (numbering must not skip) and an hour rollover.
+- **Music bed** — Cast → ♪ Music. Loads a file, mixes it UNDER the narration,
+  and **auto-ducks**. `src/lib/audio/ducking.ts` looks 260ms FORWARD and 700ms
+  back in the narration analysis, so the bed is already out of the way when the
+  voice lands; a gate that reacts to the current sample always sounds late.
+  Forward-looking is free here and impossible live — the whole narration is
+  analysed before a frame is drawn.
+  Measured on a render: full 0.050 rms, 0.0122 under speech (asked for −75%,
+  got −76%), ducking starts 250ms early, recovers over 700ms, and a 2s track
+  still playing at 6s — the loop.
+- **The music waveform finally has something of its own to animate to.** With a
+  track loaded it reads the music's analysis; without one it borrows the
+  narration exactly as before.
+- **Subtitle fonts** — Google Fonts, downloaded once into userData and then
+  owned locally (`electron/net/fonts.ts`), registered identically in the
+  preview and the render. The render HOLDS frame capture until the font has
+  loaded: Remotion renders out of order, so without that the fallback typeface
+  appears on a random scatter of frames rather than obviously at the start.
+  **The picker says which families have Greek, and it is not a guess** — the
+  coverage is read out of the CSS Google returns (does a subset actually contain
+  α). Montserrat, Oswald, Lato, Rubik and Nunito — all obvious subtitle faces —
+  have no Greek at all.
+- **Sound effects** — Cast → SFX. A file from disk or a **CC0-only** Freesound
+  search (`electron/net/soundSearch.ts`; the filter is hard-coded, not a
+  dropdown, and every hit is re-checked client side). Each effect is a file and
+  a time, never ducked. Verified: two beeps landed at 1.00s and 3.50s with a
+  0.39 volume ratio against the 0.39 asked for.
+
+Not covered: the preview still has no audio at all — it never played the
+narration either — so music, ducking and effects are heard only in the render.
+The Freesound search itself has never run against a live key.
+
 ## 9. Next, in order
 
-1. **Render the backgrounds** — feed `backgrounds` into the composition behind
-   the waveform, with `@remotion/transitions` between clips. This is what makes
-   the branch worth merging.
-2. **Verify Pixabay/Pexels/NVIDIA live**, in the app.
-3. **Music and SFX from Pixabay** — same key, same licence, one fetcher. This
-   also wakes up the music waveform, which exists and has nothing to animate to.
-4. **Freesound, CC0-filtered** (`filter=license:"Creative Commons 0"`) for dog
-   barks, whines, whistles, clickers.
-5. Fonts for subtitles (Google Fonts, Greek subset, download-and-cache).
-6. Packaging. `puppet/` must be in the build's `files` or the built-in cast
+1. **Drive the whole thing through the real UI** — backgrounds, music, SFX,
+   fonts. Every render path above was measured by calling `renderVideo`
+   directly; none of the panels has been clicked.
+2. **Verify Pixabay/Pexels/NVIDIA/Freesound live**, in the app.
+3. Packaging. `puppet/` must be in the build's `files` or the built-in cast
    resolves to nothing.
 
 ## 10. Gotchas learned the hard way
@@ -198,6 +246,20 @@ registration**, which is the whole reason they were chosen.
 - **`.cut-sm` carries its own clip-path.** Setting only `--c` renders a plain
   rectangle — the commonest way to think the look is applied when it is not.
 - **`electron-vite dev` needs `--watch`** or main is never rebuilt.
+- **Inside `<Loop>` the frame counter restarts.** Which makes `<Loop>` wrong for
+  looping music: the `volume` callback is how ducking is applied, and after the
+  first repeat it would be handed loop-relative frames and duck to the wrong
+  words. `remotion/MusicTrack.tsx` lays out plain Sequences instead, each of
+  which knows its own offset, so absolute time is recoverable.
+- **A popular font is not a Greek font.** Montserrat, Oswald, Lato, Rubik and
+  Nunito ship no Greek subset. The symptom is not an error — it is a silent
+  per-glyph fallback mid-sentence.
+- **A `TransitionSeries` transition is paid for twice.** It eats the last *t*
+  frames of the outgoing sequence and the first *t* of the incoming one, so the
+  series is *t* shorter per transition than the sum of its parts. Give each clip
+  `length + t` frames and the next one lands exactly on its own start; hand it
+  raw scene lengths instead and every background after the first drifts early,
+  cumulatively, while the subtitles stay put.
 - **zustand `persist` merges shallowly.** Both persisted stores deep-merge now.
 - **Node's global HTTP agent keeps sockets alive since v19**; Piper drops idle
   ones → `ECONNRESET`. Fixed with `agent: false` + one retry.

@@ -9,10 +9,13 @@ import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { Tabs } from "../ui/Tabs";
 import { BackgroundPanel } from "./BackgroundPanel";
+import { SubtitleFontPicker } from "./SubtitleFontPicker";
 import { RenderBar } from "../render/RenderBar";
 import { PresetsPanel } from "./PresetsPanel";
 import { RoadmapSection } from "../canvas/RoadmapSection";
 import { useProjectStore } from "../../store/useProjectStore";
+import { buildCues } from "../../lib/subtitles/wordTiming";
+import { toSrt } from "../../lib/subtitles/srt";
 import type { Fps, SubtitleConfig } from "../../store/types";
 
 type Tab = "frame" | "background" | "subtitles" | "render" | "presets";
@@ -34,6 +37,28 @@ export function ScenePanel() {
   const setVisemeFadeMs = useProjectStore((s) => s.setVisemeFadeMs);
   const idleMotion = useProjectStore((s) => s.idleMotion);
   const setIdleMotion = useProjectStore((s) => s.setIdleMotion);
+  const [srtNote, setSrtNote] = useState<string | null>(null);
+
+  const exportSrt = async () => {
+    if (!narration) return;
+    setSrtNote(null);
+    const target = await window.byok.dialog.saveFile("subtitles.srt", [
+      { name: "SubRip subtitles", extensions: ["srt"] },
+    ]);
+    if (!target) return;
+    try {
+      // Built through buildCues with the SAME maxChars the video uses, so the
+      // file breaks its lines exactly where the picture does.
+      const text = toSrt(buildCues(narration.segments, subtitles.maxChars));
+      await window.byok.storage.writeFile(
+        target,
+        new TextEncoder().encode(text).buffer as ArrayBuffer
+      );
+      setSrtNote(`Saved ${target.split(/[\\/]/).pop()}`);
+    } catch (e) {
+      setSrtNote(`Couldn't save it: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -126,6 +151,8 @@ export function ScenePanel() {
             />
             {subtitles.enabled && (
               <>
+                <SubtitleFontPicker />
+
                 <div>
                   <div className="label-etched mb-2">Position</div>
                   <div className="flex flex-wrap gap-2">
@@ -198,6 +225,18 @@ export function ScenePanel() {
                     Generate narration to see real subtitles on the canvas.
                   </p>
                 )}
+
+                <div className="border-t border-accent/15 pt-4 space-y-2">
+                  <HudButton onClick={exportSrt} disabled={!narration}>
+                    Export .srt
+                  </HudButton>
+                  <p className="text-sm text-neutral-500">
+                    The same lines and the same timing the video burns in, as a subtitle
+                    file — for platforms that want their own captions. Styling isn't
+                    carried: an .srt is text and timing, and the player draws it.
+                  </p>
+                  {srtNote && <p className="text-sm text-accent-bright">{srtNote}</p>}
+                </div>
               </>
             )}
           </section>

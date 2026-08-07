@@ -74,6 +74,8 @@ export function PresetsPanel() {
   const musicWaveform = useProjectStore((s) => s.musicWaveform);
   const musicColor = useProjectStore((s) => s.musicColor);
   const subtitles = useProjectStore((s) => s.subtitles);
+  const backgroundDim = useProjectStore((s) => s.backgroundDim);
+  const backgroundCrossfadeMs = useProjectStore((s) => s.backgroundCrossfadeMs);
 
   const templates = useTemplatesStore((s) => s.templates);
   const saveTemplate = useTemplatesStore((s) => s.saveTemplate);
@@ -103,6 +105,7 @@ export function PresetsPanel() {
 
   const currentPreset = (): Omit<ProjectPreset, "savedAt"> => ({
     render, fps, speakers, musicWaveform, musicColor, subtitles,
+    backgroundDim, backgroundCrossfadeMs,
   });
 
   const exportPreset = async () => {

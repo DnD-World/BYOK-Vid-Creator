@@ -9,6 +9,7 @@ import {
   Fps,
   NarrationResult,
   BackgroundScene,
+  SfxClip,
 } from "./types";
 import type { ProjectPreset } from "./templatesTypes";
 import { defaultProject } from "./defaults";
@@ -28,11 +29,21 @@ const LEGACY_AUTHORED_WIDTH = 560;
  *  default one rather than crashing the renderer with an undefined config. */
 function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
   const size = sp.size > 1 ? Math.min(1, sp.size / LEGACY_AUTHORED_WIDTH) : sp.size;
+  const lane = i === 0 ? 0 : i % 2 === 1 ? 1 : -1;
   return {
     ...sp,
     size,
     outlineShape: sp.outlineShape ?? "circle",
-    waveform: sp.waveform ?? defaultTrackWaveform(i === 0 ? 0 : i % 2 === 1 ? 1 : -1),
+    // The waveform is merged OVER the defaults, not swapped in only when it is
+    // missing entirely. A save written before `thickness`, `smoothing`, `lane`
+    // or `sparkle` existed keeps every field it does have and gains the rest.
+    //
+    // Leaving them undefined is not a cosmetic gap: `lane` feeds a coordinate
+    // multiply and `thickness` a stroke width, so undefined propagates as NaN
+    // and the waveform silently renders NOTHING — no error, no clue, just a
+    // missing waveform on a project that used to have one. Confirmed against a
+    // real pre-branch autosave shape.
+    waveform: { ...defaultTrackWaveform(lane), ...(sp.waveform ?? {}) },
   };
 }
 
@@ -53,11 +64,20 @@ interface Actions {
   setLanguage: (lang: string) => void;
   setNarration: (n: NarrationResult | null) => void;
   setAttachedAudio: (a: ProjectState["attachedAudio"]) => void;
+  setMusic: (m: ProjectState["music"]) => void;
+  setMusicMix: (p: { volume?: number; duck?: number }) => void;
+  addSfx: (clip: Omit<SfxClip, "id">) => void;
+  updateSfx: (id: string, patch: Partial<Omit<SfxClip, "id">>) => void;
+  removeSfx: (id: string) => void;
   addSpeaker: () => void;
   /** Add a speaker from the library — everything except where they stand,
    *  which is assigned here so a recalled cast doesn't stack in one spot. */
   addSpeakerFrom: (preset: Omit<SpeakerConfig, "id" | "x" | "y">) => void;
   setBackgrounds: (scenes: BackgroundScene[]) => void;
+  /** The two knobs that decide how the clips *look*, as opposed to which ones
+   *  they are. One setter because they are always adjusted from the same place
+   *  and neither is meaningful without the other. */
+  setBackgroundStyle: (p: { dim?: number; crossfadeMs?: number }) => void;
   removeSpeaker: (id: string) => void;
   updateSpeaker: (id: string, patch: Partial<SpeakerConfig>) => void;
   loadSnapshot: (snap: ProjectPreset) => void;
@@ -108,7 +128,29 @@ export const useProjectStore = create<ProjectState & Actions>()(
 
   setBackgrounds: (backgrounds) => set({ backgrounds }),
 
+  setBackgroundStyle: (p) =>
+    set((s) => ({
+      backgroundDim: p.dim ?? s.backgroundDim,
+      backgroundCrossfadeMs: p.crossfadeMs ?? s.backgroundCrossfadeMs,
+    })),
+
   setAttachedAudio: (attachedAudio) => set({ attachedAudio }),
+
+  setMusic: (music) => set({ music }),
+
+  setMusicMix: (p) =>
+    set((s) => ({
+      musicVolume: p.volume ?? s.musicVolume,
+      musicDuck: p.duck ?? s.musicDuck,
+    })),
+
+  addSfx: (clip) =>
+    set((s) => ({ sfx: [...s.sfx, { ...clip, id: crypto.randomUUID() }] })),
+
+  updateSfx: (id, patch) =>
+    set((s) => ({ sfx: s.sfx.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
+
+  removeSfx: (id) => set((s) => ({ sfx: s.sfx.filter((c) => c.id !== id) })),
 
   addSpeaker: () =>
     set((s) => {
@@ -171,6 +213,8 @@ export const useProjectStore = create<ProjectState & Actions>()(
       musicWaveform: snap.musicWaveform ?? defaultProject.musicWaveform,
       musicColor: snap.musicColor ?? defaultProject.musicColor,
       subtitles: snap.subtitles ?? s.subtitles,
+      backgroundDim: snap.backgroundDim ?? s.backgroundDim,
+      backgroundCrossfadeMs: snap.backgroundCrossfadeMs ?? s.backgroundCrossfadeMs,
       speakers: (snap.speakers ?? s.speakers).map(migrateSpeaker),
     })),
 
@@ -205,6 +249,13 @@ export const useProjectStore = create<ProjectState & Actions>()(
         musicColor: s.musicColor,
         subtitles: s.subtitles,
         bgRelevancy: s.bgRelevancy,
+        // Worth persisting: the clips themselves are already cached under
+        // userData by provider and id, so what is saved here is a few hundred
+        // bytes of timing that points at files still on disk. Losing it means
+        // re-planning and re-downloading a background set that never changed.
+        backgrounds: s.backgrounds,
+        backgroundDim: s.backgroundDim,
+        backgroundCrossfadeMs: s.backgroundCrossfadeMs,
         pauseSameMs: s.pauseSameMs,
         pauseTurnMs: s.pauseTurnMs,
         visemeFadeMs: s.visemeFadeMs,
@@ -219,6 +270,12 @@ export const useProjectStore = create<ProjectState & Actions>()(
         attachedAudio: s.attachedAudio
           ? { filePath: s.attachedAudio.filePath, analysis: null }
           : null,
+        // Same deal as the narration: the path survives, the megabytes don't.
+        // App.tsx re-analyses on startup.
+        music: s.music ? { filePath: s.music.filePath, analysis: null } : null,
+        musicVolume: s.musicVolume,
+        musicDuck: s.musicDuck,
+        sfx: s.sfx,
       }),
 
       merge: (persisted, current) => {

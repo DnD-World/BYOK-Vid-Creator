@@ -15,7 +15,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function useFileUrls(paths: (string | undefined)[]): Record<string, string> {
+/**
+ * @param mimeType What the blob claims to be. It matters: an <img> will decode
+ *                 a mislabelled blob anyway, but a <video> will refuse a source
+ *                 typed as image/png and fail silently.
+ */
+export function useFileUrls(
+  paths: (string | undefined)[],
+  mimeType = "image/png"
+): Record<string, string> {
   const [urls, setUrls] = useState<Record<string, string>>({});
   // Kept in a ref as well so cleanup can revoke without re-running on state.
   const cacheRef = useRef<Record<string, string>>({});
@@ -47,7 +55,7 @@ export function useFileUrls(paths: (string | undefined)[]): Record<string, strin
         try {
           const buf = await window.byok.storage.readFile(path);
           if (cancelled) return;
-          cacheRef.current[path] = URL.createObjectURL(new Blob([buf], { type: "image/png" }));
+          cacheRef.current[path] = URL.createObjectURL(new Blob([buf], { type: mimeType }));
         } catch {
           // A sheet that's been moved or deleted just means no face — the disk
           // still renders, so this is not worth surfacing as an error.
@@ -59,7 +67,7 @@ export function useFileUrls(paths: (string | undefined)[]): Record<string, strin
     return () => {
       cancelled = true;
     };
-  }, [key]);
+  }, [key, mimeType]);
 
   // Revoke everything on unmount.
   useEffect(() => {

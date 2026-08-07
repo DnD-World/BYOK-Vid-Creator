@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { HudButton } from "../ui/HudButton";
+import { Slider } from "../ui/Slider";
 import { useProjectStore } from "../../store/useProjectStore";
 
 type Hit = Awaited<ReturnType<typeof window.byok.media.searchVideos>>["hits"][number];
@@ -27,6 +28,9 @@ export function BackgroundPanel() {
   const language = useProjectStore((s) => s.language);
   const backgrounds = useProjectStore((s) => s.backgrounds);
   const setBackgrounds = useProjectStore((s) => s.setBackgrounds);
+  const backgroundDim = useProjectStore((s) => s.backgroundDim);
+  const backgroundCrossfadeMs = useProjectStore((s) => s.backgroundCrossfadeMs);
+  const setBackgroundStyle = useProjectStore((s) => s.setBackgroundStyle);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +167,35 @@ export function BackgroundPanel() {
           <span className="label-etched">Shared look</span> — {look}
         </p>
       )}
+
+      {/* How the clips are treated, as opposed to which ones they are. Shown
+          whether or not any are chosen yet: both settings apply to a hand-picked
+          clip exactly as they do to a planned one. */}
+      <div className="space-y-3 border-t border-accent/15 pt-3">
+        <Slider
+          label="Dim"
+          value={backgroundDim}
+          min={0}
+          max={1}
+          step={0.05}
+          format={(v) => `${Math.round(v * 100)}%`}
+          onChange={(dim) => setBackgroundStyle({ dim })}
+        />
+        <Slider
+          label="Crossfade"
+          value={backgroundCrossfadeMs}
+          min={0}
+          max={2000}
+          step={50}
+          format={(v) => (v === 0 ? "cut" : `${(v / 1000).toFixed(2)}s`)}
+          onChange={(crossfadeMs) => setBackgroundStyle({ crossfadeMs })}
+        />
+        <p className="text-sm text-neutral-500">
+          Everything else draws over the background, so some dimming is what keeps the
+          waveform and the subtitles readable. A crossfade longer than half the shortest
+          scene is trimmed to fit.
+        </p>
+      </div>
 
       {backgrounds.length === 0 && !busy && (
         <p className="text-sm text-neutral-500">
