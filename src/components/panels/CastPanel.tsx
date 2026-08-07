@@ -15,6 +15,7 @@ import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { Tabs } from "../ui/Tabs";
 import { WaveformControls } from "./WaveformControls";
+import { SfxPanel } from "./SfxPanel";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
 import { useSpeakerLibraryStore } from "../../store/useSpeakerLibraryStore";
@@ -40,17 +41,59 @@ export function CastPanel() {
   const setMusicWaveform = useProjectStore((s) => s.setMusicWaveform);
   const musicColor = useProjectStore((s) => s.musicColor);
   const setMusicColor = useProjectStore((s) => s.setMusicColor);
+  const music = useProjectStore((s) => s.music);
+  const setMusic = useProjectStore((s) => s.setMusic);
+  const musicVolume = useProjectStore((s) => s.musicVolume);
+  const musicDuck = useProjectStore((s) => s.musicDuck);
+  const setMusicMix = useProjectStore((s) => s.setMusicMix);
+  const [musicBusy, setMusicBusy] = useState(false);
+  const [musicNote, setMusicNote] = useState<string | null>(null);
   const voices = useVoicesStore((s) => s.voices);
   // Definitions only, no art: this panel needs to know whether a puppet file
   // is valid, not what it looks like.
   const { errors: puppetErrors } = usePuppetDefs(speakers.map((sp) => sp.puppetPath));
+
+  /** Load a music bed. The file plays whatever it is — the render decodes it
+   *  with FFmpeg — but only a WAV can be ANALYSED, and the analysis is what
+   *  gives the waveform something to move to and tells the render where the
+   *  track ends so it can repeat it. Said plainly on screen rather than left
+   *  as a mystery about why one file animates and another doesn't. */
+  const pickMusic = async () => {
+    const p = await window.byok.dialog.openFile([
+      { name: "Audio", extensions: ["wav", "mp3", "m4a", "ogg", "flac"] },
+    ]);
+    if (!p) return;
+    setMusicBusy(true);
+    setMusicNote(null);
+    try {
+      const analysis = await window.byok.audio.analyzeFile(p);
+      setMusic({ filePath: p, analysis });
+      if (!analysis) {
+        setMusicNote(
+          "Loaded. It will play, but it couldn't be analysed — the music waveform " +
+            "won't follow it and it won't repeat if it's shorter than the video. " +
+            "A 16-bit PCM .wav does both."
+        );
+      }
+    } catch (e) {
+      setMusic({ filePath: p, analysis: null });
+      setMusicNote(
+        `Loaded, but analysing it failed (${e instanceof Error ? e.message : String(e)}). ` +
+          "It will still play."
+      );
+    } finally {
+      setMusicBusy(false);
+    }
+  };
 
   const addSpeakerFrom = useProjectStore((s) => s.addSpeakerFrom);
   const library = useSpeakerLibraryStore((s) => s.speakers);
   const saveToLibrary = useSpeakerLibraryStore((s) => s.save);
   const removeFromLibrary = useSpeakerLibraryStore((s) => s.remove);
 
-  const [section, setSection] = useState<"speakers" | "music" | "waveforms">("speakers");
+  const [section, setSection] = useState<"speakers" | "music" | "sfx" | "waveforms">(
+    "speakers"
+  );
   const [active, setActive] = useState<string>("");
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -69,8 +112,13 @@ export function CastPanel() {
   const [castError, setCastError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    window.byok.storage
-      .puppetDir()
+    // Optional-chained because `window.byok` only exists inside Electron. An
+    // unguarded call threw during mount and took the ENTIRE app down when the
+    // built renderer was served over http for a screenshot — a blank page, and
+    // a bug that looked like a styling failure for far longer than it should
+    // have. The bridge being absent should cost the built-in cast, nothing else.
+    window.byok?.storage
+      ?.puppetDir()
       .then((d) => !cancelled && setPuppetDir(d))
       .catch(() => !cancelled && setCastError("Couldn't locate the bundled characters."));
     return () => {
@@ -161,6 +209,7 @@ export function CastPanel() {
         tabs={[
           { id: "speakers" as const, label: "Speakers" },
           { id: "music" as const, label: "♪ Music" },
+          { id: "sfx" as const, label: "SFX" },
           { id: "waveforms" as const, label: "Waveforms" },
         ]}
         active={section}
@@ -214,9 +263,57 @@ export function CastPanel() {
               <p className="text-sm text-neutral-500">Add a speaker to get a speaker waveform.</p>
             )}
           </>
+        ) : section === "sfx" ? (
+          <SfxPanel />
         ) : section === "music" ? (
           <>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <HudButton onClick={pickMusic} disabled={musicBusy}>
+                {musicBusy ? "Analysing…" : music ? "Change Track" : "Load Music"}
+              </HudButton>
+              {music && (
+                <button
+                  onClick={() => {
+                    setMusic(null);
+                    setMusicNote(null);
+                  }}
+                  className="label-etched underline hover:text-red-400"
+                >
+                  remove
+                </button>
+              )}
+            </div>
+            {music && (
+              <p className="text-xs text-neutral-500 break-all">
+                {music.filePath.split(/[\\/]/).pop()}
+                {music.analysis
+                  ? ` · ${Math.round(music.analysis.durationMs / 1000)}s`
+                  : " · not analysed"}
+              </p>
+            )}
+            {musicNote && <p className="text-sm text-amber-400">{musicNote}</p>}
+
+            <Slider
+              label="Music level"
+              value={musicVolume}
+              min={0} max={1} step={0.02}
+              format={(v) => (v === 0 ? "silent" : `${Math.round(v * 100)}%`)}
+              onChange={(volume) => setMusicMix({ volume })}
+            />
+            <Slider
+              label="Duck under speech"
+              value={musicDuck}
+              min={0} max={1} step={0.05}
+              format={(v) => (v === 0 ? "off" : `−${Math.round(v * 100)}%`)}
+              onChange={(duck) => setMusicMix({ duck })}
+            />
+            <p className="text-sm text-neutral-500">
+              The bed drops out of the way just before each line and comes back
+              slowly after it — early, because a duck that arrives with the voice
+              always sounds late. A track shorter than the video repeats.
+            </p>
+
+            <div className="flex items-center gap-3 border-t border-accent/15 pt-4">
               <input
                 type="color" value={musicColor}
                 onChange={(e) => setMusicColor(e.target.value)}
@@ -226,8 +323,9 @@ export function CastPanel() {
             </div>
             <p className="text-sm text-neutral-500">
               The music track always animates — music doesn't take turns the way
-              speakers do. Its waveform is on the Waveforms tab. Loading actual
-              music files is still to come.
+              speakers do. With a track loaded it animates to the music itself;
+              without one it borrows the narration. Its waveform is on the
+              Waveforms tab.
             </p>
           </>
         ) : !speaker ? (

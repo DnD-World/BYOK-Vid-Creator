@@ -8,14 +8,16 @@
      · the border glow, which needs the cursor's bearing and edge proximity
      · rotary dials, which need pointer drag
      · click sparks
+     · runtime accent, which must write four tokens from one source
 
    Everything else — shape, colour, type, dress levels — is pure CSS and works
    with this file absent. That is deliberate: a WordPress settings page or a
    Chrome popup can ship the stylesheet alone and still be unmistakably the
    same product.
 
-   Usage:  DecoNoir.init();                       // sensible defaults
-           DecoNoir.init({ ground:'gold', grain:false, spark:false });
+   Usage:  DecoNoir.init();
+           DecoNoir.init({ ground:'off', grain:false, spark:false });
+           DecoNoir.setAccent('#c9a227');
    ============================================================================= */
 
 (function (global) {
@@ -25,8 +27,9 @@
   try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
   var DEFAULTS = {
-    /** 'steel' | 'gold' | 'off' — the brushed ground behind everything. */
-    ground: 'steel',
+    /** 'on' | 'off' — the brushed ground behind everything. Its colour is
+        derived from the accent in CSS; there are no named grounds any more. */
+    ground: 'on',
     /** Animated film grain over the whole page. */
     grain: true,
     /** Border glow on `.btn`. */
@@ -53,7 +56,10 @@
     return o;
   }
 
-  /* ---- ground ------------------------------------------------------------ */
+  /* ---- ground -------------------------------------------------------------
+     Injects the field element. Everything about how it LOOKS is CSS, driven by
+     --ground-tint / --ground-tooth / --ground-lamp / --ground-wash, so a
+     custom accent retints the surface with no work here.                   */
   function ground(o) {
     var body = document.body;
     if (!document.getElementById('dn-field')) {
@@ -61,8 +67,65 @@
       f.id = 'dn-field';
       body.insertBefore(f, body.firstChild);
     }
-    body.dataset.bg = o.ground;
+    body.dataset.bg = normaliseGround(o.ground);
     body.dataset.tex = o.grain ? 'on' : 'off';
+  }
+
+  var warnedGround = false;
+  function normaliseGround(name) {
+    if (name === 'steel' || name === 'gold') {
+      if (!warnedGround && global.console) {
+        warnedGround = true;
+        console.warn('[DecoNoir] ground:"' + name + '" was removed in 1.0 — the ground ' +
+                     'is now derived from the accent. Using "on". Set --ground-tint to ' +
+                     'change how much accent bleeds into the metal.');
+      }
+      return 'on';
+    }
+    return name === 'off' ? 'off' : 'on';
+  }
+
+  /* ---- runtime accent -----------------------------------------------------
+     One source colour in, four tokens out, written together so they cannot
+     drift. --accent-rgb is SPACE-separated so it composes with the
+     rgb(var(--x) / <alpha>) convention Tailwind also uses.
+
+     The ground follows for free: its three metal stops are color-mix()es of
+     --accent, resolved in CSS.                                            */
+  function setAccent(hex, opts) {
+    var rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    var o = opts || {};
+    var hi = o.hi || rgbToHex(mix(rgb, [255, 255, 255], 0.55));
+    var lo = o.lo || rgbToHex(mix(rgb, [0, 0, 0], 0.45));
+    var el = (o.target || document.documentElement);
+    el.style.setProperty('--accent', hex);
+    el.style.setProperty('--accent-rgb', rgb.join(' '));
+    el.style.setProperty('--accent-hi', hi);
+    el.style.setProperty('--accent-lo', lo);
+    if (o.accent2) el.style.setProperty('--accent-2', o.accent2);
+    return { accent: hex, rgb: rgb, hi: hi, lo: lo };
+  }
+
+  function clearAccent(target) {
+    var el = target || document.documentElement;
+    ['--accent', '--accent-rgb', '--accent-hi', '--accent-lo', '--accent-2']
+      .forEach(function (p) { el.style.removeProperty(p); });
+  }
+
+  function hexToRgb(h) {
+    if (typeof h !== 'string') return null;
+    h = h.trim().replace(/^#/, '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+    var n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function mix(a, b, amt) {
+    return a.map(function (c, i) { return Math.round(c + (b[i] - c) * amt); });
+  }
+  function rgbToHex(c) {
+    return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
   }
 
   /* ---- film grain ---------------------------------------------------------
@@ -195,6 +258,7 @@
 
       // Keyboard: a drag-only control is unusable without this.
       dial.tabIndex = 0;
+      dial.setAttribute('role', 'slider');
       dial.addEventListener('keydown', function (e) {
         var step = e.shiftKey ? 10 : 2;
         if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { val = Math.min(100, val + step); paint(); e.preventDefault(); }
@@ -230,15 +294,17 @@
   }
 
   /* ---- theme helpers ------------------------------------------------------ */
-  function setColorway(name) { document.documentElement.dataset.way = name; }
+  function setColorway(name) { document.documentElement.dataset.way = name; clearAccent(); }
   function setDress(name) { document.documentElement.dataset.dress = name; }
-  function setGround(name) { document.body.dataset.bg = name; }
+  function setGround(name) { document.body.dataset.bg = normaliseGround(name); }
 
   global.DecoNoir = {
     init: init,
     dials: dials,
     setColorway: setColorway,
     setDress: setDress,
-    setGround: setGround
+    setGround: setGround,
+    setAccent: setAccent,
+    clearAccent: clearAccent
   };
 })(window);

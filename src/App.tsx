@@ -4,12 +4,14 @@ import { Toggle } from "./components/ui/Toggle";
 import { SpeakerAvatar } from "./components/canvas/SpeakerAvatar";
 import { PuppetAvatar } from "./components/canvas/PuppetAvatar";
 import { WaveformScene } from "./components/canvas/WaveformScene";
+import { BackgroundScene } from "./components/canvas/BackgroundScene";
 import { SubtitleScene } from "./components/canvas/SubtitleScene";
 import { usePreviewClock } from "./lib/motion/usePreviewClock";
 import { buildCues } from "./lib/subtitles/wordTiming";
 import { buildSpeakerVisemeTracks } from "./lib/visemes/speakerTracks";
 import { visemeBlendAt } from "./lib/visemes/timeline";
 import { useFileUrls } from "./lib/assets/useFileUrls";
+import { useSubtitleFont } from "./lib/assets/useSubtitleFont";
 import { usePuppets } from "./lib/puppets/usePuppets";
 import { CastPanel } from "./components/panels/CastPanel";
 import { ScenePanel } from "./components/panels/ScenePanel";
@@ -124,6 +126,13 @@ export default function App() {
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
   const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
   const idleMotion = useProjectStore((s) => s.idleMotion);
+  const music = useProjectStore((s) => s.music);
+  // Loaded here rather than in the Subtitles panel: the canvas has to draw in
+  // it whether or not that panel is open.
+  useSubtitleFont(subtitles.fontFamily, subtitles.fontWeight ?? 800);
+  const backgrounds = useProjectStore((s) => s.backgrounds);
+  const backgroundDim = useProjectStore((s) => s.backgroundDim);
+  const backgroundCrossfadeMs = useProjectStore((s) => s.backgroundCrossfadeMs);
 
   // Attached audio wins, matching the render bar: whatever ends up in the
   // video is what the preview animates to.
@@ -151,6 +160,22 @@ export default function App() {
     [narration, fps]
   );
   const sheetUrls = useFileUrls(speakers.map((sp) => sp.sheetPath));
+  const backgroundUrls = useFileUrls(
+    backgrounds.map((b) => b.filePath),
+    "video/mp4"
+  );
+  // The clips as the timing code wants them: it has no business knowing about
+  // providers, thumbnails or why a scene was chosen.
+  const backgroundClips = useMemo(
+    () =>
+      backgrounds.map((b) => ({
+        startMs: b.startMs,
+        endMs: b.endMs,
+        sourceSec: b.hit?.durationSec ?? 0,
+        filePath: b.filePath,
+      })),
+    [backgrounds]
+  );
   const { puppets } = usePuppets(speakers.map((sp) => sp.puppetPath));
   const browTracks = useMemo(
     () => buildSpeakerBrowTracks(narration?.segments ?? []),
@@ -179,6 +204,7 @@ export default function App() {
   // comes back to life without the user regenerating anything.
   const setNarration = useProjectStore((s) => s.setNarration);
   const setAttachedAudio = useProjectStore((s) => s.setAttachedAudio);
+  const setMusic = useProjectStore((s) => s.setMusic);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -201,11 +227,20 @@ export default function App() {
           /* same */
         }
       }
+      const m = useProjectStore.getState().music;
+      if (m?.filePath && !m.analysis) {
+        try {
+          const analysis = await window.byok.audio.analyzeFile(m.filePath);
+          if (!cancelled && analysis) setMusic({ ...m, analysis });
+        } catch {
+          /* same: the track still plays, its waveform just idles */
+        }
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [setNarration, setAttachedAudio]);
+  }, [setNarration, setAttachedAudio, setMusic]);
 
   // Recolor every accent-* class + glow effect live, including on first
   // mount (so a previously chosen color persists across restarts).
@@ -215,12 +250,19 @@ export default function App() {
     root.setProperty("--accent-rgb", base);
     root.setProperty("--accent-bright-rgb", bright);
     root.setProperty("--accent-deep-rgb", deep);
-    // Deco Noir needs the same three as colours, not channels — color-mix()
-    // and gradients can't take a bare "R G B" triple. Derived from the same
-    // source in the same effect so the two forms cannot drift apart.
-    root.setProperty("--accent", rgbTripleToHex(base));
-    root.setProperty("--accent-hi", rgbTripleToHex(bright));
-    root.setProperty("--accent-lo", rgbTripleToHex(deep));
+    // Deco Noir needs the same accent as COLOURS, not channels — color-mix()
+    // and gradients can't take a bare "R G B" triple. `setAccent` writes all
+    // four of its properties from one hex, so nothing here can leave the
+    // channel form and the colour form disagreeing.
+    //
+    // The shades are still handed over explicitly rather than left to the
+    // library to derive: this app's own accent-bright / accent-deep classes
+    // read the same two values, and letting each side compute its own would
+    // reintroduce exactly the drift this replaced.
+    window.DecoNoir?.setAccent(accentColor, {
+      hi: rgbTripleToHex(bright),
+      lo: rgbTripleToHex(deep),
+    });
   }, [accentColor]);
 
   // Deco Noir's behaviour layer: the brushed ground, film grain and the
@@ -233,7 +275,9 @@ export default function App() {
   // the user is already looking at.
   useEffect(() => {
     window.DecoNoir?.init({
-      ground: "steel",
+      // One ground, tinted from --accent, so it follows the Appearance picker
+      // instead of being a fixed steel or gold that fights a chosen colour.
+      ground: "on",
       grain: true,
       glow: true,
       spark: false,
@@ -311,7 +355,13 @@ export default function App() {
   return (
     // No background class here on purpose: the brushed-metal ground is a fixed
     // layer behind the whole app, and an opaque shell would paint over it.
-    <div className="h-full w-full flex flex-col text-neutral-200">
+    //
+    // The shell is lifted above it: #dn-field is position:fixed with z-index 0,
+    // and a positioned element paints above non-positioned in-flow content
+    // regardless of DOM order. Panels escape that on their own by being
+    // position:relative, but loose text in a static container would not. The
+    // library's own demo lifts its wrapper the same way.
+    <div className="relative z-[1] h-full w-full flex flex-col text-neutral-200">
       <div className="scanlines" />
 
       {/* Top bar */}
@@ -394,12 +444,23 @@ export default function App() {
               className="slot-recessed relative grid place-items-center overflow-hidden"
               style={{ width: canvasSize.w, height: canvasSize.h }}
             >
+              {/* Under everything, as in the render. */}
+              <BackgroundScene
+                clips={backgroundClips}
+                urls={backgroundUrls}
+                timeMs={previewTimeMs}
+                fps={fps}
+                crossfadeMs={backgroundCrossfadeMs}
+                dim={backgroundDim}
+              />
+
               <WaveformScene
                 tracks={tracks}
                 width={canvasSize.w}
                 height={canvasSize.h}
                 timeMs={previewTimeMs}
                 analysis={activeAnalysis}
+                musicAnalysis={music?.analysis ?? null}
               />
 
               {/* Only while actually dragging — a permanent grid would fight

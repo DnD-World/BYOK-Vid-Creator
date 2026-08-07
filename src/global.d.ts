@@ -11,7 +11,10 @@ import type { AudioAnalysis } from "./store/types";
  *  extension popup — neither of which can rely on a bundler. */
 interface DecoNoirApi {
   init: (opts?: {
-    ground?: "steel" | "gold" | "off";
+    /** There is ONE ground now and its colour derives from --accent, so it
+     *  follows the accent picker automatically. The old named grounds
+     *  ("steel" / "gold") are gone. */
+    ground?: "on" | "off";
     grain?: boolean;
     glow?: boolean;
     spark?: boolean;
@@ -22,7 +25,11 @@ interface DecoNoirApi {
   dials: () => void;
   setColorway: (name: string) => void;
   setDress: (name: string) => void;
-  setGround: (name: "steel" | "gold" | "off") => void;
+  setGround: (name: "on" | "off") => void;
+  /** Writes --accent, --accent-hi, --accent-lo and --accent-rgb from one hex,
+   *  deriving the shades. One call replaces four hand-written properties, so
+   *  the channel and colour forms cannot drift apart. */
+  setAccent: (hex: string, opts?: { hi?: string; lo?: string }) => void;
 }
 
 declare global {
@@ -94,6 +101,35 @@ declare global {
               pageUrl: string;
             } | null;
           }[];
+        }>;
+      };
+      sound: {
+        search: (query: string) => Promise<{
+          hits: {
+            id: string;
+            name: string;
+            url: string;
+            durationSec: number;
+            author: string;
+            pageUrl: string;
+            license: string;
+          }[];
+          notes: string[];
+        }>;
+      };
+      fonts: {
+        list: () => Promise<
+          { family: string; weights: number[]; greek: boolean }[]
+        >;
+        ensure: (
+          family: string,
+          weight: number
+        ) => Promise<{
+          family: string;
+          weight: number;
+          /** False means the family genuinely has no Greek subset. */
+          hasGreek: boolean;
+          faces: { path: string; fileName: string; unicodeRange: string }[];
         }>;
       };
       storage: {
