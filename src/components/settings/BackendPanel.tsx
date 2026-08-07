@@ -51,7 +51,7 @@ const PROVIDERS: Provider[] = [
   {
     id: "freesound",
     label: "Freesound",
-    what: "Sound effects.",
+    what: "Sound effects — barks, whistles, clickers. Searched CC0-only, so nothing needs crediting.",
     url: "https://freesound.org/apiv2/apply/",
     access: "approval",
   },
@@ -114,7 +114,10 @@ export default function BackendPanel() {
   const refresh = () => window.byok.keys.list().then(setSaved);
   useEffect(() => {
     refresh();
-    window.byok.keys.encryptionAvailable().then(setEncryptionAvailable);
+    // Optional-chained: `window.byok` exists only inside Electron. An unguarded
+    // call here throws during mount and takes the WHOLE app down, which is a
+    // blank window that looks like a styling fault rather than a missing bridge.
+    window.byok?.keys?.encryptionAvailable().then(setEncryptionAvailable);
   }, []);
 
   const save = async (id: string) => {

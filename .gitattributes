@@ -1,0 +1,4 @@
+# Generated puppet runtime files are written with LF by tools/make-puppet.mjs.
+# Without this, git checks them out as CRLF on Windows and every regeneration
+# shows as a full-file diff — which hides the one line that actually changed.
+puppet/*.json text eol=lf

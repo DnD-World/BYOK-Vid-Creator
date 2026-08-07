@@ -33,6 +33,13 @@ export function RenderBar() {
   const visemeFadeMs = useProjectStore((s) => s.visemeFadeMs);
   const idleMotion = useProjectStore((s) => s.idleMotion);
   const attachedAudio = useProjectStore((s) => s.attachedAudio);
+  const music = useProjectStore((s) => s.music);
+  const musicVolume = useProjectStore((s) => s.musicVolume);
+  const musicDuck = useProjectStore((s) => s.musicDuck);
+  const sfx = useProjectStore((s) => s.sfx);
+  const backgrounds = useProjectStore((s) => s.backgrounds);
+  const backgroundDim = useProjectStore((s) => s.backgroundDim);
+  const backgroundCrossfadeMs = useProjectStore((s) => s.backgroundCrossfadeMs);
   const setAttachedAudio = useProjectStore((s) => s.setAttachedAudio);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -62,7 +69,10 @@ export function RenderBar() {
   const busyRef = useRef(busy);
   busyRef.current = busy;
   useEffect(() => {
-    return window.byok.render.onProgress(({ pct, note }) => {
+    // Optional-chained: `window.byok` exists only inside Electron. An unguarded
+    // call here throws during mount and takes the WHOLE app down, which is a
+    // blank window that looks like a styling fault rather than a missing bridge.
+    return window.byok?.render?.onProgress(({ pct, note }) => {
       if (!busyRef.current) return;
       setPct(pct);
       if (note) setNote(note);
@@ -134,6 +144,37 @@ export function RenderBar() {
         // Whichever audio is actually in the video is the one that drives the
         // waveform.
         analysis: audioPath ? attachedAudio?.analysis ?? null : narration?.analysis ?? null,
+        // Music plays under whatever the main audio is — including a
+        // hand-attached file, which it has no quarrel with. Only the ducking
+        // needs the narration, and that falls back to "never duck" on its own.
+        musicFilePath: music?.filePath ?? null,
+        musicAnalysis: music?.analysis ?? null,
+        musicVolume,
+        musicDuck,
+        // Effects are placed against the video's own clock, so unlike the
+        // backgrounds they survive a swapped audio file.
+        sfx: sfx.map((c) => ({
+          filePath: c.filePath,
+          atMs: c.atMs,
+          volume: c.volume,
+          label: c.label,
+        })),
+        // Backgrounds are timed against the narration that planned them, so
+        // they go the same way the subtitles do: a hand-attached file has
+        // nothing to do with those scene boundaries.
+        backgrounds: audioPath
+          ? []
+          : backgrounds
+              .filter((b) => b.filePath)
+              .map((b) => ({
+                startMs: b.startMs,
+                endMs: b.endMs,
+                filePath: b.filePath,
+                sourceSec: b.hit?.durationSec ?? 0,
+                query: b.query,
+              })),
+        backgroundDim,
+        backgroundCrossfadeMs,
         subtitles,
         visemeFadeMs,
         idleMotion,
