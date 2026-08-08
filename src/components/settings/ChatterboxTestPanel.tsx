@@ -3,6 +3,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 import { Knob } from "../ui/Knob";
 import { Picker } from "../ui/Picker";
+import { NumberField } from "../ui/NumberField";
 
 const LANGUAGES = [
   { code: "el", label: "Greek" },
@@ -105,11 +106,13 @@ export default function ChatterboxTestPanel() {
           className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
         />
         <div className="flex items-center gap-3">
-          <input
-            type="number"
+          <NumberField
+            aria-label="Chatterbox server port"
+            className="w-32"
             value={port}
-            onChange={(e) => setDefaultFn("chatterboxPort", parseInt(e.target.value) || 8004)}
-            className="w-28 bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
+            min={1024}
+            max={65535}
+            onChange={(v) => setDefaultFn("chatterboxPort", v || 8004)}
           />
           <button
             onClick={startServer}

@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import { Empty } from "../ui/Empty";
+import { NumberField } from "../ui/NumberField";
 import { HudButton } from "../ui/HudButton";
 import { useProjectStore } from "../../store/useProjectStore";
 
@@ -160,18 +161,15 @@ export function SfxPanel() {
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-1.5">
                 <span className="label-etched">at</span>
-                <input
-                  type="number"
+                <NumberField
+                  aria-label={`Seconds into the video for ${c.label}`}
+                  className="w-28"
                   min={0}
                   step={0.1}
-                  value={(c.atMs / 1000).toFixed(1)}
-                  onChange={(e) => {
-                    const secs = Number(e.target.value);
-                    if (Number.isFinite(secs)) {
-                      updateSfx(c.id, { atMs: Math.max(0, Math.round(secs * 1000)) });
-                    }
-                  }}
-                  className="w-20 bg-black/40 border border-accent/30 px-2 py-1 text-accent-bright"
+                  value={Number((c.atMs / 1000).toFixed(1))}
+                  onChange={(secs) =>
+                    updateSfx(c.id, { atMs: Math.max(0, Math.round(secs * 1000)) })
+                  }
                 />
                 <span className="label-etched">s</span>
               </label>
@@ -184,7 +182,7 @@ export function SfxPanel() {
                   step={0.05}
                   value={c.volume}
                   onChange={(e) => updateSfx(c.id, { volume: parseFloat(e.target.value) })}
-                  className="hud-slider flex-1"
+                  className="flex-1"
                 />
                 <span className="text-sm text-neutral-500 w-9 text-right">
                   {Math.round(c.volume * 100)}%

@@ -207,51 +207,14 @@
      bezels looked flat. Components use `.btn cut-sm` directly now, so there is
      exactly one implementation and it cannot drift again. */
 
-  /* The fader is the switch slot stretched, with the switch paddle riding in
-     it — see the Deco Noir layer for the full rules. `.hud-slider` inherits
-     them wholesale; only the class name is app-specific. */
-  .hud-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 32px;
-    background: transparent;
-    cursor: pointer;
-  }
-  .hud-slider::-webkit-slider-runnable-track {
-    height: 32px;
-    background: linear-gradient(180deg, #000, var(--metal-lo) 70%);
-    box-shadow: inset 0 2px 6px rgba(0,0,0,.95), inset 0 -1px 0 rgba(255,255,255,.07);
-    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px),
-      calc(100% - 5px) 100%, 0 100%, 0 5px);
-  }
-  .hud-slider::-moz-range-track {
-    height: 32px;
-    background: linear-gradient(180deg, #000, var(--metal-lo) 70%);
-    box-shadow: inset 0 2px 6px rgba(0,0,0,.95);
-  }
-  .hud-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 28px; height: 26px; margin-top: 3px;
-    background:
-      repeating-linear-gradient(90deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px) center/14px 14px no-repeat,
-      linear-gradient(180deg, var(--accent-hi), var(--accent) 45%, var(--accent-lo));
-    box-shadow: 0 2px 5px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.45);
-    clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px),
-      calc(100% - 4px) 100%, 0 100%, 0 4px);
-    cursor: grab;
-  }
-  .hud-slider::-moz-range-thumb {
-    border: 0;
-    width: 28px; height: 26px;
-    background:
-      repeating-linear-gradient(90deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px) center/14px 14px no-repeat,
-      linear-gradient(180deg, var(--accent-hi), var(--accent) 45%, var(--accent-lo));
-    box-shadow: 0 2px 5px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.45);
-    clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px),
-      calc(100% - 4px) 100%, 0 100%, 0 4px);
-    cursor: grab;
-  }
+  /* `.hud-slider` deliberately no longer exists. It was a hand-rolled COPY of
+     the library's input[type=range] rules — its own comment claimed it
+     "inherits them wholesale", but a copy inherits nothing; it just happens to
+     agree until the library changes and then silently stops agreeing. Exactly
+     what `.hud-btn` was, and removed for the same reason.
+
+     The library styles `input[type=range]` by element, so a plain range input
+     already wears the fader. There is nothing to opt into. */
 
   /* App-level override, kept OUT of the vendored stylesheet so that file stays
      a clean copy of the library and can be replaced wholesale on an update.
@@ -333,4 +296,87 @@
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-corner { background: transparent; }
+}
+
+/* ==========================================================================
+   POINTERS, SELECTION AND NATIVE WIDGET LEFTOVERS
+
+   Everything here is a place where the OS was still drawing part of the app.
+   They are small individually and collectively they are most of what makes a
+   themed interface stop feeling themed: you style the panel, and then the
+   cursor, the text highlight and a pair of spin arrows arrive from Windows in
+   its own colours.
+   ========================================================================== */
+@layer base {
+  /* THE SPIN ARROWS. Chromium draws these itself and they cannot be recoloured
+     — only removed. They are removed here and replaced by real buttons in
+     components/ui/NumberField.tsx, which can carry the brass. Firefox's
+     equivalent is the appearance rule. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  /* SELECTION was the system blue, which is the single most jarring colour
+     that can appear on this palette. */
+  ::selection {
+    background: rgb(var(--accent-rgb) / 0.30);
+    color: var(--ink);
+  }
+
+  /* CURSORS. A control surface should say what it is under the pointer.
+     Buttons and anything with a click handler get the hand; text fields get a
+     caret; a disabled control says so rather than silently ignoring a click,
+     which is the difference between "broken" and "not now". */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"],
+  [role="tab"],
+  label,
+  summary,
+  a[href] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+  input[type="text"], input[type="password"], input[type="number"],
+  input[type="search"], textarea {
+    cursor: text;
+  }
+  /* A colour swatch is a thing you open, and a range is a thing you drag. */
+  input[type="color"] { cursor: pointer; }
+  input[type="range"] { cursor: ew-resize; }
+  /* The canvas avatars are draggable; say so before the drag starts. */
+  [data-draggable="true"] { cursor: grab; }
+  [data-draggable="true"]:active { cursor: grabbing; }
+
+  /* FOCUS. Chromium's default focus ring is a white/blue halo. One accent
+     outline everywhere instead — and only for keyboard focus, so clicking a
+     control doesn't leave a ring behind it. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* Native autofill paints its own yellow-white block over a themed field.
+     There is no property to recolour it; the inset shadow trick is the only
+     way to cover it. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--ink);
+    -webkit-box-shadow: 0 0 0 1000px #0a0907 inset;
+    caret-color: var(--ink);
+  }
 }

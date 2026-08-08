@@ -25,7 +25,7 @@ export function Slider({ label, value, min, max, step = 0.01, onChange, format }
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="hud-slider w-full"
+        className="w-full"
       />
     </label>
   );

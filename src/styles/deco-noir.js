@@ -198,7 +198,13 @@
     }
     measure();
     addEventListener('resize', measure, { passive: true });
-    addEventListener('scroll', measure, { passive: true });
+    // CAPTURE, changed when vendoring. A scroll event does not bubble, so the
+    // plain listener only ever heard the window scrolling — and this app never
+    // scrolls the window. Everything happens inside overflow-y-auto rails and
+    // panels, so every rect went stale the moment a rail moved and the rim
+    // lights lit whichever key USED to be under the cursor. Capture hears the
+    // inner scrollers too.
+    addEventListener('scroll', measure, { passive: true, capture: true });
     addEventListener('pointermove', function (e) {
       px = e.clientX; py = e.clientY;
       if (!pending) { pending = true; requestAnimationFrame(paint); }

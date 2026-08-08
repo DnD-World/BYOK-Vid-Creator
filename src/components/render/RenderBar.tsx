@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useRef, useState } from "react";
+import { NumberField } from "../ui/NumberField";
 import { HudButton } from "../ui/HudButton";
 import { Toggle } from "../ui/Toggle";
 import { useProjectStore } from "../../store/useProjectStore";
@@ -217,17 +218,14 @@ export function RenderBar() {
 
       <label className="flex items-center gap-3">
         <span className="label-etched whitespace-nowrap">Length</span>
-        <input
-          type="number"
+        <NumberField
+          aria-label="Video length in seconds"
+          className="w-28"
           min={1}
           max={600}
           value={effectiveDuration}
           disabled={busy || (matchNarration && !!narrationSec && !audioPath)}
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            if (Number.isFinite(n)) setDurationSec(Math.max(1, Math.min(600, Math.round(n))));
-          }}
-          className="w-20 bg-black/40 border border-accent/30 px-2 py-1 text-accent-bright"
+          onChange={(n) => setDurationSec(Math.max(1, Math.min(600, Math.round(n))))}
         />
         <span className="label-etched">sec</span>
       </label>

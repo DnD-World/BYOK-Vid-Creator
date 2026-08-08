@@ -74,12 +74,65 @@ def seed_for(name: str, take: int, offset: int) -> int:
     return int(h[:8], 16)
 
 
+def gpu_temp():
+    """Current GPU temperature in Celsius, or None if nvidia-smi isn't there."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return int(out.stdout.strip().splitlines()[0])
+    except Exception:
+        return None
+
+
+def cool_down(target, max_wait):
+    """Idle until the GPU drops to `target`, or `max_wait` seconds pass.
+
+    THIS IS THE POINT OF THE SLOW MODE, not a safety afterthought. Measured on
+    this machine mid-run: 100% utilisation, 88C, and the clock pinned between
+    720 and 1050 MHz on a card that boosts to about 1700. It was doing roughly
+    half the work per second it is capable of, and every extra minute of heat
+    made the next sound slower still.
+
+    So the waiting is not time thrown away — a cool card generates faster, and
+    at 250 steps the difference compounds across two dozen sounds. Spreading
+    the run across an evening costs nothing that matters and keeps a laptop out
+    of the range where it throttles hardest.
+    """
+    import time as _t
+
+    if target <= 0:
+        return
+    start = _t.time()
+    first = gpu_temp()
+    if first is None or first <= target:
+        return
+    print(f"        cooling: {first}C, waiting for {target}C", end="", flush=True)
+    while _t.time() - start < max_wait:
+        _t.sleep(15)
+        t = gpu_temp()
+        if t is None or t <= target:
+            print(f"  ({t}C after {_t.time() - start:.0f}s)")
+            return
+        print(".", end="", flush=True)
+    print(f"  (still {gpu_temp()}C after {max_wait}s, carrying on)")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="generate just this one name from the CSV")
     ap.add_argument("--take", type=int, default=1, help="alternate version of the same row")
     ap.add_argument("--seed-offset", type=int, default=0, help="shift every seed at once")
-    ap.add_argument("--steps", type=int, default=100, help="denoising steps; higher is slower and cleaner")
+    ap.add_argument("--steps", type=int, default=250, help="denoising steps; higher is slower and cleaner")
+    ap.add_argument("--cool-to", type=int, default=72,
+                    help="wait between sounds until the GPU is this cool, in Celsius (0 = never wait)")
+    ap.add_argument("--cool-max", type=int, default=600,
+                    help="give up waiting to cool after this many seconds and carry on")
     ap.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is present")
     ap.add_argument("--offload", action="store_true", help="stream weights from RAM; far slower, for cards under 8GB")
     args = ap.parse_args()
@@ -154,7 +207,12 @@ def main() -> int:
         # (channels, samples) -> (samples, channels), which is what a WAV wants.
         out = audio[0].T.float().cpu().numpy()
         sf.write(str(dest), out, pipe.vae.sampling_rate)
-        print(f"        -> {dest.name}  ({time.time() - t0:.0f}s)\n")
+        print(f"        -> {dest.name}  ({time.time() - t0:.0f}s)")
+
+        # Not after the last one — nothing is waiting on a cool card at the end.
+        if i < len(todo):
+            cool_down(args.cool_to, args.cool_max)
+        print()
 
     print(f"Done. Files are in {OUTDIR}")
     print("Load them in the app with Cast > SFX > Add from disk.")
