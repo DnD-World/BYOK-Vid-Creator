@@ -74,6 +74,38 @@ def seed_for(name: str, take: int, offset: int) -> int:
     return int(h[:8], 16)
 
 
+def normalise(audio, peak_db):
+    """Scale a clip so its loudest moment sits at `peak_db` dBFS.
+
+    MEASURED ACROSS THE FIRST FULL RUN, the model's output level is not
+    consistent and not related to how loud the thing would be in life. Peaks
+    ranged from 0.0 dBFS — right on the ceiling, one step from clipping — down
+    to -24 dBFS, a 24 dB spread. A library like that cannot be used: every
+    single effect needs its volume hand-set before it can sit under narration,
+    and the ones at 0.0 risk audible clipping the moment anything is mixed on
+    top.
+
+    Peak rather than loudness normalisation, deliberately. These are short
+    effects with wildly different densities — a single bark against four
+    seconds of lapping water — and matching their perceived loudness would
+    flatten exactly the dynamics that make an effect read as an effect. Peak
+    normalising only guarantees headroom and a predictable starting point; the
+    per-effect volume in the app is what does the mixing.
+
+    -3 dBFS by default: enough headroom that nothing clips when effects overlap
+    or when the render's own mix is applied, without throwing away level.
+
+    Deterministic, so it does not undermine the seeded-reproducibility above.
+    """
+    import numpy as np
+
+    peak = float(np.max(np.abs(audio)))
+    if peak <= 0:
+        return audio
+    target = 10.0 ** (peak_db / 20.0)
+    return audio * (target / peak)
+
+
 def gpu_temp():
     """Current GPU temperature in Celsius, or None if nvidia-smi isn't there."""
     import subprocess
@@ -133,6 +165,10 @@ def main() -> int:
                     help="wait between sounds until the GPU is this cool, in Celsius (0 = never wait)")
     ap.add_argument("--cool-max", type=int, default=600,
                     help="give up waiting to cool after this many seconds and carry on")
+    ap.add_argument("--peak-db", type=float, default=-3.0,
+                    help="normalise each sound so its loudest point sits here, in dBFS")
+    ap.add_argument("--renormalise", action="store_true",
+                    help="re-level the existing .wav files and generate nothing")
     ap.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is present")
     ap.add_argument("--offload", action="store_true", help="stream weights from RAM; far slower, for cards under 8GB")
     args = ap.parse_args()
@@ -151,6 +187,24 @@ def main() -> int:
             return 1
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
+
+    # Re-level what already exists, without spending an hour of GPU remaking
+    # sounds that are perfectly good apart from their volume. This is the path
+    # the first full run needed: 24 usable effects, generated before
+    # normalising existed, spread across 24 dB.
+    if args.renormalise:
+        import soundfile as sf
+
+        n = 0
+        for row in rows:
+            f = OUTDIR / f"{row['name']}{'' if args.take == 1 else f'-take{args.take}'}.wav"
+            if not f.exists():
+                continue
+            data, rate = sf.read(str(f), always_2d=True)
+            sf.write(str(f), normalise(data, args.peak_db), rate)
+            n += 1
+        print(f"Re-levelled {n} file(s) to {args.peak_db:g} dBFS peak.")
+        return 0
 
     suffix = "" if args.take == 1 else f"-take{args.take}"
     todo = [r for r in rows if not (OUTDIR / f"{r['name']}{suffix}.wav").exists()]
@@ -206,6 +260,7 @@ def main() -> int:
 
         # (channels, samples) -> (samples, channels), which is what a WAV wants.
         out = audio[0].T.float().cpu().numpy()
+        out = normalise(out, args.peak_db)
         sf.write(str(dest), out, pipe.vae.sampling_rate)
         print(f"        -> {dest.name}  ({time.time() - t0:.0f}s)")
 
