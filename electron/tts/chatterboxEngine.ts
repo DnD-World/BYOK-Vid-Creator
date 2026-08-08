@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from "node:child_process";
+import { childEnv } from "../net/childEnv";
 import path from "node:path";
 import fs from "node:fs/promises";
 import http from "node:http";
@@ -124,6 +125,11 @@ export async function ensureServerRunning(cfg: ChatterboxConfig): Promise<void> 
   const proc = spawn(pythonExe, ["server.py"], {
     cwd: cfg.installPath,
     stdio: ["ignore", "pipe", "pipe"],
+    // Without this the server starts, binds its port, passes the health check
+    // and reports "running" — with no model, because downloading it from
+    // Hugging Face failed on a certificate this machine trusts and Python
+    // doesn't. See electron/net/childEnv.ts.
+    env: childEnv(),
   });
 
   let stderr = "";

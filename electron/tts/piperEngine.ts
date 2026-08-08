@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from "node:child_process";
+import { childEnv } from "../net/childEnv";
 import path from "node:path";
 import fs from "node:fs/promises";
 import http from "node:http";
@@ -83,6 +84,11 @@ async function getOrStartServer(pythonPath: string, onnxPath: string): Promise<S
   const port = nextPort++;
   const proc = spawn(pythonPath, ["-m", "piper.http_server", "-m", onnxPath, "--port", String(port)], {
     stdio: ["ignore", "pipe", "pipe"],
+    // Piper reads local .onnx files and needs no network today, so this is
+    // pre-emptive — but it also carries PYTHONUTF8, and a Greek console
+    // codepage mangling this server's output is not hypothetical: it is
+    // exactly how the Chatterbox installer failed while reporting success.
+    env: childEnv(),
   });
 
   let stderr = "";

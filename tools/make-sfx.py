@@ -79,8 +79,9 @@ def main() -> int:
     ap.add_argument("--only", help="generate just this one name from the CSV")
     ap.add_argument("--take", type=int, default=1, help="alternate version of the same row")
     ap.add_argument("--seed-offset", type=int, default=0, help="shift every seed at once")
-    ap.add_argument("--steps", type=int, default=200, help="denoising steps; higher is slower and cleaner")
+    ap.add_argument("--steps", type=int, default=100, help="denoising steps; higher is slower and cleaner")
     ap.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is present")
+    ap.add_argument("--offload", action="store_true", help="stream weights from RAM; far slower, for cards under 8GB")
     args = ap.parse_args()
 
     if not WANTED.exists():
@@ -120,10 +121,13 @@ def main() -> int:
     print(f"Loading {MODEL} — first run downloads a few GB, later runs are instant.")
     pipe = StableAudioPipeline.from_pretrained(MODEL, torch_dtype=dtype)
     pipe = pipe.to(device)
-    if use_cuda:
-        # 8GB cards fit this comfortably at fp16, but offloading costs almost
-        # nothing here and turns a possible out-of-memory into a slower run
-        # rather than a failed one.
+    if use_cuda and args.offload:
+        # OFF BY DEFAULT, and that is a measured decision. "Offloading costs
+        # almost nothing" was wrong by a factor of ten: it walks the weights
+        # between system RAM and the GPU on every one of the denoising steps,
+        # which turned a 3-second bark into 504 seconds on an 8GB card. The
+        # model fits in 8GB at fp16 without help. Keep the flag for smaller
+        # cards, where a slow render still beats an out-of-memory crash.
         pipe.enable_model_cpu_offload()
 
     print(f"Generating {len(todo)} sound(s) into {OUTDIR}\n")
