@@ -42,9 +42,11 @@ export const useChatterboxVoicesStore = create<ChatterboxVoicesState>((set, get)
     set({ serverRunning: !!running });
 
     if (!running) {
-      // Don't keep offering voices from a server that isn't there — picking one
-      // would only fail later, further from the cause.
-      if (was) set({ predefinedVoices: [], referenceFiles: [] });
+      // Deliberately NOT clearing the voice lists here. A list that empties
+      // itself for a moment makes every voice picker in the app jump to its
+      // placeholder and back, which looks like data loss even when the server
+      // returns a second later. The lists are stale at worst; the status line
+      // is what tells the truth about the server.
       return;
     }
 

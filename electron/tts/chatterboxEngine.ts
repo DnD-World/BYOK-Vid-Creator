@@ -173,6 +173,16 @@ export async function ensureServerRunning(cfg: ChatterboxConfig): Promise<void> 
  * it", not "did I start it".
  */
 export async function isServerRunning(): Promise<boolean> {
+  // Our own live child counts WITHOUT asking. This matters more than it looks:
+  // the server is single-threaded, so while it is generating it does not answer
+  // the health check at all. Pinging alone made a BUSY server indistinguishable
+  // from a dead one — the panel flipped to "Start Server" mid-synthesis and
+  // threw away the voice lists, which is a worse lie than the one being fixed.
+  if (serverProcess && serverProcess.exitCode === null && !serverProcess.killed) {
+    return true;
+  }
+  // No child of ours, so ask. Covers a server started by hand or left running
+  // by a previous session — usable, and the old check called it absent.
   return pingServer(serverPort);
 }
 
