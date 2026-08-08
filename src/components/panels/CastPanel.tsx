@@ -11,6 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
+import { Empty } from "../ui/Empty";
 import { Picker } from "../ui/Picker";
 import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
@@ -329,9 +330,7 @@ export function CastPanel() {
             </p>
           </>
         ) : !speaker ? (
-          <p className="text-sm text-neutral-500">
-            No speakers yet. Add one to give your video a voice.
-          </p>
+          <Empty>No speakers yet. Add one to give your video a voice.</Empty>
         ) : (
           <>
             <div className="flex items-center gap-2">

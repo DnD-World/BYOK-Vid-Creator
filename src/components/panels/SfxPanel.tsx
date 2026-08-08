@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState } from "react";
+import { Empty } from "../ui/Empty";
 import { HudButton } from "../ui/HudButton";
 import { useProjectStore } from "../../store/useProjectStore";
 
@@ -138,10 +139,10 @@ export function SfxPanel() {
 
       <div className="space-y-3 border-t border-accent/15 pt-3">
         {sfx.length === 0 && (
-          <p className="text-sm text-neutral-500">
+          <Empty>
             No effects yet. Each one plays once, at the second you give it, over
             everything else — effects aren't ducked.
-          </p>
+          </Empty>
         )}
         {sfx.map((c) => (
           <div key={c.id} className="space-y-1">

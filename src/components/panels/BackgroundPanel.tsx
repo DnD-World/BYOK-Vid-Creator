@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { Empty } from "../ui/Empty";
 import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { useProjectStore } from "../../store/useProjectStore";
@@ -199,10 +200,10 @@ export function BackgroundPanel() {
       </div>
 
       {backgrounds.length === 0 && !busy && (
-        <p className="text-sm text-neutral-500">
+        <Empty>
           No backgrounds yet. “Choose automatically” reads your narration and picks a clip
           per scene; everything it picks can be swapped by hand afterwards.
-        </p>
+        </Empty>
       )}
 
       <div className="space-y-2">
