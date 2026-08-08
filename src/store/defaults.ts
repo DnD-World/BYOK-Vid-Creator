@@ -28,7 +28,6 @@ export const defaultProject: ProjectState = {
     fontFamily: null,
     fontWeight: 800,
   },
-  bgRelevancy: 0.5,
   pauseSameMs: 120,
   pauseTurnMs: 340,
   visemeFadeMs: 70,

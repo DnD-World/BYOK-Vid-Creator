@@ -3,13 +3,14 @@
 // (electron/keyStore.ts) and are read/written via window.byok.keys.*.
 // This file only holds non-secret backend configuration.
 
+// REMOVED: ttsPrimary, ttsFallback, llmScenePlanner, defaultTransition,
+// storageTarget, azureRegion. Every one was declared here, given a default,
+// persisted — and read by NOTHING. A settings field that nothing consumes is
+// worse than a missing one: it describes a feature to whoever reads the file
+// next, and the app behaves as though the setting isn't there, so the two can
+// never be reconciled by testing. Engine choice is per-speaker on the speaker
+// itself, which is the only place it was ever actually read from.
 export interface BackendDefaults {
-  ttsPrimary: "chatterbox-multilingual" | "azure";
-  ttsFallback: "piper";
-  llmScenePlanner: "glm-5.2";
-  defaultTransition: "fade_zoom" | "glitch" | "cut";
-  storageTarget: "local"; // "gdrive" reserved (future)
-  azureRegion: string;    // e.g. "eastus" — not secret, but Azure Speech needs it
   piperPythonPath: string; // e.g. "python3" or a full path to your python executable
   piperVoicesDir: string;  // folder containing your installed .onnx voice models
   chatterboxInstallPath: string; // folder containing the devnen/Chatterbox-TTS-Server install (server.py)

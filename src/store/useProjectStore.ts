@@ -55,7 +55,6 @@ interface Actions {
    *  callers don't have to spread the nested object by hand every time. */
   setSpeakerWaveform: (id: string, p: Partial<TrackWaveform>) => void;
   setSubtitles: (p: Partial<SubtitleConfig>) => void;
-  setBgRelevancy: (v: number) => void;
   setPauses: (p: { sameMs?: number; turnMs?: number }) => void;
   setVisemeFadeMs: (v: number) => void;
   setIdleMotion: (v: number) => void;
@@ -106,7 +105,6 @@ export const useProjectStore = create<ProjectState & Actions>()(
 
   setSubtitles: (p) => set((s) => ({ subtitles: { ...s.subtitles, ...p } })),
 
-  setBgRelevancy: (v) => set({ bgRelevancy: v }),
 
   setPauses: (p) =>
     set((s) => ({
@@ -275,7 +273,6 @@ export const useProjectStore = create<ProjectState & Actions>()(
         musicWaveform: s.musicWaveform,
         musicColor: s.musicColor,
         subtitles: s.subtitles,
-        bgRelevancy: s.bgRelevancy,
         // Worth persisting: the clips themselves are already cached under
         // userData by provider and id, so what is saved here is a few hundred
         // bytes of timing that points at files still on disk. Losing it means

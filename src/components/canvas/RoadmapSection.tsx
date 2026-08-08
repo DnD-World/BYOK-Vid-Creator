@@ -15,11 +15,20 @@ interface Upcoming {
   kind: "toggle" | "button";
 }
 
+// SHIPPED AND REMOVED FROM THIS LIST:
+//   Background video — now Scene > Background (Pixabay + Pexels, live)
+//   Background music — now Cast > ♪ Music (a file from disk, auto-ducked)
+// Both were still sitting here greyed out, advertised as unbuilt, while the
+// working controls were one tab away. That is worse than never having listed
+// them: someone reads this panel, believes the feature doesn't exist, and never
+// finds it. The rule at the top of this file is the fix — when it ships, the
+// row goes.
+//
+// "Media library" stays because it genuinely isn't built. Loading a single file
+// from disk is not the same thing as a folder the app indexes and browses.
 const UPCOMING: Upcoming[] = [
   { label: "Intro card", note: "Title card before the narration", kind: "toggle" },
   { label: "Outro card", note: "Sign-off card after the narration", kind: "toggle" },
-  { label: "Background video", note: "Pixabay / Pexels by keyword", kind: "button" },
-  { label: "Background music", note: "Jamendo, auto-ducked under speech", kind: "button" },
   { label: "Media library", note: "Your own downloaded clips and sounds", kind: "button" },
 ];
 

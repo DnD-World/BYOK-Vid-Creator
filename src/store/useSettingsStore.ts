@@ -25,12 +25,6 @@ interface SettingsState {
 }
 
 const INITIAL_DEFAULTS: BackendDefaults = {
-  ttsPrimary: "chatterbox-multilingual",
-  ttsFallback: "piper",
-  llmScenePlanner: "glm-5.2",
-  defaultTransition: "fade_zoom",
-  storageTarget: "local",
-  azureRegion: "",
   // Dedicated venv shipped alongside the app. Deliberately NOT bare
   // "python"/"python3": on a machine with several tools installed, that
   // resolves to whichever venv happens to be first on PATH, and Piper's

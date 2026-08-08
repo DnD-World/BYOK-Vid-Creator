@@ -25,7 +25,7 @@ const ACCENT_PRESETS = [
   { name: "Oxblood", hex: "#d8c39b" },
 ];
 
-type Access = "instant" | "approval" | "future";
+type Access = "instant" | "approval";
 
 interface Provider {
   id: string;
@@ -58,41 +58,28 @@ const PROVIDERS: Provider[] = [
     access: "instant",
   },
   {
-    id: "jamendo",
-    label: "Jamendo",
-    what: "Background music tracks.",
-    url: "https://devportal.jamendo.com/",
-    access: "approval",
-  },
-  {
     id: "freesound",
     label: "Freesound",
     what: "Sound effects — barks, whistles, clickers. Searched CC0-only, so nothing needs crediting.",
     url: "https://freesound.org/apiv2/apply/",
     access: "approval",
   },
-  {
-    id: "azure",
-    label: "Azure Speech",
-    what: "Optional backup voice engine. Chatterbox and Piper below cover normal use — you don't need this.",
-    url: "https://portal.azure.com/",
-    access: "instant",
-  },
-  {
-    id: "gdrive",
-    label: "Google Drive",
-    what: "Upload finished renders straight to Drive.",
-    url: "https://console.cloud.google.com/",
-    access: "future",
-  },
-  {
-    id: "elevenlabs",
-    label: "ElevenLabs",
-    what: "Premium voice engine.",
-    url: "https://elevenlabs.io/",
-    access: "future",
-  },
 ];
+
+// REMOVED, and each for a different reason — none of them "not yet":
+//
+//   Jamendo    — rejected on licensing months ago, and still had a key box.
+//                A field for a provider that was ruled out is an instruction to
+//                go and sign up for something unusable.
+//   Azure      — had a saved key AND a working Test button for an engine with
+//                NO synthesis code anywhere in the app. It could pass its test
+//                and still never speak, which is the most misleading state a
+//                setting can be in.
+//   Drive, 11L — on the cut list as "stubs only, don't build". A COMING SOON
+//                badge on something nobody intends to build is a promise.
+//
+// If any of these is ever genuinely wanted, add it back WITH the code behind
+// it, in the same change.
 
 const ACCESS_BADGE: Record<Access, { text: string; className: string }> = {
   instant: {
@@ -102,10 +89,6 @@ const ACCESS_BADGE: Record<Access, { text: string; className: string }> = {
   approval: {
     text: "NEEDS APPROVAL",
     className: "bg-amber-500/15 text-amber-300",
-  },
-  future: {
-    text: "COMING SOON",
-    className: "bg-accent-deep/25",
   },
 };
 
@@ -120,7 +103,6 @@ export default function BackendPanel() {
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [encryptionAvailable, setEncryptionAvailable] = useState(true);
 
-  const azureRegion = useSettingsStore((s) => s.defaults.azureRegion);
   const setDefault = useSettingsStore((s) => s.setDefault);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
@@ -154,7 +136,7 @@ export default function BackendPanel() {
   const test = async (id: string) => {
     setTests((t) => ({ ...t, [id]: { busy: true } }));
     try {
-      const result = await window.byok.keys.test(id, { azureRegion });
+      const result = await window.byok.keys.test(id);
       setTests((t) => ({ ...t, [id]: { busy: false, result } }));
     } catch (e) {
       // Without this the button sticks on "Testing…" forever and the real
@@ -239,17 +221,12 @@ export default function BackendPanel() {
 
       {PROVIDERS.map((p) => {
         const isSaved = saved.includes(p.id);
-        const isFuture = p.access === "future";
         const badge = ACCESS_BADGE[p.access];
         const state = tests[p.id];
         return (
           <div
             key={p.id}
-            className={`border p-4 ${
-              isFuture
-                ? "border-neutral-800 bg-metal-800/30 opacity-60"
-                : "border-accent/25 bg-metal-800/60"
-            }`}
+            className="border p-4 border-accent/25 bg-metal-800/60"
           >
             <div className="flex items-center justify-between mb-1 gap-3">
               <span className="text-base text-neutral-200">
@@ -258,7 +235,7 @@ export default function BackendPanel() {
                   {badge.text}
                 </span>
               </span>
-              {isSaved && !isFuture && (
+              {isSaved && (
                 <span className="text-sm text-emerald-400 shrink-0">saved ✓</span>
               )}
             </div>
@@ -274,8 +251,6 @@ export default function BackendPanel() {
               Get a key →
             </a>
 
-            {!isFuture && (
-              <>
                 <div className="flex gap-2">
                   <input
                     type="password"
@@ -321,24 +296,6 @@ export default function BackendPanel() {
                     {state.result.message}
                   </p>
                 )}
-              </>
-            )}
-
-            {p.id === "azure" && !isFuture && (
-              <div className="mt-2">
-                <input
-                  type="text"
-                  placeholder="Azure region (e.g. eastus)"
-                  value={azureRegion}
-                  onChange={(e) => setDefault("azureRegion", e.target.value)}
-                  className="w-full bg-metal-900 border border-accent/25 px-3 py-2 text-base text-neutral-100 outline-none focus:border-accent"
-                />
-                <p className="text-sm text-neutral-500 mt-1">
-                  Not a key — the region your Azure Speech resource was created in.
-                  Testing the key needs this too.
-                </p>
-              </div>
-            )}
           </div>
         );
       })}

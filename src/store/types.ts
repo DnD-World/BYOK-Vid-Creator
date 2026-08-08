@@ -246,7 +246,6 @@ export interface ProjectState {
   musicWaveform: TrackWaveform;
   musicColor: string;
   subtitles: SubtitleConfig;
-  bgRelevancy: number;   // 0 = fewer/longer, 1 = many/fast
   /** Silence inserted before a line by the same speaker — a breath. */
   pauseSameMs: number;
   /** Silence inserted when the speaker changes. Two people swapping turns with
