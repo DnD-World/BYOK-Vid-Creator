@@ -7,6 +7,12 @@
 > Audited against the code on 30 Jul 2026 — every "not built" below was checked
 > by grep, not remembered. Updated 31 Jul 2026 after the app was driven end to
 > end through its real UI for the first time.
+>
+> **Re-audited 8 Aug 2026**, after clicking through every panel of
+> `feat/media-fetch` in the running app and rendering a finished video from it.
+> Several rows below said "missing" for things that had shipped days earlier —
+> those are corrected in place. A plan that lies about what exists is how work
+> gets done twice.
 
 ---
 
@@ -98,25 +104,32 @@ Pexels pass; Azure correctly asks for its region first).
 | Feature | What exists | What's missing |
 |---|---|---|
 | **AI script assistant** | GLM-5.2 "Draft Script" in the **Narration** tab | Buried below the voice list; users can't find it. Needs surfacing. Timeout raised to 5 min; still unverified against a real key. |
-| **Azure Speech** | Key field + connectivity test | **No synthesis code at all.** It cannot speak. Either build it or drop the field. |
-| **Chatterbox** | Full integration, test panel, voice modes | Never started; no unified engine manager |
-| **Music** | Colour + waveform track | No music *file* can be loaded. The track animates to the narration. |
-| **Subtitles** | Full styling, burned in | **No SRT export**, which the README promises |
+| **Chatterbox** | Full integration, test panel, voice modes | Server INSTALLED 8 Aug (portable, NVIDIA cu121, in `../Chatterbox-TTS-Server`). Still needs its engine picked once in its own web UI, and has never synthesised here |
+| **Music** | ~~Colour + waveform track~~ **BUILT** — Cast > ♪ Music loads a file, mixes under narration, auto-ducks (260ms look-ahead) | Not audible in the preview, which has no audio at all |
+| **Subtitles** | Full styling, burned in, **SRT export BUILT** (Scene > Subtitles) | — |
 | **Speaker voices** | Works | UI is **duplicated** — engine/voice appear in both Cast and Narration panels |
 | **Narration view** | Works | Still a full-screen view, not folded into the panel system |
 
 ## 4. Not started
 
 **Audio**
-- Background music loading, and **auto-ducking** under speech
-- SFX generation via LocalAI, and an SFX library
-- Freesound / Jamendo integration (keys pending approval)
-- Local media library folder (the legal answer to Mixkit / Orange Free Sounds)
+- ~~Background music loading and auto-ducking~~ — **BUILT**
+- ~~Freesound~~ — **BUILT and live** (CC0-only). Jamendo dropped: licence.
+- SFX **generation** — moved off LocalAI, which never loaded a model on
+  Windows. Now Stable Audio Open, locally, via `tools/make-sfx.py` +
+  `sfx/wanted.csv`. Licence checked: free commercial use under $1M revenue,
+  outputs owned, and trained only on CC0/CC-BY audio.
+- Local media library folder — still not built. Loading one file from disk is
+  not a folder the app indexes.
+- Preview has **no audio at all**. Music, ducking and effects are only ever
+  heard in a render.
 
 **Visual**
-- Background video from Pixabay / Pexels (keys saved, nothing consumes them)
+- ~~Background video from Pixabay / Pexels~~ — **BUILT and live**, both
+  providers, interleaved, verified in the app and in a render.
 - Intro / outro cards
-- Transition library (`defaultTransition` exists in settings but nothing reads it)
+- Transition library — `defaultTransition` was a dead setting and has been
+  deleted. Build the feature and the setting together, or neither.
 - The dotted 3D wave-plane waveform style
 
 **Workflow**
@@ -142,24 +155,27 @@ Pexels pass; Azure correctly asks for its region first).
   the Scene panel. Presets cover the *look*, deliberately, but they are a manual
   export and they don't carry the script or the narration. Decide whether that
   is the design (presets are the save format, say so in the UI) or a gap.
-- **Piper's server re-execs itself under a different Python.** `piper.http_server`
-  is a Flask app with the reloader on, so the process that actually binds the
-  port is a *grandchild* launched with the system interpreter
-  (`Programs\Python\Python312\python.exe`), not the venv the app carefully
-  points at. `shutdownAllPiperServers` kills the parent only. Nothing has piled
-  up in practice, but the venv isolation the settings comment argues for is not
-  actually holding, and ports are fixed (5501+) with no check that whatever
-  answers on one is ours.
+- ~~**Piper's server re-execs itself under a different Python.**~~ **THIS WAS
+  WRONG** and was repeated for a week before anyone checked. The second
+  `python.exe` under the venv one is not a reloader and not a leak: it is how a
+  Windows venv works — `Scripts\python.exe` launches the base interpreter, and
+  `sys.prefix` and site-packages still resolve into `piper-venv`. Verified by
+  importing piper inside it. What IS real: ports are fixed (5501+) with no
+  check that whatever answers on one is ours.
+- **The first narration after launching the app used to fail every time**
+  (`ECONNRESET`), and a retry always worked — a cold-start race, fixed by
+  requiring two consecutive good pings before writing and backing off between
+  retries. Matters most for unattended batch runs, which would otherwise fail
+  on their first row every time. **Not yet verified end to end.**
 - **`onBrowserLog` is the only channel the composition has to report a problem.**
   Currently one message uses it (spectrum failed to load). Worth remembering
   that anything going wrong inside a render is otherwise completely silent —
   which is exactly how a render that had quietly stopped using the spectrum
   still looked like a success.
 
-- **Dead settings**, in the store but read by nothing: `defaultTransition`,
-  `storageTarget`, `ttsPrimary`, `ttsFallback`, `llmScenePlanner`.
-  `bgRelevancy` has a setter and no UI and no consumer. Either wire or delete —
-  they currently imply features that don't exist.
+- ~~**Dead settings**~~ — **DELETED 8 Aug**: `defaultTransition`,
+  `storageTarget`, `ttsPrimary`, `ttsFallback`, `llmScenePlanner`,
+  `azureRegion`, `bgRelevancy`.
 - **Duplicate voice UI** between Cast and Narration panels. Two places to set
   the same thing is how they drift.
 - **Legacy `WaveformConfig`** is retained only so old templates migrate. Delete
@@ -231,6 +247,44 @@ until a model actually loads. Then: generate → SFX library folder → browse �
 
 It exists but nobody can find it. Move it somewhere obvious, add the tone
 checkboxes and the text-polish pass, then build the preset-writing skill.
+
+---
+
+## Two traps that cost most of 7–8 Aug
+
+### Antivirus HTTPS scanning breaks everything that isn't Chromium
+
+This machine has **Avast Web/Mail Shield Root** in the Windows certificate
+store (Kaspersky's is there too). Avast terminates TLS itself and re-signs
+every response with that root. Windows and every browser trust it.
+
+**Nothing else does**, because nothing else reads the Windows store:
+
+| What broke | Error | Fix |
+|---|---|---|
+| Freesound search in the app | `unable to verify the first certificate` | all outbound calls moved to electron's `net` (Chromium's stack) |
+| `uv pip install torch` | `invalid peer certificate: UnknownIssuer` | `--system-certs` |
+| `hf auth whoami`, model downloads | `CERTIFICATE_VERIFY_FAILED` | `SSL_CERT_FILE` → `tools/windows-ca-bundle.pem` |
+| Chatterbox's own installer | would have hit the same | same env vars, passed in |
+
+**It is intermittent**, which is what makes it expensive: Avast skips
+connections by reputation, so Pixabay and Pexels passed their tests while
+Freesound failed, minutes apart, on identical code. **Any "provider-specific"
+network failure on Windows should be checked against this first.**
+
+`tools/make-ca-bundle.ps1` regenerates the bundle. It is gitignored — it
+describes one machine.
+
+### A vendored CSS library can collide with Tailwind by class name
+
+Deco Noir defines `.grid`. So does Tailwind. Tailwind's sets `display` only;
+the library's also sets `align-items:start`. The centre panel used Tailwind's,
+silently inherited the library's alignment, and the preview stage — which is
+MEASURED to size the canvas — collapsed to 2px and stayed there. The whole
+preview drew nothing, and it read as a rendering bug for hours.
+
+Renamed to `.dn-grid` when vendoring. **Re-apply on any re-vendor**, and check
+new library classes against Tailwind utility names.
 
 ---
 
