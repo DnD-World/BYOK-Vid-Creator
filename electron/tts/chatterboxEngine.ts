@@ -151,8 +151,29 @@ export async function ensureServerRunning(cfg: ChatterboxConfig): Promise<void> 
   return readyPromise;
 }
 
-export function isServerRunning(): boolean {
-  return !!serverProcess;
+/**
+ * Whether the server is actually answering — asked, not assumed.
+ *
+ * This used to return `!!serverProcess`: whether THIS app was holding a child
+ * process handle. That is a different question, and it was wrong in both
+ * directions.
+ *
+ * Wrong when the server dies: the renderer set its own `serverRunning` flag
+ * once, when Start Server succeeded, and never revisited it. So the panel went
+ * on showing "running ✓" long after the process was gone, and every request
+ * failed with "failed to fetch" against a green tick. In dev that happens
+ * constantly — editing anything in the main process restarts Electron, which
+ * kills the server it spawned — but a crash or an OOM does the same thing in a
+ * packaged build.
+ *
+ * Wrong the other way too: a server started by hand, or left running by a
+ * previous session, is perfectly usable and this reported it as absent.
+ *
+ * A ping answers the question the caller is really asking, which is "can I use
+ * it", not "did I start it".
+ */
+export async function isServerRunning(): Promise<boolean> {
+  return pingServer(serverPort);
 }
 
 export async function listPredefinedVoices(): Promise<Voice[]> {

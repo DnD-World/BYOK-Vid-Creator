@@ -415,7 +415,7 @@ ipcMain.handle(
 app.on("will-quit", async (event) => {
   // Give Chatterbox a chance to release GPU memory cleanly before the app
   // actually exits — Electron's will-quit can be paused for this.
-  if (chatterbox.isServerRunning()) {
+  if (await chatterbox.isServerRunning()) {
     event.preventDefault();
     await chatterbox.shutdownServer();
     shutdownAllPiperServers();
