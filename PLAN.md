@@ -215,9 +215,17 @@ something that render actually showed, in the order Ak chose.
    Absorbs two review findings at once: the frame-centred waveform and Καίτη
    standing off-centre alone. Spec:
    `docs/superpowers/specs/2026-08-12-presets-and-surfaces-design.md`.
-2. **Background relevance.** The planner exists and is wired up; the clips it
-   chose were ambient ("dogs in a park") where the script wanted situational
-   ("dog refusing a treat", "vet examining a dog").
+2. **Background relevance**, including the **Relevancy ↔ Frequency dial**
+   uncut from the Cut List on 12 Aug. The planner exists and is wired up; the
+   clips it chose were ambient ("dogs in a park") where the script wanted
+   situational ("dog refusing a treat", "vet examining a dog"). *Relevancy* is
+   how tightly each clip has to match the line being spoken; *frequency* is how
+   often the picture changes. They pull against each other — insisting on a
+   close match for every sentence means either cutting constantly or failing to
+   find clips — which is why one dial with two ends is the honest control.
+2b. **Image intro / outro cards** — see Parked, below. Small, and it rides
+   along with the background work since both place a visual over a stretch of
+   time.
 3. **Choppy idle motion.** Cause unknown — investigate before proposing a fix.
 4. **Chatterbox's first words.** Installed 8 Aug, has never synthesised. The
    voice being monotonous and slow is the single loudest complaint, and Piper
@@ -273,17 +281,27 @@ Two traps that cost real time here, both worth remembering:
 Still on the table now that real band data exists: mirrored fills, gradients,
 and the dotted 3D wave-plane style.
 
-### 2. SFX via LocalAI — blocked on a backend
+**To be clear about what "frozen" means below** — the Cut List freezes the
+*count* at six styles, so no seventh named style gets invented. Improving the
+six is explicitly in scope and always was: fills, gradients, better ring
+behaviour, and where a waveform sits relative to the speaker. The dotted 3D
+wave-plane is the one exception, kept because it is a rework of the existing
+`dots` rather than an addition to the list.
 
-Endpoint confirmed: `POST http://localhost:8080/tts` with
-`{"model": "...", "input": "a dog barking twice"}`.
+### 2. ~~SFX via LocalAI~~ — ABANDONED, and nothing needs port 8080
 
-**Neither model loads today:**
-- `audio-cpp-stable-audio-sfx` → *"backend not found: audio-cpp"*
-- `stable-audio-3-small-SFX` → *"grpc service not ready"* (vllm doesn't run on Windows)
+**Deleted 12 Aug 2026 because this section was actively misleading.** It
+described `POST http://localhost:8080/tts` as the route to sound effects, and
+led to time spent wondering why LocalAI wasn't running. It doesn't need to be.
 
-Install the `audio-cpp` backend from LocalAI's gallery first. Nothing to build
-until a model actually loads. Then: generate → SFX library folder → browse → place.
+LocalAI never loaded a model on Windows — `audio-cpp` was not a real backend,
+and the vllm-based one doesn't run here at all. So sound effects moved to
+**Stable Audio Open, run locally by `tools/make-sfx.py`** from `sfx/wanted.csv`.
+No server, no port, no daemon: a script you run when you want more sounds.
+
+`grep -rn "8080\|localai" src/ electron/` returns nothing. **Nothing in this app
+has ever talked to port 8080.** If something is listening there on this machine,
+it belongs to another program — leave it alone.
 
 ### 3. Surface the AI assistant, then extend it
 
@@ -339,21 +357,35 @@ new library classes against Tailwind utility names.
 - **Azure Speech and Edge TTS as roadmap items.** Chatterbox (quality) + Piper
   (fast) cover every real need. Every extra engine multiplies what can break.
 - **ElevenLabs, Google Drive** — stubs only, don't build.
-- **The AI background "Relevancy ↔ Frequency dial"** — ship keyword search first.
+- ~~**The AI background "Relevancy ↔ Frequency dial"**~~ — **UNCUT 12 Aug 2026.**
+  It was cut only until keyword search shipped, and keyword search shipped on
+  8 Aug. Moved into the plan, folded into item 2 (background relevance), which
+  is the same problem seen from the other end.
 - **Waveform style library is frozen** at six styles. Improve what exists.
 - **SSML** — neither Piper nor Chatterbox supports it. Target expressive
   punctuation instead. (Chatterbox Turbo's `[laugh]` tags are worth one test.)
 
 ## Parked
 
-**Intro / outro cards.** Three different features under one name:
-1. *Title card* — text on the HUD background. ~1 hour, fits any phase.
-2. *Image card* — needs the asset in the render bundle (solved pattern now).
-3. *Video sting* — hardest: needs `<OffthreadVideo>`, a second audio track, and
-   the narration offset by the intro's length or subtitles and lip-sync drift
-   for the whole video.
+**Intro / outro cards.** Three different features were hiding under one name.
+Plain English, because the old wording assumed too much:
 
-Recommendation: build #1, consider #3 only after the dog video exists.
+1. *Title card* — the app draws **text** over the background. No file needed.
+2. *Image card* — you supply a **finished picture** and the app holds it on
+   screen for a few seconds. Where it comes from is your business — Midjourney
+   or anything else.
+3. *Video sting* — a short **animated clip with its own sound**, like a logo
+   animation with a whoosh.
+
+**Decided 12 Aug 2026: build #2, and only #2.** Ak makes the artwork elsewhere
+and hands the app a finished image; all the app owes it is a transition in and
+out. That is the cheap one — the render bundle already copies background clips
+and viseme sheets in, so an image is the same solved pattern again.
+
+#3 stays parked and is the expensive one for a non-obvious reason: it carries
+its own audio, so everything after it has to shift by the sting's length. Get
+that offset wrong and the subtitles and lip-sync drift for the entire video.
+Not worth it for a logo.
 
 **Amplitude-driven jaw-flap** for attached audio with no script — would let
 lip-sync work on any audio, approximately.
