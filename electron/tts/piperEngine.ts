@@ -1,5 +1,6 @@
-import { spawn, ChildProcess } from "node:child_process";
+import { ChildProcess } from "node:child_process";
 import { childEnv } from "../net/childEnv";
+import { spawnTracked, killTree } from "../process/childTree";
 import path from "node:path";
 import fs from "node:fs/promises";
 import http from "node:http";
@@ -82,7 +83,7 @@ async function getOrStartServer(pythonPath: string, onnxPath: string): Promise<S
   if (existing) return existing;
 
   const port = nextPort++;
-  const proc = spawn(pythonPath, ["-m", "piper.http_server", "-m", onnxPath, "--port", String(port)], {
+  const proc = spawnTracked(pythonPath, ["-m", "piper.http_server", "-m", onnxPath, "--port", String(port)], {
     stdio: ["ignore", "pipe", "pipe"],
     // Piper reads local .onnx files and needs no network today, so this is
     // pre-emptive — but it also carries PYTHONUTF8, and a Greek console
@@ -247,8 +248,12 @@ async function postSynthesize(
   };
 }
 
-/** Called on app quit so we don't leave orphaned python processes running. */
+/** Called on app quit so we don't leave orphaned python processes running.
+ *  By tree — `python -m piper.http_server` starts a server process of its own,
+ *  and killing only the handle we hold leaves that one behind. */
 export function shutdownAllPiperServers() {
-  for (const [, handle] of servers) handle.proc.kill();
+  for (const [, handle] of servers) {
+    if (handle.proc.pid) void killTree(handle.proc.pid);
+  }
   servers.clear();
 }

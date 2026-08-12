@@ -13,6 +13,7 @@ import { ensureFont, SUBTITLE_FONTS } from "./net/fonts";
 import { searchSounds } from "./net/soundSearch";
 import { planBackgrounds, pickBackgrounds } from "./llm/backgroundPlanner";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
+import { installExitHandlers, reapOrphansFromLastSession } from "./process/childTree";
 
 const isDev = !app.isPackaged;
 
@@ -412,20 +413,26 @@ ipcMain.handle(
   }
 );
 
-app.on("will-quit", async (event) => {
-  // Give Chatterbox a chance to release GPU memory cleanly before the app
-  // actually exits — Electron's will-quit can be paused for this.
+// Cleanup used to live in a single will-quit handler, which covers the one exit
+// where nothing has gone wrong. Crashes, force-quits and dev restarts left the
+// spawned Python servers running — holding several GB of an 8 GB card, with no
+// window to explain themselves. installExitHandlers covers every exit path.
+installExitHandlers(async () => {
   if (await chatterbox.isServerRunning()) {
-    event.preventDefault();
     await chatterbox.shutdownServer();
-    shutdownAllPiperServers();
-    app.quit();
-    return;
   }
   shutdownAllPiperServers();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Before anything is started, take down anything a previous session left
+  // behind. Checked against the recorded command line first, so a recycled
+  // process id never gets someone else's program killed.
+  const reaped = await reapOrphansFromLastSession();
+  if (reaped > 0) {
+    console.log(`Cleaned up ${reaped} engine process(es) left by a previous session.`);
+  }
+
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

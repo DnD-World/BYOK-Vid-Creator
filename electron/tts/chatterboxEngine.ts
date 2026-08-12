@@ -1,5 +1,6 @@
-import { spawn, ChildProcess } from "node:child_process";
+import { ChildProcess } from "node:child_process";
 import { childEnv } from "../net/childEnv";
+import { spawnTracked, killTree } from "../process/childTree";
 import path from "node:path";
 import fs from "node:fs/promises";
 import http from "node:http";
@@ -122,7 +123,9 @@ export async function ensureServerRunning(cfg: ChatterboxConfig): Promise<void> 
   serverPort = cfg.port || 8004;
   const pythonExe = await findPythonExe(cfg.installPath);
 
-  const proc = spawn(pythonExe, ["server.py"], {
+  // spawnTracked, not spawn: `python server.py` is a launcher, and the process
+  // that actually holds the card is its child. See electron/process/childTree.ts.
+  const proc = spawnTracked(pythonExe, ["server.py"], {
     cwd: cfg.installPath,
     stdio: ["ignore", "pipe", "pipe"],
     // Without this the server starts, binds its port, passes the health check
@@ -300,7 +303,9 @@ export async function shutdownServer(): Promise<void> {
       req.end();
     });
   } finally {
-    serverProcess.kill();
+    // The tree, not the handle. serverProcess.kill() left the actual server —
+    // the child of the launcher we spawned — alive and still holding VRAM.
+    if (serverProcess.pid) await killTree(serverProcess.pid);
     serverProcess = null;
     readyPromise = null;
   }
