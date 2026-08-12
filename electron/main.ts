@@ -14,6 +14,7 @@ import { planBackgrounds, pickBackgrounds } from "./llm/backgroundPlanner";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
 import { installExitHandlers, reapOrphansFromLastSession } from "./process/childTree";
 import { buildNarration, type NarrationInput } from "./tts/buildNarration";
+import { runBatchJob, type BatchJob } from "./batch/runJob";
 
 const isDev = !app.isPackaged;
 
@@ -368,11 +369,62 @@ app.whenReady().then(async () => {
     console.log(`Cleaned up ${reaped} engine process(es) left by a previous session.`);
   }
 
+  // `--job <file>` renders one video and exits, with no window ever created.
+  // Electron rather than plain node because everything underneath assumes it:
+  // app.getPath for the output folders, and Chromium's network stack for every
+  // outbound call — which on this machine is the difference between working
+  // and "unable to verify the first certificate" (see the antivirus note).
+  const jobArg = process.argv.indexOf("--job");
+  if (jobArg !== -1 && process.argv[jobArg + 1]) {
+    await runHeadless(process.argv[jobArg + 1]);
+    return;
+  }
+
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+async function runHeadless(jobPath: string): Promise<void> {
+  const started = Date.now();
+  let lastPct = -1;
+  try {
+    const job = JSON.parse(await fsp.readFile(jobPath, "utf8")) as BatchJob;
+    const result = await runBatchJob(job, {
+      projectRoot: app.getAppPath(),
+      outputDir: outputDir(),
+      fontsDir: fontsDir(),
+      mediaDir: path.join(app.getPath("userData"), "media"),
+      // A progress bar nobody watches is noise in a log file. Only whole
+      // percent changes are printed, and each carries the elapsed time —
+      // which is the number this whole exercise exists to find out.
+      onProgress: (pct, note) => {
+        if (pct === lastPct) return;
+        lastPct = pct;
+        const mins = ((Date.now() - started) / 60000).toFixed(1);
+        console.log(`[${String(pct).padStart(3)}%] ${mins}m  ${note}`);
+      },
+    });
+
+    if (result.unmatchedLines.length > 0) {
+      console.warn(
+        `\n${result.unmatchedLines.length} script line(s) matched no speaker and were skipped:`
+      );
+      for (const line of result.unmatchedLines.slice(0, 10)) console.warn(`  ${line}`);
+    }
+
+    console.log(`\nDone in ${((Date.now() - started) / 60000).toFixed(1)} minutes.`);
+    console.log(`  video     ${result.outputPath}`);
+    console.log(`  narration ${result.narrationPath}`);
+    console.log(`  ${result.durationSec}s, ${result.frames} frames`);
+    app.exit(0);
+  } catch (err) {
+    console.error(`\nJob failed after ${((Date.now() - started) / 60000).toFixed(1)} minutes:`);
+    console.error(err instanceof Error ? err.stack ?? err.message : String(err));
+    app.exit(1);
+  }
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
