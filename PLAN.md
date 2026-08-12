@@ -18,11 +18,21 @@
 
 ## The North Star
 
-**One finished 60-second Greek dog video, rendered end to end, good enough to
-post on LinkedIn.**
+**Lesson videos for two LMS courses, 3–8 minutes each.** Dog training first —
+the three built characters were made for it. Professional soft skills second,
+which will need a few more characters. The same material is also cut for social,
+so a project has to come out in more than one orientation.
 
-Everything gets judged against that. If it doesn't move that video closer to
+Everything gets judged against that. If it doesn't move those lessons closer to
 existing, it goes in the Cut List — not a backlog.
+
+> Corrected 12 Aug 2026. This document previously said "one finished 60-second
+> Greek dog video, good enough to post on LinkedIn". That showcase video is
+> **secondary**. The mistake mattered: 3–8 minutes is five to eight times the
+> render length everything below was measured against, so render time, viseme
+> sheet memory, and drift in the estimated word timings all matter more than the
+> numbers here suggest. Nothing longer than about a minute has ever been
+> rendered.
 
 ## Priority order
 
@@ -190,6 +200,38 @@ Pexels pass; Azure correctly asks for its region first).
   transition library. None exist. Update it before anyone else reads it.
 
 ---
+
+## The agreed order — 12 Aug 2026
+
+Set after watching `render-1786118738784.mp4` (7 Aug) end to end. Each item is
+something that render actually showed, in the order Ak chose.
+
+0. ~~**Save the work.**~~ **DONE 12 Aug.** `feat/media-fetch` was 22 commits
+   ahead of `main` with 14 unpushed, plus the uncommitted process-tree fix. All
+   merged to `main` and pushed. This is why a reader of GitHub saw an empty
+   project: `main` was six weeks stale.
+1. **Presets that carry the whole look** — nine of them, 3 styles × 1/2/3
+   speakers, editable, covering layout, subtitles, background and surfaces.
+   Absorbs two review findings at once: the frame-centred waveform and Καίτη
+   standing off-centre alone. Spec:
+   `docs/superpowers/specs/2026-08-12-presets-and-surfaces-design.md`.
+2. **Background relevance.** The planner exists and is wired up; the clips it
+   chose were ambient ("dogs in a park") where the script wanted situational
+   ("dog refusing a treat", "vet examining a dog").
+3. **Choppy idle motion.** Cause unknown — investigate before proposing a fix.
+4. **Chatterbox's first words.** Installed 8 Aug, has never synthesised. The
+   voice being monotonous and slow is the single loudest complaint, and Piper
+   cannot fix it. Takes the card: ask before running.
+5. **Lip-sync.** `wordTiming.ts` estimates from character weight. Piper 1.6
+   serves real phoneme alignments — that fixes mouths *and* subtitle timing from
+   one source. Not in Ak's stated order; placed here, flagged, not assumed.
+6. **Batch production.** One row per lesson. A row carries a finished script, a
+   topic, **or a URL the characters discuss**. Spreadsheet-driven and inside the
+   app, not n8n. Needs `docs/WRITING-SCRIPTS.md` to be good enough for someone
+   filling a spreadsheet without the app in front of them.
+
+Verified good in the same review, do not regress: subtitle look, speed and sync;
+brow, head and eye movement; the darkened background.
 
 ## Next chapter — start here
 
