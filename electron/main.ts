@@ -4,7 +4,6 @@ import fsp from "node:fs/promises";
 import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import * as chatterbox from "./tts/chatterboxEngine";
-import { concatWavBuffers } from "./audio/concatWav";
 import { analyzeNarration } from "./audio/analyzeNarration";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
@@ -14,6 +13,7 @@ import { searchSounds } from "./net/soundSearch";
 import { planBackgrounds, pickBackgrounds } from "./llm/backgroundPlanner";
 import { renderVideo, type RenderJob } from "./render/renderVideo";
 import { installExitHandlers, reapOrphansFromLastSession } from "./process/childTree";
+import { buildNarration, type NarrationInput } from "./tts/buildNarration";
 
 const isDev = !app.isPackaged;
 
@@ -325,78 +325,13 @@ ipcMain.handle("tts:chatterboxSynthesize", async (_e, opts: chatterbox.Synthesiz
 
 ipcMain.handle("tts:generateNarration", async (
   _e,
-  // Piper and Chatterbox can be mixed within one script — the engine is a
-  // per-speaker choice, so a fast Piper voice and a cloned Chatterbox voice
-  // can appear in the same narration.
-  segments: (chatterbox.NarrationSegmentInput & {
-    engine?: "chatterbox" | "piper";
-    piperPythonPath?: string;
-    piperOnnxPath?: string;
-  })[],
-  // Speaker ids in the order the canvas draws them, so the analysis's
-  // per-frame speaker index lines up with the waveform's tracks.
+  segments: NarrationInput[],
   speakerOrder: string[] = [],
   pauses: { sameMs: number; turnMs: number } = { sameMs: 0, turnMs: 0 }
 ) => {
-  if (segments.length === 0) {
-    throw new Error("No script segments to generate — check your script matches your speaker labels.");
-  }
-
-  const buffers: Buffer[] = [];
-  for (const seg of segments) {
-    if (seg.engine === "piper") {
-      if (!seg.piperPythonPath || !seg.piperOnnxPath) {
-        throw new Error(
-          `Speaker "${seg.speakerLabel}" is set to Piper but has no voice selected — pick one in the left rail.`
-        );
-      }
-      const { audioBuffer } = await synthesizeWithPiper(
-        seg.piperPythonPath,
-        seg.piperOnnxPath,
-        seg.text
-      );
-      buffers.push(Buffer.from(audioBuffer));
-      continue;
-    }
-
-    const { audioBuffer } = await chatterbox.synthesize({
-      text: seg.text,
-      language: seg.language,
-      voiceMode: seg.voiceMode,
-      predefinedVoiceId: seg.predefinedVoiceId,
-      referenceAudioFilename: seg.referenceAudioFilename,
-      exaggeration: seg.exaggeration,
-      cfgWeight: seg.cfgWeight,
-    });
-    buffers.push(Buffer.from(audioBuffer));
-  }
-
-  // Nothing in front of the first line — leading silence only delays the video.
-  // After that, a breath between a speaker's own lines and a longer beat when
-  // the turn changes.
-  const gaps = segments.map((seg, i) =>
-    i === 0 ? 0 : seg.speakerId === segments[i - 1].speakerId ? pauses.sameMs : pauses.turnMs
-  );
-  const { buffer, segments: timing } = concatWavBuffers(buffers, gaps);
-
-  await fsp.mkdir(outputDir(), { recursive: true });
-  const filePath = path.join(outputDir(), `narration-${Date.now()}.wav`);
-  await fsp.writeFile(filePath, buffer);
-
-  const resolved = segments.map((seg, i) => ({
-    speakerId: seg.speakerId,
-    speakerLabel: seg.speakerLabel,
-    text: seg.text,
-    startMs: timing[i].startMs,
-    endMs: timing[i].endMs,
-  }));
-
-  // Analysed once, here, while the audio is already in memory — rather than
-  // re-read and re-analysed on every render.
-  const analysis = analyzeNarration(buffer, resolved, speakerOrder);
-
-  return { filePath, segments: resolved, analysis };
+  return buildNarration(segments, speakerOrder, pauses, outputDir());
 });
+
 
 // ---------------------------------------------------------------------------
 // GLM-5.2 script draft assistant (NVIDIA NIM). Reads the key from the same
