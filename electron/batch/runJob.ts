@@ -189,6 +189,7 @@ export async function runBatchJob(
         speakerLabel: s.speakerLabel,
       })),
       languageName: language,
+      onBatch: (done, total) => onProgress(14, `Planning backgrounds ${done}/${total}…`),
     });
     const chosen = await pickBackgrounds(plan, { portrait });
 

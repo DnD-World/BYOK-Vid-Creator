@@ -68,7 +68,11 @@ async function postJson(apiKey: string, payload: string): Promise<string> {
       "Content-Type": "application/json",
     },
     body: payload,
-    timeoutMs: 120000,
+    // GLM-5.2 was measured at 274s on a real key for a single script draft.
+    // Two minutes was never enough headroom for a reasoning model; batching
+    // keeps each call small, and this stops a slow-but-working call from
+    // reading as a network failure.
+    timeoutMs: 300000,
   });
   if (res.status !== 200) {
     throw new Error(`NVIDIA returned HTTP ${res.status}: ${res.body.slice(0, 200)}`);
@@ -104,6 +108,9 @@ export async function planBackgrounds(opts: {
    *  up to this, so a fast exchange doesn't cut the picture every 1.5s. */
   minSceneMs?: number;
   topic?: string;
+  /** Called once per batch. A nine-minute script takes several minutes to
+   *  plan, and a caller with no way to say so looks hung. */
+  onBatch?: (done: number, total: number) => void;
 }): Promise<BackgroundPlan> {
   const apiKey = await keyStore.getKey("nvidia");
   if (!apiKey) throw new Error("No NVIDIA API key saved — add one in Backend Settings first.");
@@ -137,50 +144,89 @@ export async function planBackgrounds(opts: {
     text: g.map((s) => `${s.speakerLabel}: ${s.text}`).join(" "),
   }));
 
-  const systemPrompt = [
-    "You choose stock-video search queries for a narrated short video.",
-    "Return ONLY a JSON object of the form:",
-    `{"look":"...","scenes":[{"index":0,"query":"...","reason":"..."}]}`,
-    "",
-    "`look` is ONE short phrase describing a consistent visual treatment for the",
-    "whole video — lighting, palette, setting. Every scene will inherit it, so it",
-    "must suit all of them.",
-    "",
-    "`query` MUST be in ENGLISH regardless of the script's language, 2-5 words,",
-    "and must describe something a stock footage library plausibly contains.",
-    "Prefer concrete filmable subjects over abstractions: 'dog eating from bowl'",
-    "not 'canine nutrition awareness'. Never name a brand or a person.",
-    "",
-    "`reason` is one short sentence, in English, saying why it fits that scene.",
-    "Return exactly one entry per scene index given, in order.",
-  ].join("\n");
+  // PLANNED IN BATCHES, and the reason is a measurement rather than caution.
+  //
+  // This was one request for the whole script, which is fine at sixty seconds
+  // and breaks at nine minutes. An 8m47s lesson groups into roughly ninety
+  // scenes; that request timed out, and had it returned it would have been
+  // truncated anyway, since ninety query-plus-reason objects do not fit in the
+  // 8192 tokens asked for. Both failures are silent in different ways — one
+  // looks like a network problem, the other like a model that ignored half its
+  // input.
+  //
+  // The batch size is small enough that any one call is comfortably inside both
+  // limits, and the LOOK IS DECIDED ONCE, by the first batch, then handed to
+  // every later one. That is what keeps ninety scenes coherent without asking a
+  // model to hold ninety scenes in mind at once.
+  const BATCH = 20;
+  const batches: typeof scenesForModel[] = [];
+  for (let i = 0; i < scenesForModel.length; i += BATCH) {
+    batches.push(scenesForModel.slice(i, i + BATCH));
+  }
 
-  const userPrompt = [
-    opts.topic ? `Overall topic: ${opts.topic}` : null,
-    `Script language: ${opts.languageName}`,
-    `Scenes:`,
-    ...scenesForModel.map((s) => `${s.index}: ${s.text}`),
-  ].filter(Boolean).join("\n");
+  let look = "";
+  const byIndex = new Map<number, { index: number; query: string; reason?: string }>();
 
-  const body = await postJson(
-    apiKey,
-    JSON.stringify({
-      model: NVIDIA_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.4, // lower than the script writer: this is classification, not creativity
-      max_tokens: 8192,
-    })
-  );
+  for (const [n, batch] of batches.entries()) {
+    const first = n === 0;
+    const systemPrompt = [
+      "You choose stock-video search queries for a narrated video.",
+      "Return ONLY a JSON object of the form:",
+      first
+        ? `{"look":"...","scenes":[{"index":0,"query":"...","reason":"..."}]}`
+        : `{"scenes":[{"index":0,"query":"...","reason":"..."}]}`,
+      "",
+      first
+        ? [
+            "`look` is ONE short phrase describing a consistent visual treatment for",
+            "the whole video — lighting, palette, setting. Every scene in the video",
+            "will inherit it, including scenes you are not being shown, so keep it",
+            "general enough to suit a whole lesson on this subject.",
+          ].join("\n")
+        : `The look has already been chosen for this video: "${look}". Every query you return must suit it. Do not return a look field.`,
+      "",
+      "`query` MUST be in ENGLISH regardless of the script's language, 2-5 words,",
+      "and must describe something a stock footage library plausibly contains.",
+      "Prefer concrete filmable subjects over abstractions: 'dog eating from bowl'",
+      "not 'canine nutrition awareness'. Never name a brand or a person.",
+      "",
+      "`reason` is one short sentence, in English, saying why it fits that scene.",
+      "Return exactly one entry per scene index given, in order, and use the",
+      "index numbers exactly as given — they are not consecutive from zero.",
+    ].join("\n");
 
-  const parsed = JSON.parse(body) as { choices?: { message?: { content?: string } }[] };
-  const content = parsed.choices?.[0]?.message?.content ?? "";
-  const obj = extractJson(content) as { look?: string; scenes?: { index: number; query: string; reason?: string }[] };
+    const userPrompt = [
+      opts.topic ? `Overall topic: ${opts.topic}` : null,
+      `Script language: ${opts.languageName}`,
+      batches.length > 1 ? `This is part ${n + 1} of ${batches.length} of one video.` : null,
+      `Scenes:`,
+      ...batch.map((s) => `${s.index}: ${s.text}`),
+    ].filter(Boolean).join("\n");
 
-  const look = (obj.look ?? "").trim();
-  const byIndex = new Map((obj.scenes ?? []).map((s) => [s.index, s]));
+    const body = await postJson(
+      apiKey,
+      JSON.stringify({
+        model: NVIDIA_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.4, // lower than the script writer: this is classification, not creativity
+        max_tokens: 8192,
+      })
+    );
+
+    const parsed = JSON.parse(body) as { choices?: { message?: { content?: string } }[] };
+    const content = parsed.choices?.[0]?.message?.content ?? "";
+    const obj = extractJson(content) as {
+      look?: string;
+      scenes?: { index: number; query: string; reason?: string }[];
+    };
+
+    if (first) look = (obj.look ?? "").trim();
+    for (const s of obj.scenes ?? []) byIndex.set(s.index, s);
+    opts.onBatch?.(n + 1, batches.length);
+  }
 
   return {
     look,

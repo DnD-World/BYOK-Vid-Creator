@@ -404,7 +404,7 @@ app.whenReady().then(async () => {
 
 async function runHeadless(jobPath: string): Promise<void> {
   const started = Date.now();
-  let lastPct = -1;
+  let lastLine = "";
   try {
     const job = JSON.parse(await fsp.readFile(jobPath, "utf8")) as BatchJob;
     const result = await runBatchJob(job, {
@@ -416,8 +416,12 @@ async function runHeadless(jobPath: string): Promise<void> {
       // percent changes are printed, and each carries the elapsed time —
       // which is the number this whole exercise exists to find out.
       onProgress: (pct, note) => {
-        if (pct === lastPct) return;
-        lastPct = pct;
+        // Deduped on the whole line rather than the percentage: planning holds
+        // at 14% for several minutes while its batches tick past, and dropping
+        // those would leave the log looking hung during the slowest stage.
+        const line = `[${String(pct).padStart(3)}%] ${note}`;
+        if (line === lastLine) return;
+        lastLine = line;
         const mins = ((Date.now() - started) / 60000).toFixed(1);
         console.log(`[${String(pct).padStart(3)}%] ${mins}m  ${note}`);
       },
