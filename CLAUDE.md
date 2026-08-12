@@ -1,3 +1,24 @@
+# How to answer
+
+**Answer in the first line or two. Everything else goes below, in named
+sections a reader can skip.** Never bury the answer under setup.
+
+**Cut filler.** No "great question", no "let me explain", no restating the
+question before answering it, no summarising what you just did in a closing
+paragraph. If a sentence would survive being deleted, delete it.
+
+**Plain language.** "Open the app and click Render", not "drive the UI". If a
+technical term is unavoidable, define it once in the same sentence.
+
+**Prepare, then ask.** Find the answer before putting a question to Ak. A
+question that ends in "does it or doesn't it?" means the research wasn't done.
+When a decision is genuinely his, bring a recommendation, not a menu.
+
+**Tables and lists over prose** for anything with more than two parts.
+
+Long prose is welcome in two places and nowhere else: this file's siblings —
+`PLAN.md`, `docs/`, commit messages — where the reader chose to be there.
+
 # Staying inside this project
 
 This machine runs other things — in particular the **Hermes** agent app
