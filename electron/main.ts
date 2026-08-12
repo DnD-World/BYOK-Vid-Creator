@@ -16,6 +16,22 @@ import { installExitHandlers, reapOrphansFromLastSession } from "./process/child
 import { buildNarration, type NarrationInput } from "./tts/buildNarration";
 import { runBatchJob, type BatchJob } from "./batch/runJob";
 
+// Pin the identity before anything asks where it lives.
+//
+// app.getPath("userData") is derived from app.getName(), and getName only
+// finds "byok-vid-creator" when Electron was pointed at a directory holding a
+// package.json. Launched as `electron out/main/main.js` — which is exactly how
+// a headless job run starts — it falls back to "Electron", and every path in
+// the app silently moves to %APPDATA%/Electron.
+//
+// That is not a cosmetic difference. It cost the first long render: the key
+// vault, the saved settings and the renders folder all live under the real
+// name, so a headless run wrote its narration somewhere nobody would look and
+// then failed with "No NVIDIA API key saved" while the key sat safely in the
+// other folder. Setting the name here makes the identity independent of how
+// the process was started.
+app.setName("byok-vid-creator");
+
 const isDev = !app.isPackaged;
 
 const userDir = () => app.getPath("userData");

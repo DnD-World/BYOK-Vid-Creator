@@ -11,7 +11,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
-    "job": "electron ./out/main/main.js --job"
+    "job": "electron . --job"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.500",
