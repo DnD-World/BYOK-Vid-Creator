@@ -288,7 +288,43 @@ behaviour, and where a waveform sits relative to the speaker. The dotted 3D
 wave-plane is the one exception, kept because it is a rework of the existing
 `dots` rather than an addition to the list.
 
-### 2. ~~SFX via LocalAI~~ — ABANDONED, and nothing needs port 8080
+### 2a. The sound library is not good enough — measured, 12 Aug 2026
+
+Ak listened to the 26 generated sounds and rejected them: clickers inaudible,
+the growl "more like a dark monster", the squeaky toy not the two-part
+press-and-release it should be. Measuring all 26 turns that into two separate
+problems, only one of which is the model's fault.
+
+**Problem one: peak normalisation was the wrong call, and the numbers say so.**
+
+| sound | peak | RMS | share of clip that is audible |
+|---|---|---|---|
+| clicker-training | −4.1 | **−39.8** | **1%** |
+| clicker-double | −3.0 | **−39.5** | **2%** |
+| dog-happy-pant | −3.0 | −41.7 | 13% |
+| dog-bark-double | −3.0 | −16.1 | 48% |
+| dog-whine | −3.0 | −17.5 | 78% |
+
+Every file peaks at −3 dBFS exactly as intended, and that is precisely the
+problem. A clicker is one transient in a second of silence: matching its *peak*
+to a bark's peak leaves it **24 dB quieter in perceived loudness**, which is
+inaudible under narration. The commit that introduced peak normalisation argued
+it preserved dynamics. It does — and the measurement now shows that choice
+produced a library nobody can mix. Replace with loudness normalisation against a
+target, with a peak ceiling to stop clipping.
+
+**Problem two: Stable Audio Open is weak at short, specific, real-world foley.**
+No amount of levelling fixes a growl that sounds like a monster or a squeaky toy
+that misses its two-part shape. The model is decent at texture and abstraction
+and poor at "one recognisable everyday object doing one specific thing".
+
+**The fix, and it needs no new dependency:** Freesound CC0 search is already
+built, live and licence-cleared inside the app. Real recorded foley — barks,
+clickers, collars, squeaky toys — comes from there. Generation keeps the work it
+is actually good at: whooshes, drones, tension beds, anything abstract with no
+real-world referent to be judged against.
+
+### 2b. ~~SFX via LocalAI~~ — ABANDONED, and nothing needs port 8080
 
 **Deleted 12 Aug 2026 because this section was actively misleading.** It
 described `POST http://localhost:8080/tts` as the route to sound effects, and
