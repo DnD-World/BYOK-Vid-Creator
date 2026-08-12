@@ -1,0 +1,36 @@
+{
+  "$comment": "Keeps work on this project inside this project. See CLAUDE.md for the reasons. Deny wins over any allow rule, including the ones in settings.local.json.",
+  "permissions": {
+    "deny": [
+      "Read(//C:/Users/strav/.hermes/**)",
+      "Read(//C:/Users/strav/.openhuman/**)",
+      "Write(//C:/Users/strav/.hermes/**)",
+      "Write(//C:/Users/strav/.openhuman/**)",
+      "Bash(setx:*)",
+      "Bash(reg:*)",
+      "Bash(reg.exe:*)",
+      "Bash(sc:*)",
+      "Bash(sc.exe:*)",
+      "Bash(bcdedit:*)",
+      "Bash(powercfg:*)",
+      "Bash(taskkill:*)",
+      "Bash(Stop-Process:*)",
+      "Bash(Set-Service:*)",
+      "Bash(Set-ExecutionPolicy:*)",
+      "Bash(npm install -g:*)",
+      "Bash(npm i -g:*)",
+      "Bash(npm uninstall -g:*)",
+      "Bash(nvidia-smi -pl:*)",
+      "Bash(nvidia-smi --power-limit:*)"
+    ],
+    "ask": [
+      "Bash(pip install:*)",
+      "Bash(uv:*)",
+      "Bash(nvidia-smi:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run render:*)",
+      "Bash(python tools/make-sfx.py:*)",
+      "Bash(ffmpeg:*)"
+    ]
+  }
+}
