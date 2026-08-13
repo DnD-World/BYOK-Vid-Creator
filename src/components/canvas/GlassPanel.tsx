@@ -105,20 +105,32 @@ export const defaultGlass = (): GlassConfig => ({
   // rim sampled from most of the way across the disc and the whole face
   // filled with rainbow smear. The band here is about 40px, so the bend has
   // to be a fraction of that.
-  distortion: -110,
+  distortion: -160,
   // The three channels pulled much further apart. This separation IS the
   // colour that makes the rim read as thickness — at 0/10/20 it was a hint,
   // and a hint of it just looks like a compression artefact.
   redOffset: 0,
-  greenOffset: 16,
-  blueOffset: 32,
+  greenOffset: 2,
+  blueOffset: 4,
   // Crisp, not smeared. A soft rim blends the three colour bands into one
   // muddy wash; keeping it tight leaves them as distinct stripes running
   // parallel to the edge, which is what reads as dispersion.
-  edgeBlur: 16,
+  edgeBlur: 8,
   brightness: 50,
   // Fully opaque: the centre is clear glass and bends nothing at all.
-  flatness: 0.93,
+  // 0.35, NOT 1. This is the correction that took longest to find.
+  //
+  // The flat grey centre erases the lens. The map's two gradients are a linear
+  // ramp across the whole pane, and a ramp IS a lens — it pushes what is behind
+  // outward from the middle, magnifying it and breaking any line that crosses
+  // the rim. That break is a straw standing in a glass of water, and it is what
+  // refraction actually looks like.
+  //
+  // Stamping mid-grey over the middle removes exactly that and leaves only a
+  // bright rim. Several rounds were spent perfecting the thing that was
+  // deleting the effect. A little flattening keeps a defined edge; a lot throws
+  // the glass away.
+  flatness: 0.35,
   softness: 0.7,
   frost: 0,
   saturation: 1.1,
