@@ -60,24 +60,48 @@ interface Segment {
   speakerLabel: string;
 }
 
+/** Post one request, waiting out a rate limit rather than failing on it.
+ *
+ *  Splitting a long script into batches made this necessary: one request per
+ *  video never hit a limit, and four back to back did. A nine-minute lesson
+ *  sends four, a batch of forty lessons sends a hundred and sixty, so this is
+ *  the difference between unattended batch runs working and not.
+ *
+ *  Only 429 is retried. Every other failure — a bad key, a malformed body — is
+ *  permanent, and retrying it just delays the message that says so. */
 async function postJson(apiKey: string, payload: string): Promise<string> {
-  const res = await request("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: payload,
-    // GLM-5.2 was measured at 274s on a real key for a single script draft.
-    // Two minutes was never enough headroom for a reasoning model; batching
-    // keeps each call small, and this stops a slow-but-working call from
-    // reading as a network failure.
-    timeoutMs: 300000,
-  });
-  if (res.status !== 200) {
-    throw new Error(`NVIDIA returned HTTP ${res.status}: ${res.body.slice(0, 200)}`);
+  const MAX_ATTEMPTS = 5;
+  let waitMs = 8000;
+
+  for (let attempt = 1; ; attempt++) {
+    const res = await request("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: payload,
+      // GLM-5.2 was measured at 274s on a real key for a single script draft.
+      // Two minutes was never enough headroom for a reasoning model; batching
+      // keeps each call small, and this stops a slow-but-working call from
+      // reading as a network failure.
+      timeoutMs: 300000,
+    });
+
+    if (res.status === 200) return res.body;
+
+    if (res.status === 429 && attempt < MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, waitMs));
+      waitMs *= 2;
+      continue;
+    }
+
+    throw new Error(
+      res.status === 429
+        ? `NVIDIA rate limit held for ${MAX_ATTEMPTS} attempts. Try again in a few minutes.`
+        : `NVIDIA returned HTTP ${res.status}: ${res.body.slice(0, 200)}`
+    );
   }
-  return res.body;
 }
 
 /** Pull the first JSON object out of a reply.
@@ -169,6 +193,12 @@ export async function planBackgrounds(opts: {
 
   for (const [n, batch] of batches.entries()) {
     const first = n === 0;
+
+    // Wait between batches rather than only reacting to a 429. Backing off
+    // after being refused still costs the refused call's round trip, and the
+    // free NVIDIA tier refuses quickly enough that four batches in a row hit
+    // it every time. Three seconds is far cheaper than the retry it avoids.
+    if (!first) await new Promise((r) => setTimeout(r, 3000));
     const systemPrompt = [
       "You choose stock-video search queries for a narrated video.",
       "Return ONLY a JSON object of the form:",
