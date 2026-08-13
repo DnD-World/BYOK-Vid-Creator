@@ -21,7 +21,7 @@ import { PuppetAvatar } from "../src/components/canvas/PuppetAvatar";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { MusicTrack } from "./MusicTrack";
 import { SubtitleFont } from "./SubtitleFont";
-import { GlassPanel } from "./GlassPanel";
+import { GlassPanel, defaultGlass } from "../src/components/canvas/GlassPanel";
 import { buildCues } from "../src/lib/subtitles/wordTiming";
 import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
@@ -218,17 +218,37 @@ export function VideoComposition({
         </Sequence>
       ))}
 
-      {/* Everything a pane of glass would refract, in one place — because it
-          has to be renderable twice: once plainly here, once bent inside
-          GlassPanel. The avatars and subtitles are deliberately NOT in it;
-          they belong in front of the glass and stay sharp. */}
       {behindGlass}
 
-      {glass && (
-        <GlassPanel glass={glass} width={width} height={height} timeMs={timeMs}>
-          {behindGlass}
-        </GlassPanel>
-      )}
+      {/* GLASS GOES HERE, and the position in this file is the feature.
+          backdrop-filter bends only what has already been painted, so a pane
+          drawn after the background and before the faces refracts the footage
+          and leaves the face sharp on top of it.
+
+          A disc is sized to the avatar and no larger, so the waveform bars —
+          which radiate beyond it — fall outside the pane and keep their edge. */}
+      {speakers.map((sp) => {
+        if (sp.surface?.style !== "glass") return null;
+        const size = Math.max(8, sp.size * width);
+        return (
+          <GlassPanel
+            key={`glass-${sp.id}`}
+            id={sp.id}
+            glass={{
+              ...(glass ?? defaultGlass()),
+              // "none" means no drawn outline, not a square face — the art
+              // is round either way, so it gets a disc. Only an explicitly
+              // square or rounded frame gets a rectangular pane.
+              shape:
+                sp.outlineShape === "square" || sp.outlineShape === "rounded"
+                  ? "rect"
+                  : "circle",
+            }}
+            rect={{ x: sp.x * width - size / 2, y: sp.y * height - size / 2, w: size, h: size }}
+            frameWidth={width}
+          />
+        );
+      })}
 
       {speakers.map((sp, i) => {
         const track = visemeTracks[sp.id];

@@ -278,6 +278,7 @@ export async function renderVideo(
         bgColor: sp.bgColor, borderColor: sp.borderColor,
         bgOpacity: sp.bgOpacity, borderOpacity: sp.borderOpacity,
         outlineShape: sp.outlineShape, waveform: sp.waveform,
+        surface: sp.surface,
         sheetFileName,
         puppet: prepared?.puppet ?? null,
         puppetFiles: prepared?.files ?? {},

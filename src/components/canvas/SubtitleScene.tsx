@@ -19,6 +19,7 @@
 
 import type { Surface, SubtitleConfig, SubtitleTransition } from "../../store/types";
 import { cueAt, type SubtitleCue } from "../../lib/subtitles/wordTiming";
+import { GlassFilterDefs, glassBackdropStyle, defaultGlass, type GlassConfig } from "./GlassPanel";
 
 /** A backdrop, as inline CSS. Shared shape for the panel behind text and the
  *  disc behind an avatar, so both are described by one set of controls.
@@ -101,6 +102,9 @@ export interface SubtitleSceneProps {
    *  carry whoever is talking, which is the same rule the waveform follows —
    *  one colour per speaker, derived rather than configured twice. */
   speakerColors?: Record<string, string>;
+  /** Glass physics, when the caption's surface asks for glass. Shared with
+   *  the speakers rather than configured twice. */
+  glass?: GlassConfig | null;
 }
 
 // The fallback, and what is used when no font has been chosen. Segoe UI
@@ -134,7 +138,7 @@ function toUpperGreek(s: string): string {
 }
 
 export function SubtitleScene({
-  cues, config, width, height, timeMs, speakerColors,
+  cues, config, width, height, timeMs, speakerColors, glass,
 }: SubtitleSceneProps) {
   if (!config.enabled || width <= 0 || height <= 0) return null;
 
@@ -151,6 +155,10 @@ export function SubtitleScene({
   const glowPx = fontSize * 0.5 * config.activeGlow;
   const anim = entrance(config.transition, cue.startMs, timeMs, fontSize);
   const hasSurface = !!config.surface && config.surface.style !== "none";
+  // "glass" is no longer a heavier blur — it is a real bevelled pane, so it
+  // takes a different road from solid and blur.
+  const isGlass = config.surface?.style === "glass";
+  const g = { ...defaultGlass(), ...(glass ?? {}), shape: "rect" as const };
 
   const vertical: React.CSSProperties =
     config.position === "top"
@@ -171,6 +179,9 @@ export function SubtitleScene({
         ...vertical,
       }}
     >
+      {isGlass && (
+        <GlassFilterDefs id="subs" glass={g} w={1000} h={260} frameWidth={width} />
+      )}
       <div
         style={{
           maxWidth: width * 0.86,
@@ -189,7 +200,7 @@ export function SubtitleScene({
                 borderRadius: fontSize * 1.25 * (config.surface?.radius ?? 0.25),
               }
             : {}),
-          ...surfaceStyle(config.surface, width),
+          ...(isGlass ? glassBackdropStyle("subs", g, width) : surfaceStyle(config.surface, width)),
           fontFamily: config.fontFamily
             ? `"${config.fontFamily}", ${FONT_STACK}`
             : FONT_STACK,

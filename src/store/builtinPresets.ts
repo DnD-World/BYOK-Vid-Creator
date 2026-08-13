@@ -127,6 +127,7 @@ const STYLES: Style[] = [
       ringInnerRadius: 0.28,
       ringSize: 1.1,
     }),
+    // A real refracting disc behind each face now, not a tinted circle.
     surface: { style: "glass", color: "#0b0b0d", opacity: 0.28, blur: 0.01, borderOpacity: 0.3 },
     subtitles: { position: "bottom", fontSize: 0.05, strokeWidth: 0.1, activeGlow: 1.0, uppercase: false },
     // The background is pushed back with blur rather than darkness, so the

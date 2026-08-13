@@ -12,10 +12,11 @@ import type {
   NarrationSegment,
   OutlineShape,
   SubtitleConfig,
+  Surface,
   TrackWaveform,
 } from "../src/store/types";
 import type { Puppet } from "../src/store/puppetTypes";
-import type { GlassConfig } from "./GlassPanel";
+import type { GlassConfig } from "../src/components/canvas/GlassPanel";
 
 // Declared as `type` aliases rather than `interface` on purpose. Remotion
 // constrains composition props to `Record<string, unknown>`, and TypeScript
@@ -37,6 +38,10 @@ export type RenderSpeaker = {
   bgOpacity: number;
   borderOpacity: number;
   outlineShape: OutlineShape;
+  /** The backdrop behind this face. When its style is "glass" the composition
+   *  draws a real refracting pane sized to the avatar — a disc when the
+   *  outline is a circle, a rounded square otherwise. */
+  surface?: Surface;
   /** This speaker's own waveform. Colour comes from borderColor above. */
   waveform: TrackWaveform;
   /** Filename (not path) of this speaker's viseme sheet inside Remotion's
@@ -138,9 +143,12 @@ export type RenderProps = {
    *  footage back without darkening it, so avatars and text can carry their
    *  own surfaces over a bright clip. */
   backgroundBlur: number;
-  /** A pane of glass over the background and waveform, or absent for none.
-   *  Only those two layers are refracted — the avatars and subtitles draw
-   *  after it and stay sharp, so you look THROUGH the pane at the scene. */
+  /** How glass behaves, for every pane in the video.
+   *
+   *  Tuning only — it does NOT say where glass appears. That is decided per
+   *  element by `surface.style === "glass"`, on a speaker or on the subtitles.
+   *  Fifteen knobs repeated per element would drift apart within a week; one
+   *  set of physics and a per-element on/off does not. */
   glass?: GlassConfig | null;
   /** Crossfade between clips, in ms. */
   backgroundCrossfadeMs: number;

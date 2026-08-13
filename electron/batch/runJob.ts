@@ -339,6 +339,12 @@ export async function runBatchJob(
       borderOpacity: sp.borderOpacity,
       outlineShape: sp.outlineShape,
       waveform: sp.waveform,
+      // Without this the glass never reaches the composition. The list above
+      // is hand-written rather than a spread, which is deliberate — the render
+      // should get only what it draws with — and the cost is that a new field
+      // has to be added here as well as to the type. It was not, and a preset
+      // asking for glass produced a video with none.
+      surface: sp.surface,
       sheetPath: sp.sheetPath,
       puppetPath: sp.puppetPath,
     })),
