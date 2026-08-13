@@ -201,6 +201,42 @@ Pexels pass; Azure correctly asks for its region first).
 
 ---
 
+## The first long render — measured, 13 Aug 2026
+
+**8m50s, rendered end to end, unattended, in 21 minutes.** Nothing longer than
+about a minute had ever been made here, and every number in this document was
+measured against that. These are the real ones.
+
+| Stage | Time | Note |
+|---|---|---|
+| Narration (162 lines, 2 Piper voices) | 3.1 min | 4.4 min from cold; 0.8 min with servers already warm |
+| Background planning | 1.5 min | 4 LLM batches, 66 scenes |
+| Downloading 66 clips | 1.2 min | 394 MB into the media folder |
+| Bundle | 0.1 min | |
+| **Render** | **14.5 min** | 12,720 frames at 1080×1920, ~14.6 fps |
+| **Total** | **21.0 min** | 2.4× the finished video's own length |
+
+What that means for the courses: a 3–8 minute lesson costs roughly **2.5× its
+runtime** to produce. Forty lessons is about **fourteen hours** — an overnight
+run, not an afternoon. The render dominates, so anything that speeds up
+production has to speed up rendering; the narration and the planning together
+are under a quarter of it.
+
+**Three findings worth acting on.**
+
+1. **The file is 668 MB.** For 8m50s that is roughly 10 Mbit/s, and it is the
+   single worst number here — no LMS wants a 668 MB lesson, and it is not
+   quality anyone asked for. Nothing in the app sets a bitrate or a CRF, so
+   this is Remotion's default rather than a decision. **Next fix.**
+2. **66 background clips for 8m50s** is a cut roughly every 8 seconds, held
+   for the whole video. That is the Frequency half of the Relevancy ↔ Frequency
+   dial arriving as a real number instead of a hypothetical, and 8 seconds is
+   almost certainly too fast for a lesson.
+3. **"Could not extract frame from compositor — Request closed"** appeared once
+   as rendering began and the render completed anyway. Non-fatal, unexplained,
+   and worth remembering rather than chasing: it is exactly the class of thing
+   that turns out to matter on the fortieth row of a batch.
+
 ## The agreed order — 12 Aug 2026
 
 Set after watching `render-1786118738784.mp4` (7 Aug) end to end. Each item is
