@@ -80,7 +80,12 @@ export interface GlassConfig {
   saturation: number;
   tint: string;
   tintOpacity: number;
-  /** Rim light and inner shadow, 0–1. */
+  /** SPECULAR: the polished catch of light along the bevel, 0–1.
+   *
+   *  The thing that was missing. Refraction alone gives you a bent picture,
+   *  which the eye reads as a distortion rather than as an object. A hard
+   *  bright line hugging the rim is what says "this is a solid, polished
+   *  edge" — it is the same reason a chrome bezel reads as metal. */
   edge: number;
 }
 
@@ -103,7 +108,10 @@ export const defaultGlass = (): GlassConfig => ({
   redOffset: 0,
   greenOffset: 14,
   blueOffset: 28,
-  edgeBlur: 9,
+  // Crisp, not smeared. A soft rim blends the three colour bands into one
+  // muddy wash; keeping it tight leaves them as distinct stripes running
+  // parallel to the edge, which is what reads as dispersion.
+  edgeBlur: 4,
   brightness: 50,
   // Fully opaque: the centre is clear glass and bends nothing at all.
   flatness: 1,
@@ -112,7 +120,7 @@ export const defaultGlass = (): GlassConfig => ({
   saturation: 1.1,
   tint: "#ffffff",
   tintOpacity: 0.04,
-  edge: 0.8,
+  edge: 1,
 });
 
 /**
@@ -358,8 +366,21 @@ export function GlassPanel({
           backdropFilter: `url(#${filterId}) blur(${glass.frost * frameWidth}px) saturate(${glass.saturation})`,
           WebkitBackdropFilter: `url(#${filterId}) blur(${glass.frost * frameWidth}px) saturate(${glass.saturation})`,
           backgroundColor: withAlpha(glass.tint, glass.tintOpacity),
-          boxShadow: `inset 0 ${2 * kPane}px ${4 * kPane}px rgba(255,255,255,${0.4 * glass.edge}), inset 0 -${2 * kPane}px ${6 * kPane}px rgba(0,0,0,${0.2 * glass.edge}), inset 0 0 ${18 * kPane}px rgba(255,255,255,${0.12 * glass.edge})`,
-          border: `${Math.max(1, 1.2 * kPane)}px solid rgba(255,255,255,${0.3 * glass.edge})`,
+          // FOUR layers, and each is doing a different job. A single soft inner
+          // glow — which is what this was — reads as a smudge; a polished edge
+          // is a hard bright line with a little falloff behind it.
+          boxShadow: [
+            // The hard specular line itself, tight against the rim.
+            `inset 0 0 0 ${Math.max(1, 1.5 * kPane)}px rgba(255,255,255,${0.75 * glass.edge})`,
+            // Light coming from above, catching the top of the bevel.
+            `inset 0 ${3 * kPane}px ${5 * kPane}px -${2 * kPane}px rgba(255,255,255,${0.9 * glass.edge})`,
+            // The underside, darker, which is what gives it thickness.
+            `inset 0 -${3 * kPane}px ${6 * kPane}px -${2 * kPane}px rgba(0,0,0,${0.35 * glass.edge})`,
+            // A soft bloom just inside the rim so the hard line has somewhere
+            // to fall off to.
+            `inset 0 0 ${14 * kPane}px -${4 * kPane}px rgba(255,255,255,${0.5 * glass.edge})`,
+          ].join(", "),
+          border: `${Math.max(1, 1.5 * kPane)}px solid rgba(255,255,255,${0.5 * glass.edge})`,
           pointerEvents: "none",
         }}
       />
