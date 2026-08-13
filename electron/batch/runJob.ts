@@ -25,6 +25,7 @@ import path from "node:path";
 import { parseScript } from "../../src/lib/narration/parseScript";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
+import { builtinPresets } from "../../src/store/builtinPresets";
 import { buildNarration, type NarrationInput } from "../tts/buildNarration";
 import { planBackgrounds, pickBackgrounds } from "../llm/backgroundPlanner";
 import { downloadTo } from "../net/mediaSearch";
@@ -59,6 +60,22 @@ export interface BatchJob {
    *  here; anything it omits falls back to the app's defaults, exactly as it
    *  does when a preset is applied by hand. */
   presetPath?: string;
+  /** Or the name of one of the nine built-ins — "Halo · duo", "Orbit · solo".
+   *
+   *  Here because the built-ins live in code and in the app's local storage,
+   *  neither of which is a file a job can point at. Without this, using the
+   *  house look from a batch would mean opening the app and exporting it by
+   *  hand first, which is exactly the manual step a batch exists to remove.
+   *  presetPath wins if both are given. */
+  preset?: string;
+  /** What the video is about, in a few words — "Swedish Vallhund, a Nordic
+   *  herding dog breed".
+   *
+   *  Load-bearing, not decoration. The planner sees twenty scenes at a time
+   *  and nothing else, so a line about a dog that herds cattle can be
+   *  illustrated with cattle in a desert and be locally correct every step of
+   *  the way. The topic is what stops that. */
+  topic?: string;
   cast: JobSpeaker[];
   /** "auto" plans and downloads stock clips from the script. "none" renders
    *  over the flat background, which is faster and needs no API keys — the
@@ -91,18 +108,49 @@ async function readJson<T>(file: string): Promise<T> {
   return JSON.parse(await fsp.readFile(file, "utf8")) as T;
 }
 
+/** A file if one is given, else a built-in by name, else nothing.
+ *
+ *  An unknown name throws rather than falling back silently. A batch that
+ *  renders forty lessons in the wrong look because a name was misspelt is a
+ *  far worse outcome than one that refuses to start. */
+async function resolvePreset(job: BatchJob): Promise<ProjectPreset> {
+  if (job.presetPath) return readJson<ProjectPreset>(job.presetPath);
+  if (!job.preset) return {} as ProjectPreset;
+
+  const found = builtinPresets().find((p) => p.name === job.preset);
+  if (!found) {
+    throw new Error(
+      `No preset named "${job.preset}". Built-ins are: ` +
+        builtinPresets().map((p) => `"${p.name}"`).join(", ")
+    );
+  }
+  const { name: _name, ...preset } = found;
+  return preset;
+}
+
 export async function runBatchJob(
   job: BatchJob,
   ctx: RenderContext & { mediaDir: string }
 ): Promise<JobResult> {
   const { onProgress } = ctx;
-  const preset: ProjectPreset = job.presetPath ? await readJson(job.presetPath) : ({} as ProjectPreset);
+  const preset: ProjectPreset = await resolvePreset(job);
+  const slot = (i: number) => preset.slots?.[i];
 
   // ---- cast -------------------------------------------------------------
   // Ids are generated rather than taken from the job file. Nothing outside one
   // run refers to them, and asking a person filling a spreadsheet to invent
   // unique ids is asking for a collision that shows up as a silent mouth.
+  //
+  // SLOTS FIRST, then the older `speakers` field, then defaults. A slot is the
+  // preset saying where this speaker stands and how they are dressed, and it
+  // is the only one of the three that knows how many speakers there are.
+  //
+  // The first long render was made with none of them, which is why it came out
+  // with a waveform ringing the middle of the frame and nothing ringing the
+  // faces: defaultTrackWaveform's position is "circular", and "speaker" — the
+  // halo — is a choice no default makes for you.
   const speakers: SpeakerConfig[] = job.cast.map((c, i) => {
+    const s = slot(i);
     const fromPreset = preset.speakers?.[i];
     return {
       ...(fromPreset ?? {}),
@@ -111,23 +159,34 @@ export async function runBatchJob(
       sheetPath: c.sheetPath ?? fromPreset?.sheetPath,
       puppetPath: c.puppetPath ?? fromPreset?.puppetPath,
       borderColor: c.borderColor ?? fromPreset?.borderColor ?? "#ff9a3c",
+      surface: s?.surface,
       bgColor: fromPreset?.bgColor ?? "#000000",
       bgOpacity: fromPreset?.bgOpacity ?? 0,
       borderOpacity: fromPreset?.borderOpacity ?? 1,
-      outlineShape: fromPreset?.outlineShape ?? "circle",
-      waveform: fromPreset?.waveform ?? defaultTrackWaveform(i),
-      // Spread across the frame when the preset says nothing. Not a layout
-      // system — the preset is where layout belongs — just somewhere visible
+      outlineShape: s?.outlineShape ?? fromPreset?.outlineShape ?? "circle",
+      waveform: s?.waveform ?? fromPreset?.waveform ?? defaultTrackWaveform(i),
+      // Spread across the frame when nothing says otherwise. Not a layout
+      // system — slots are where layout belongs — just somewhere visible
       // rather than stacked at the origin.
-      x: fromPreset?.x ?? (job.cast.length === 1 ? 0.5 : 0.28 + i * 0.44),
-      y: fromPreset?.y ?? 0.42,
-      size: fromPreset?.size ?? 0.34,
+      x: s?.x ?? fromPreset?.x ?? (job.cast.length === 1 ? 0.5 : 0.28 + i * 0.44),
+      y: s?.y ?? fromPreset?.y ?? 0.42,
+      size: s?.size ?? fromPreset?.size ?? 0.34,
       ttsEngine: c.engine,
       voiceId: c.piperOnnxPath,
       chatterboxVoiceMode: c.chatterboxVoiceMode,
       chatterboxVoiceRef: c.chatterboxVoiceRef,
     } as SpeakerConfig;
   });
+
+  // A preset built for a different-sized cast is the exact mistake that put
+  // one speaker at a three-speaker position. Say so rather than quietly using
+  // whichever slots happen to line up.
+  if (preset.speakerCount && preset.speakerCount !== job.cast.length) {
+    onProgress(
+      2,
+      `Warning: preset is for ${preset.speakerCount} speaker(s), cast has ${job.cast.length}`
+    );
+  }
 
   // ---- script -----------------------------------------------------------
   const scriptText = await fsp.readFile(job.scriptPath, "utf8");
@@ -189,6 +248,7 @@ export async function runBatchJob(
         speakerLabel: s.speakerLabel,
       })),
       languageName: language,
+      topic: job.topic,
       onBatch: (done, total) => onProgress(14, `Planning backgrounds ${done}/${total}…`),
     });
     const chosen = await pickBackgrounds(plan, { portrait });

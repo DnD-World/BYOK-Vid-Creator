@@ -11,6 +11,8 @@
   "scriptPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/scripts/swedish-vallhund.txt",
   "language": "el",
   "format": "9:16",
+  "preset": "Halo · duo",
+  "topic": "The Swedish Vallhund, a small Nordic herding dog breed from Sweden. Everything shown must be dogs, Scandinavian farms, homes and green northern countryside. Never deserts, never cattle without a dog present.",
   "backgrounds": "auto",
   "cast": [
     {
