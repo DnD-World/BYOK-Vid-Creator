@@ -353,6 +353,7 @@ export async function runBatchJob(
     sfx: [],
     backgrounds,
     backgroundDim: preset.backgroundDim ?? defaultProject.backgroundDim,
+    backgroundBlur: preset.backgroundBlur ?? defaultProject.backgroundBlur,
     backgroundCrossfadeMs: preset.backgroundCrossfadeMs ?? defaultProject.backgroundCrossfadeMs,
     // MERGED, not chosen between. A preset is partial by contract — its own
     // doc comment says every field is optional on read so that older, hand-

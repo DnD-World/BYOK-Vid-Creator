@@ -70,6 +70,7 @@ export interface RenderJob {
     query?: string;
   }[];
   backgroundDim?: number;
+  backgroundBlur?: number;
   backgroundCrossfadeMs?: number;
   subtitles: RenderProps["subtitles"];
   visemeFadeMs?: number;
@@ -411,6 +412,7 @@ export async function renderVideo(
       sfx,
       backgrounds,
       backgroundDim: job.backgroundDim ?? 0,
+      backgroundBlur: job.backgroundBlur ?? 0,
       backgroundCrossfadeMs: job.backgroundCrossfadeMs ?? 0,
       subtitles: job.subtitles,
       subtitleFont,

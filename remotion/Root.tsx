@@ -27,6 +27,7 @@ const previewDefaults: RenderProps = {
   sfx: [],
   backgrounds: [],
   backgroundDim: defaultProject.backgroundDim,
+  backgroundBlur: defaultProject.backgroundBlur,
   backgroundCrossfadeMs: defaultProject.backgroundCrossfadeMs,
   subtitles: defaultProject.subtitles,
   subtitleFont: null,

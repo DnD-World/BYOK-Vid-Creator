@@ -68,6 +68,7 @@ export function VideoComposition({
   sfx,
   backgrounds,
   backgroundDim,
+  backgroundBlur,
   backgroundCrossfadeMs,
   subtitles,
   subtitleFont,
@@ -193,6 +194,8 @@ export function VideoComposition({
         fps={fps}
         crossfadeMs={backgroundCrossfadeMs}
         dim={backgroundDim}
+        blur={backgroundBlur ?? 0}
+        width={width}
       />
 
       <div style={{ position: "absolute", inset: 0 }}>

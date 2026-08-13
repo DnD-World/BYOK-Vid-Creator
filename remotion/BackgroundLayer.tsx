@@ -45,11 +45,19 @@ export function BackgroundLayer({
   fps,
   crossfadeMs,
   dim,
+  blur,
+  width,
 }: {
   backgrounds: RenderBackground[];
   fps: number;
   crossfadeMs: number;
   dim: number;
+  /** Blur radius as a fraction of frame WIDTH. Kept as a fraction all the way
+   *  here rather than converted upstream, so the preview and the render each
+   *  multiply by their own width and agree by construction — the same rule
+   *  speaker size and subtitle size already follow. */
+  blur: number;
+  width: number;
 }) {
   const timing = useMemo(
     () => backgroundTiming(backgrounds, crossfadeMs, fps),
@@ -90,7 +98,20 @@ export function BackgroundLayer({
     // to cover the whole video, and dimming a stretch that has nothing behind it
     // would darken the plain frames for no reason.
     <Sequence from={first.startFrame} durationInFrames={span} name="Backgrounds">
-      <AbsoluteFill>
+      <AbsoluteFill
+        style={
+          blur > 0
+            ? {
+                filter: `blur(${blur * width}px)`,
+                // Blur samples beyond the edge and leaves a soft transparent
+                // border where there is nothing to sample. Scaling up pushes
+                // that band off-frame; 1.1 covers the widest blur the UI
+                // allows without visibly cropping the clip.
+                transform: "scale(1.1)",
+              }
+            : undefined
+        }
+      >
         <TransitionSeries>{children}</TransitionSeries>
       </AbsoluteFill>
       {dim > 0 && (

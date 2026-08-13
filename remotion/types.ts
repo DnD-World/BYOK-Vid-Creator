@@ -133,6 +133,10 @@ export type RenderProps = {
   backgrounds: RenderBackground[];
   /** Scrim over the clips, 0–1. */
   backgroundDim: number;
+  /** Blur over the clips, as a fraction of frame width. 0 = sharp. Pushes the
+   *  footage back without darkening it, so avatars and text can carry their
+   *  own surfaces over a bright clip. */
+  backgroundBlur: number;
   /** Crossfade between clips, in ms. */
   backgroundCrossfadeMs: number;
   subtitles: SubtitleConfig;
