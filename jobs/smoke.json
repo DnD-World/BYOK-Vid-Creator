@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "Fast verification job. Eight lines, no background planning, so a",
+    "change to encoding or subtitles can be checked in about a minute instead",
+    "of twenty. Not a substitute for the full run — it never exercises the",
+    "planner, the downloader, or anything that only breaks at length."
+  ],
+  "scriptPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/scripts/smoke.txt",
+  "language": "el",
+  "format": "9:16",
+  "preset": "Halo · duo",
+  "topic": "The Swedish Vallhund, a small Nordic herding dog breed from Sweden. Everything shown must be dogs, Scandinavian farms, homes and green northern countryside. Never deserts, never cattle without a dog present.",
+  "backgrounds": "none",
+  "cast": [
+    {
+      "label": "Καίτη",
+      "puppetPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/puppet/kaiti.puppet.json",
+      "engine": "piper",
+      "piperPythonPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-venv/Scripts/python.exe",
+      "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-rapunzelina-medium.onnx",
+      "borderColor": "#ff9a3c"
+    },
+    {
+      "label": "Σερίφης",
+      "puppetPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/puppet/serifis.puppet.json",
+      "engine": "piper",
+      "piperPythonPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-venv/Scripts/python.exe",
+      "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-joy-medium.onnx",
+      "borderColor": "#3cb4ff"
+    }
+  ]
+}
