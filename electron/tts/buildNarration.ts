@@ -14,6 +14,7 @@
 
 import fsp from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 import { synthesizeWithPiper } from "./piperEngine";
 import * as chatterbox from "./chatterboxEngine";
 import { concatWavBuffers } from "../audio/concatWav";
@@ -49,6 +50,35 @@ export interface BuiltNarration {
   analysis: ReturnType<typeof analyzeNarration>;
 }
 
+/** What the audio depends on, and nothing else.
+ *
+ *  Everything that changes a sample goes in: the words, who says them, which
+ *  engine, which voice, and the gaps between lines. Nothing that does not —
+ *  colours, layout, backgrounds — so re-rendering a lesson with a different
+ *  look reuses narration that took minutes to make.
+ *
+ *  Deliberately NOT a timestamp or a job name. A cache keyed on anything but
+ *  the content is a cache that misses when it should hit. */
+function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): string {
+  const material = JSON.stringify([
+    segments.map((s) => [
+      s.speakerId,
+      s.text,
+      s.engine,
+      s.piperOnnxPath,
+      s.language,
+      s.voiceMode,
+      s.predefinedVoiceId,
+      s.referenceAudioFilename,
+      s.exaggeration,
+      s.cfgWeight,
+    ]),
+    pauses.sameMs,
+    pauses.turnMs,
+  ]);
+  return crypto.createHash("sha256").update(material).digest("hex").slice(0, 16);
+}
+
 export async function buildNarration(
   segments: NarrationInput[],
   /** Speaker ids in the order the canvas draws them, so the analysis's
@@ -61,6 +91,34 @@ export async function buildNarration(
     throw new Error(
       "No script segments to generate — check your script matches your speaker labels."
     );
+  }
+
+  // A hit here is worth minutes. Synthesising a nine-minute lesson costs about
+  // four and a half from cold, and a failed render — a rate limit, a bad path,
+  // a look you want to change — used to pay that again on every retry. For a
+  // batch of forty it is the difference between re-running one row and
+  // re-running an afternoon.
+  //
+  // The WAV is cached; the analysis is recomputed from it, because the
+  // spectrum is far larger than the audio and reading it back would cost more
+  // than the FFT it saves.
+  const key = narrationKey(segments, pauses);
+  const cacheDir = path.join(outputDir, "narration-cache");
+  const cachedWav = path.join(cacheDir, `${key}.wav`);
+  const cachedMeta = path.join(cacheDir, `${key}.json`);
+  try {
+    const [buffer, metaRaw] = await Promise.all([
+      fsp.readFile(cachedWav),
+      fsp.readFile(cachedMeta, "utf8"),
+    ]);
+    const resolved = JSON.parse(metaRaw) as BuiltNarration["segments"];
+    return {
+      filePath: cachedWav,
+      segments: resolved,
+      analysis: analyzeNarration(buffer, resolved, speakerOrder),
+    };
+  } catch {
+    // No cache, or an unreadable one. Making it again is always correct.
   }
 
   const buffers: Buffer[] = [];
@@ -111,6 +169,16 @@ export async function buildNarration(
     startMs: timing[i].startMs,
     endMs: timing[i].endMs,
   }));
+
+  // Written after the real file, and failures are swallowed: a cache that
+  // cannot be written is a slower next run, not a broken this one.
+  try {
+    await fsp.mkdir(cacheDir, { recursive: true });
+    await fsp.writeFile(cachedWav, buffer);
+    await fsp.writeFile(cachedMeta, JSON.stringify(resolved));
+  } catch {
+    /* nothing worth interrupting a finished narration for */
+  }
 
   // Analysed once, here, while the audio is already in memory — rather than
   // re-read and re-analysed on every render.
