@@ -95,26 +95,26 @@ export const defaultGlass = (): GlassConfig => ({
   // A thick rim and a clear middle. react-bits' 0.07 is tuned for a small UI
   // chip where the pane is mostly edge anyway; on an avatar disc it left a
   // thin fringe and a faintly muddy centre.
-  edgeWidth: 0.22,
+  edgeWidth: 0.07,
   // MEASURED against a 367px avatar disc. The displacement has to stay small
   // relative to the RIM BAND it lives in, not just to the pane: at -140 the
   // rim sampled from most of the way across the disc and the whole face
   // filled with rainbow smear. The band here is about 40px, so the bend has
   // to be a fraction of that.
-  distortion: -34,
+  distortion: -180,
   // The three channels pulled much further apart. This separation IS the
   // colour that makes the rim read as thickness — at 0/10/20 it was a hint,
   // and a hint of it just looks like a compression artefact.
   redOffset: 0,
-  greenOffset: 14,
-  blueOffset: 28,
+  greenOffset: 10,
+  blueOffset: 20,
   // Crisp, not smeared. A soft rim blends the three colour bands into one
   // muddy wash; keeping it tight leaves them as distinct stripes running
   // parallel to the edge, which is what reads as dispersion.
-  edgeBlur: 4,
+  edgeBlur: 11,
   brightness: 50,
   // Fully opaque: the centre is clear glass and bends nothing at all.
-  flatness: 1,
+  flatness: 0.93,
   softness: 0.7,
   frost: 0,
   saturation: 1.1,
@@ -307,7 +307,13 @@ export function GlassPanel({
     glass.flatness
   );
 
-  const scaled = (v: number) => (glass.distortion + v) * kPane;
+  // ABSOLUTE pixels, scaled only by the frame's resolution — never by the
+  // pane's size. GlassSurface works this way and it is not an oversight: a
+  // fixed bend in pixels means a small pane is bent nearly edge to edge while
+  // a large one keeps a clear middle, which is exactly how real glass of a
+  // given thickness behaves. Scaling it by the pane instead made every disc
+  // bend as hard as a button does, and the whole face filled with rainbow.
+  const scaled = (v: number) => (glass.distortion + v) * kFrame;
 
   return (
     <div
@@ -366,21 +372,21 @@ export function GlassPanel({
           backdropFilter: `url(#${filterId}) blur(${glass.frost * frameWidth}px) saturate(${glass.saturation})`,
           WebkitBackdropFilter: `url(#${filterId}) blur(${glass.frost * frameWidth}px) saturate(${glass.saturation})`,
           backgroundColor: withAlpha(glass.tint, glass.tintOpacity),
-          // FOUR layers, and each is doing a different job. A single soft inner
-          // glow — which is what this was — reads as a smudge; a polished edge
-          // is a hard bright line with a little falloff behind it.
+          // NO BORDER, and the shadows are almost invisible on purpose.
+          //
+          // This is the correction that mattered most. A previous version drew
+          // a hard white line around the rim to make it "read as glass", and
+          // that is a different effect entirely — a bezel painted on top of the
+          // picture. In GlassSurface the rim is produced ENTIRELY by the
+          // displacement map: borderWidth, edgeBlur, flatness and distortion
+          // shape it, and the CSS only adds a breath of depth behind it.
+          // Painting a rim over the top hides the very thing being tuned.
           boxShadow: [
-            // The hard specular line itself, tight against the rim.
-            `inset 0 0 0 ${Math.max(1, 1.5 * kPane)}px rgba(255,255,255,${0.75 * glass.edge})`,
-            // Light coming from above, catching the top of the bevel.
-            `inset 0 ${3 * kPane}px ${5 * kPane}px -${2 * kPane}px rgba(255,255,255,${0.9 * glass.edge})`,
-            // The underside, darker, which is what gives it thickness.
-            `inset 0 -${3 * kPane}px ${6 * kPane}px -${2 * kPane}px rgba(0,0,0,${0.35 * glass.edge})`,
-            // A soft bloom just inside the rim so the hard line has somewhere
-            // to fall off to.
-            `inset 0 0 ${14 * kPane}px -${4 * kPane}px rgba(255,255,255,${0.5 * glass.edge})`,
+            `inset 0 0 ${2 * kPane}px ${1 * kPane}px rgba(255,255,255,${0.35 * glass.edge})`,
+            `inset 0 0 ${10 * kPane}px ${4 * kPane}px rgba(255,255,255,${0.15 * glass.edge})`,
+            `0 ${4 * kPane}px ${16 * kPane}px rgba(17,17,26,0.05)`,
+            `0 ${8 * kPane}px ${24 * kPane}px rgba(17,17,26,0.05)`,
           ].join(", "),
-          border: `${Math.max(1, 1.5 * kPane)}px solid rgba(255,255,255,${0.5 * glass.edge})`,
           pointerEvents: "none",
         }}
       />
