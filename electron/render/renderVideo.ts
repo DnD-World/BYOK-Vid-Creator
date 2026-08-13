@@ -71,6 +71,7 @@ export interface RenderJob {
   }[];
   backgroundDim?: number;
   backgroundBlur?: number;
+  glass?: RenderProps["glass"];
   backgroundCrossfadeMs?: number;
   subtitles: RenderProps["subtitles"];
   visemeFadeMs?: number;
@@ -413,6 +414,7 @@ export async function renderVideo(
       backgrounds,
       backgroundDim: job.backgroundDim ?? 0,
       backgroundBlur: job.backgroundBlur ?? 0,
+      glass: job.glass ?? null,
       backgroundCrossfadeMs: job.backgroundCrossfadeMs ?? 0,
       subtitles: job.subtitles,
       subtitleFont,

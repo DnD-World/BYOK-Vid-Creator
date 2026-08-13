@@ -99,7 +99,11 @@ const STYLES: Style[] = [
       fontSize: 0.058,
       strokeWidth: 0.18,
       activeGlow: 0.35,
-      uppercase: true,
+      // All-caps reads as shouting, and a lesson is not shouting. Kept as a
+      // setting for the line where a character actually raises their voice;
+      // never the default. When it IS used, toUpperGreek drops the accent and
+      // keeps the dialytika, which is what Greek orthography asks for.
+      uppercase: false,
       maxChars: 34,
     },
     // Brighter footage than Halo, because the text carries its own surface and

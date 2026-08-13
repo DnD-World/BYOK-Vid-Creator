@@ -92,6 +92,9 @@ export interface BatchJob {
    *  for social cuts, where the platform re-encodes everything anyway and the
    *  only thing a large file buys is upload time. */
   crf?: number;
+  /** A pane of glass over the background and waveform. Refracts those two
+   *  only — the avatars and subtitles draw in front of it and stay sharp. */
+  glass?: RenderJob["glass"];
 }
 
 export interface JobResult {
@@ -367,6 +370,7 @@ export async function runBatchJob(
     idleMotion: defaultProject.idleMotion,
     narrationSegments: narration.segments,
     crf: job.crf,
+    glass: job.glass ?? null,
   } as RenderJob;
 
   const result = await renderVideo(renderJob, ctx);

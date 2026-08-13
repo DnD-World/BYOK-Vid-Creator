@@ -15,6 +15,7 @@ import type {
   TrackWaveform,
 } from "../src/store/types";
 import type { Puppet } from "../src/store/puppetTypes";
+import type { GlassConfig } from "./GlassPanel";
 
 // Declared as `type` aliases rather than `interface` on purpose. Remotion
 // constrains composition props to `Record<string, unknown>`, and TypeScript
@@ -137,6 +138,10 @@ export type RenderProps = {
    *  footage back without darkening it, so avatars and text can carry their
    *  own surfaces over a bright clip. */
   backgroundBlur: number;
+  /** A pane of glass over the background and waveform, or absent for none.
+   *  Only those two layers are refracted — the avatars and subtitles draw
+   *  after it and stay sharp, so you look THROUGH the pane at the scene. */
+  glass?: GlassConfig | null;
   /** Crossfade between clips, in ms. */
   backgroundCrossfadeMs: number;
   subtitles: SubtitleConfig;

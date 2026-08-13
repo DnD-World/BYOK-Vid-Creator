@@ -21,6 +21,7 @@ import { PuppetAvatar } from "../src/components/canvas/PuppetAvatar";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { MusicTrack } from "./MusicTrack";
 import { SubtitleFont } from "./SubtitleFont";
+import { GlassPanel } from "./GlassPanel";
 import { buildCues } from "../src/lib/subtitles/wordTiming";
 import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
@@ -69,6 +70,7 @@ export function VideoComposition({
   backgrounds,
   backgroundDim,
   backgroundBlur,
+  glass,
   backgroundCrossfadeMs,
   subtitles,
   subtitleFont,
@@ -160,6 +162,34 @@ export function VideoComposition({
   const activeSpeakerId =
     moment && moment.speaker >= 0 ? speakers[moment.speaker]?.id ?? null : null;
 
+  // Built once and rendered in two places — plainly, and again inside the
+  // glass filter. It is an element rather than a component so both copies are
+  // identical by construction: a pane that refracted a slightly different
+  // scene from the one beside it would be worse than no pane at all.
+  const behindGlass = (
+    <>
+      <BackgroundLayer
+        backgrounds={backgrounds ?? []}
+        fps={fps}
+        crossfadeMs={backgroundCrossfadeMs}
+        dim={backgroundDim}
+        blur={backgroundBlur ?? 0}
+        width={width}
+      />
+      <div style={{ position: "absolute", inset: 0 }}>
+        <WaveformScene
+          tracks={tracks}
+          width={width}
+          height={height}
+          timeMs={timeMs}
+          analysis={analysis}
+          spectrum={spectrum}
+          musicAnalysis={musicAnalysis}
+          musicSpectrum={musicSpectrum}
+        />
+      </div>
+    </>
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0b0d" }}>
@@ -188,28 +218,17 @@ export function VideoComposition({
         </Sequence>
       ))}
 
-      {/* First, so everything else draws over it. */}
-      <BackgroundLayer
-        backgrounds={backgrounds ?? []}
-        fps={fps}
-        crossfadeMs={backgroundCrossfadeMs}
-        dim={backgroundDim}
-        blur={backgroundBlur ?? 0}
-        width={width}
-      />
+      {/* Everything a pane of glass would refract, in one place — because it
+          has to be renderable twice: once plainly here, once bent inside
+          GlassPanel. The avatars and subtitles are deliberately NOT in it;
+          they belong in front of the glass and stay sharp. */}
+      {behindGlass}
 
-      <div style={{ position: "absolute", inset: 0 }}>
-        <WaveformScene
-          tracks={tracks}
-          width={width}
-          height={height}
-          timeMs={timeMs}
-          analysis={analysis}
-          spectrum={spectrum}
-          musicAnalysis={musicAnalysis}
-          musicSpectrum={musicSpectrum}
-        />
-      </div>
+      {glass && (
+        <GlassPanel glass={glass} width={width} height={height} timeMs={timeMs}>
+          {behindGlass}
+        </GlassPanel>
+      )}
 
       {speakers.map((sp, i) => {
         const track = visemeTracks[sp.id];
