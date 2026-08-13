@@ -95,23 +95,27 @@ export const defaultGlass = (): GlassConfig => ({
   // A thick rim and a clear middle. react-bits' 0.07 is tuned for a small UI
   // chip where the pane is mostly edge anyway; on an avatar disc it left a
   // thin fringe and a faintly muddy centre.
-  edgeWidth: 0.07,
+  // 0.30 puts the inset at 15% of the shorter side — the outer 15% of the
+  // radius IS the bevel. GlassSurface's 0.07 is tuned for a small chip where
+  // a 3% lip is already most of the element; on a 367px disc it was a hairline
+  // and there was no thickness to see.
+  edgeWidth: 0.3,
   // MEASURED against a 367px avatar disc. The displacement has to stay small
   // relative to the RIM BAND it lives in, not just to the pane: at -140 the
   // rim sampled from most of the way across the disc and the whole face
   // filled with rainbow smear. The band here is about 40px, so the bend has
   // to be a fraction of that.
-  distortion: -180,
+  distortion: -110,
   // The three channels pulled much further apart. This separation IS the
   // colour that makes the rim read as thickness — at 0/10/20 it was a hint,
   // and a hint of it just looks like a compression artefact.
   redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
+  greenOffset: 16,
+  blueOffset: 32,
   // Crisp, not smeared. A soft rim blends the three colour bands into one
   // muddy wash; keeping it tight leaves them as distinct stripes running
   // parallel to the edge, which is what reads as dispersion.
-  edgeBlur: 11,
+  edgeBlur: 16,
   brightness: 50,
   // Fully opaque: the centre is clear glass and bends nothing at all.
   flatness: 0.93,
