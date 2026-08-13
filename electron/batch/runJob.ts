@@ -22,6 +22,7 @@
 
 import fsp from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 import { parseScript } from "../../src/lib/narration/parseScript";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
@@ -244,17 +245,56 @@ export async function runBatchJob(
   let backgrounds: RenderJob["backgrounds"] = [];
   if ((job.backgrounds ?? "auto") === "auto") {
     onProgress(14, "Planning backgrounds…");
-    const plan = await planBackgrounds({
-      segments: narration.segments.map((s) => ({
-        text: s.text,
-        startMs: s.startMs,
-        endMs: s.endMs,
-        speakerLabel: s.speakerLabel,
-      })),
-      languageName: language,
-      topic: job.topic,
-      onBatch: (done, total) => onProgress(14, `Planning backgrounds ${done}/${total}…`),
-    });
+
+    // CACHED FOR THE SAME REASON THE NARRATION IS, and it turned out to matter
+    // more. A nine-minute script costs four LLM calls, and re-running a job —
+    // to fix a look, to retry a failed render — spent them again every time.
+    // NVIDIA's free tier stopped answering after a day of that, which killed a
+    // run whose narration was already cached and free. A batch of forty
+    // lessons is a hundred and sixty calls; re-running one row should not cost
+    // any of them.
+    //
+    // Keyed on what the plan is actually derived from: the words, when they
+    // are said, the topic, the language and the orientation. Not the look or
+    // the cast.
+    const planKey = crypto
+      .createHash("sha256")
+      .update(
+        JSON.stringify([
+          narration.segments.map((s) => [s.text, s.startMs, s.endMs]),
+          job.topic ?? "",
+          language,
+          portrait,
+        ])
+      )
+      .digest("hex")
+      .slice(0, 16);
+    const planCacheDir = path.join(ctx.outputDir, "plan-cache");
+    const planFile = path.join(planCacheDir, `${planKey}.json`);
+
+    let plan: Awaited<ReturnType<typeof planBackgrounds>>;
+    try {
+      plan = JSON.parse(await fsp.readFile(planFile, "utf8"));
+      onProgress(24, `Reusing a cached plan of ${plan.scenes.length} scenes`);
+    } catch {
+      plan = await planBackgrounds({
+        segments: narration.segments.map((s) => ({
+          text: s.text,
+          startMs: s.startMs,
+          endMs: s.endMs,
+          speakerLabel: s.speakerLabel,
+        })),
+        languageName: language,
+        topic: job.topic,
+        onBatch: (done, total) => onProgress(14, `Planning backgrounds ${done}/${total}…`),
+      });
+      try {
+        await fsp.mkdir(planCacheDir, { recursive: true });
+        await fsp.writeFile(planFile, JSON.stringify(plan));
+      } catch {
+        /* a plan we cannot cache is a slower next run, not a broken this one */
+      }
+    }
     const chosen = await pickBackgrounds(plan, { portrait });
 
     await fsp.mkdir(ctx.mediaDir, { recursive: true });

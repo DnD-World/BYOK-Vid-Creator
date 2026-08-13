@@ -70,8 +70,14 @@ interface Segment {
  *  Only 429 is retried. Every other failure — a bad key, a malformed body — is
  *  permanent, and retrying it just delays the message that says so. */
 async function postJson(apiKey: string, payload: string): Promise<string> {
-  const MAX_ATTEMPTS = 5;
-  let waitMs = 8000;
+  // MEASURED: five attempts from 8s is 120 seconds of patience in total, and
+  // NVIDIA's free tier stayed shut for longer than that after a day's use. An
+  // unattended overnight batch can afford to wait minutes; what it cannot
+  // afford is to stop. Six attempts from 15s, each wait capped so the tail
+  // doesn't run away: 15 + 30 + 60 + 120 + 120 = a little over five minutes.
+  const MAX_ATTEMPTS = 6;
+  const MAX_WAIT_MS = 120000;
+  let waitMs = 15000;
 
   for (let attempt = 1; ; attempt++) {
     const res = await request("https://integrate.api.nvidia.com/v1/chat/completions", {
@@ -92,7 +98,7 @@ async function postJson(apiKey: string, payload: string): Promise<string> {
 
     if (res.status === 429 && attempt < MAX_ATTEMPTS) {
       await new Promise((r) => setTimeout(r, waitMs));
-      waitMs *= 2;
+      waitMs = Math.min(waitMs * 2, MAX_WAIT_MS);
       continue;
     }
 
