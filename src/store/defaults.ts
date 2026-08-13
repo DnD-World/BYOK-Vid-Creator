@@ -39,6 +39,10 @@ export const defaultProject: ProjectState = {
   // Dark enough that the waveform and the subtitles still read over daylight
   // footage, light enough that you can tell what the clip is of.
   backgroundDim: 0.45,
+  // Sharp by default. Blur is a look, and looks belong in presets — a default
+  // that softens every project's footage would be a decision made for people
+  // who never asked for it.
+  backgroundBlur: 0,
   backgroundCrossfadeMs: 600,
   language: "el",
   narration: null,

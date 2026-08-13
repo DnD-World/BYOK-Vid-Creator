@@ -1,10 +1,32 @@
 import type {
   Fps,
+  OutlineShape,
   RenderSettings,
   SpeakerConfig,
   SubtitleConfig,
+  Surface,
   TrackWaveform,
 } from "./types";
+
+/** One speaker's place in the frame, and how they are dressed.
+ *
+ *  Separate from SpeakerConfig on purpose, and the difference is the whole
+ *  point: a slot has no identity. No name, no face, no voice. It is applied by
+ *  POSITION — slot n dresses cast member n — so a preset can restyle a cast it
+ *  has never met without destroying the faces and voices already assigned.
+ *
+ *  This is what the built-in presets were missing. They restyled waveforms and
+ *  outlines and never touched placement, so choosing a look left the avatars
+ *  wherever a differently-sized cast had put them. One speaker inherited a
+ *  three-speaker layout and stood off-centre with nothing beside her. */
+export interface SpeakerSlot {
+  x: number;      // 0–1 of frame width
+  y: number;      // 0–1 of frame height
+  size: number;   // diameter as a fraction of frame width
+  outlineShape: OutlineShape;
+  waveform: TrackWaveform;
+  surface: Surface;
+}
 
 /**
  * A complete saved look: everything that decides how the video *appears*, and
@@ -26,7 +48,23 @@ export interface ProjectPreset {
   /** How background clips are treated — not *which* clips, which belong to the
    *  script rather than to the look. */
   backgroundDim?: number;
+  backgroundBlur?: number;
   backgroundCrossfadeMs?: number;
+  /** Layout and dress, one entry per speaker, applied by position.
+   *
+   *  Supersedes `speakers` above for everything a preset should own. `speakers`
+   *  stays only so presets exported before slots existed still load — it
+   *  carries whole SpeakerConfigs, faces and voices included, which is exactly
+   *  what a preset must never impose on a cast. */
+  slots?: SpeakerSlot[];
+  /** How many speakers this preset was designed around. The dropdown groups on
+   *  it, and marks the group matching the current cast. Derivable from
+   *  slots.length, and stored anyway: a preset should be able to say what it is
+   *  for without being unpacked. */
+  speakerCount?: 1 | 2 | 3;
+  /** Set on the nine that ship with the app. Editing one edits a stored copy;
+   *  this is what "Reset to default" looks up. */
+  builtIn?: boolean;
   savedAt: number;
   /** Shown in the preset list. Built-ins use it to say what they're for. */
   description?: string;

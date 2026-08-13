@@ -45,6 +45,89 @@ export interface TrackWaveform {
 
 export type OutlineShape = "circle" | "rounded" | "square" | "none";
 
+/** How a thing sitting on top of the video treats what is behind it.
+ *
+ *  One shape for every backdrop — the panel behind subtitles, the disc behind
+ *  an avatar — so there is one control to learn and one implementation to get
+ *  wrong. Before this there was no blur anywhere in the app, and a speaker's
+ *  backdrop was a flat colour with an opacity and nothing else. */
+export interface Surface {
+  style: SurfaceStyle;
+  /** Blur radius as a fraction of frame WIDTH, so a look authored against the
+   *  preview survives a 1080p render. Same convention as speaker size and
+   *  subtitle font size, and for the same reason. 0.008 ≈ 15px at 1920. */
+  blur: number;
+  color: string;
+  opacity: number;
+  /** The hairline edge. Glass reads as glass because its edge catches the
+   *  light; without this it is a smudge. */
+  borderOpacity: number;
+  /** Corner rounding as a fraction of the panel's own height. */
+  radius: number;
+}
+
+export type SurfaceStyle =
+  /** Nothing drawn. */
+  | "none"
+  /** Flat colour at `opacity` — what bgColor + bgOpacity used to do alone. */
+  | "solid"
+  /** The video behind is blurred, untinted. The footage stays readable. */
+  | "blur"
+  /** Blur, tint and edge together. Frosted. */
+  | "glass";
+
+export function defaultSurface(): Surface {
+  return {
+    style: "none",
+    blur: 0.008,
+    color: "#000000",
+    opacity: 0.35,
+    borderOpacity: 0.25,
+    radius: 0.25,
+  };
+}
+
+/** How one sentence of subtitle gives way to the next.
+ *
+ *  Per-sentence, driven by the cue boundaries wordTiming.ts already produces —
+ *  nothing new has to be timed. */
+export interface SubtitleTransition {
+  style: "none" | "pop" | "crossBlur";
+  durationMs: number;
+  /** `pop` only: overshoot before settling. 1.05 = out to 105%, back to 100%. */
+  overshoot: number;
+  /** Motion blur through the movement, 0–1. */
+  blur: number;
+}
+
+export function defaultSubtitleTransition(): SubtitleTransition {
+  return { style: "pop", durationMs: 220, overshoot: 1.05, blur: 0.4 };
+}
+
+/** Read a speaker's backdrop, whichever era it was written in.
+ *
+ *  One function so the fallback rule lives in one place. A project saved before
+ *  surfaces existed has bgColor and bgOpacity and nothing else; the flat disc
+ *  those describe is exactly a `solid` surface, so the translation is total and
+ *  nothing is guessed. */
+export function migrateSurface(sp: {
+  surface?: Surface;
+  bgColor?: string;
+  bgOpacity?: number;
+}): Surface {
+  if (sp.surface) return sp.surface;
+  const opacity = sp.bgOpacity ?? 0;
+  return {
+    ...defaultSurface(),
+    // An invisible disk stays invisible. Turning every old project's speakers
+    // into visible slabs because a new field defaulted to something is the
+    // migration failure that would be noticed last and trusted least.
+    style: opacity > 0 ? "solid" : "none",
+    color: sp.bgColor ?? "#000000",
+    opacity,
+  };
+}
+
 /** Legacy global waveform config. Kept only so old saved templates can be
  *  read and migrated; nothing new should reference it. */
 export interface WaveformConfig {
@@ -90,6 +173,13 @@ export interface SubtitleConfig {
    *  cache, re-fetchable on any machine. */
   fontFamily?: string | null;
   fontWeight?: number;
+  /** The panel behind the text. Optional so every project and preset written
+   *  before surfaces existed still loads; absent means `none`, which is what
+   *  those projects looked like. */
+  surface?: Surface;
+  /** How one sentence gives way to the next. Absent means `none` — again, what
+   *  older projects already did. */
+  transition?: SubtitleTransition;
 }
 
 export interface SpeakerConfig {
@@ -111,8 +201,19 @@ export interface SpeakerConfig {
    *  halfway through building a puppet should not lose the working sheet, and
    *  every project saved before puppets existed still opens with its face on. */
   puppetPath?: string;
+  /** The disc behind this speaker.
+   *
+   *  SUCCESSOR TO bgColor + bgOpacity, which described a flat colour and could
+   *  not describe a blur. Those two are kept only until the migration in
+   *  useProjectStore has rewritten every autosave and preset on disk, and are
+   *  then deleted — the legacy WaveformConfig sitting three fields below is the
+   *  cautionary tale for what happens when a superseded field is allowed to
+   *  stay. Absent means "not migrated yet"; read through migrateSurface(). */
+  surface?: Surface;
+  /** @deprecated Read via migrateSurface(). Absorbed into `surface`. */
   bgOpacity: number;     // default 0 (invisible disk)
   borderOpacity: number; // default 1
+  /** @deprecated Read via migrateSurface(). Absorbed into `surface`. */
   bgColor: string;
   /** Outline colour — and, by construction, this speaker's waveform colour. */
   borderColor: string;
@@ -238,6 +339,14 @@ export interface ProjectState {
    *  the frame over — the waveform disappears into it and white subtitles land
    *  on whatever the clip happens to be doing. */
   backgroundDim: number;
+  /** Blur on the background clips, as a fraction of frame WIDTH. 0 = sharp.
+   *
+   *  Deliberately NOT a Surface: this blurs the footage itself rather than
+   *  laying a panel over it. Together with backgroundDim it is the choice
+   *  between pushing the whole background back, and leaving it bright while
+   *  the avatars and subtitles carry their own surfaces. Both at once is
+   *  allowed — over nine minutes of busy stock footage it may be needed. */
+  backgroundBlur: number;
   /** Crossfade between one background clip and the next, in ms. 0 = hard cut.
    *  Capped at half the shortest clip when it is applied. */
   backgroundCrossfadeMs: number;
