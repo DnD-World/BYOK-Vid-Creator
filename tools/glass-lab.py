@@ -4,10 +4,16 @@ S = os.path.dirname(os.path.abspath(__file__))
 bg = base64.b64encode(open(os.path.join(S, "bg.png"), "rb").read()).decode()
 
 VARIANTS = [
-    ("A current",       dict(ew=0.30, d=-110, blur=16, flat=0.93, g=16, b=32)),
-    ("B sharp inner",   dict(ew=0.30, d=-110, blur=6,  flat=1.00, g=16, b=32)),
-    ("C thick + gentle",dict(ew=0.45, d=-70,  blur=5,  flat=1.00, g=22, b=44)),
-    ("D big chroma",    dict(ew=0.32, d=-120, blur=7,  flat=1.00, g=34, b=68)),
+    # THE AXIS THAT MATTERS IS `flat`. It is how much of the lens is erased.
+    # 1.0 leaves only a rim — a bevel. 0 leaves the whole linear ramp, which IS
+    # a lens: content pushed outward from the centre, magnified, and broken at
+    # the boundary. That break is the straw in the glass of water.
+    # Chroma is turned right down: dispersion is a different phenomenon and it
+    # was masking this one.
+    ("A radial -80",   dict(ew=0.30, d=-80,  blur=8, flat=0.00, g=2, b=4)),
+    ("B radial -160",  dict(ew=0.30, d=-160, blur=8, flat=0.00, g=2, b=4)),
+    ("C radial +120",  dict(ew=0.30, d=120,  blur=8, flat=0.00, g=2, b=4)),
+    ("D radial + rim", dict(ew=0.30, d=-120, blur=8, flat=0.45, g=4, b=8)),
 ]
 
 SIZE = 372
@@ -22,11 +28,11 @@ def dmap(w, h, r, ew, blur, brightness, flat):
         '<linearGradient id="r" x1="100%%" y1="0%%" x2="0%%" y2="0%%">'
         '<stop offset="0%%" stop-color="#0000"/><stop offset="100%%" stop-color="red"/></linearGradient>'
         '<linearGradient id="b" x1="0%%" y1="0%%" x2="0%%" y2="100%%">'
-        '<stop offset="0%%" stop-color="#0000"/><stop offset="100%%" stop-color="blue"/></linearGradient>'
+        '<stop offset="0%%" stop-color="#000"/><stop offset="100%%" stop-color="lime"/></linearGradient>'
         '</defs>'
         '<rect width="%d" height="%d" fill="black"/>'
         '<rect width="%d" height="%d" rx="%f" fill="url(#r)"/>'
-        '<rect width="%d" height="%d" rx="%f" fill="url(#b)" style="mix-blend-mode:difference"/>'
+        '<rect width="%d" height="%d" rx="%f" fill="url(#b)" style="mix-blend-mode:screen"/>'
         '<rect x="%f" y="%f" width="%f" height="%f" rx="%f" fill="hsl(0 0%% %d%% / %s)" style="filter:blur(%fpx)"/>'
         '</svg>'
     ) % (w, h, w, h, w, h, r, w, h, r, edge, edge, w - edge * 2, h - edge * 2, r, brightness, flat, blur)

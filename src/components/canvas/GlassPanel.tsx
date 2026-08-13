@@ -105,7 +105,7 @@ export const defaultGlass = (): GlassConfig => ({
   // rim sampled from most of the way across the disc and the whole face
   // filled with rainbow smear. The band here is about 40px, so the bend has
   // to be a fraction of that.
-  distortion: -160,
+  distortion: -90,
   // The three channels pulled much further apart. This separation IS the
   // colour that makes the rim read as thickness — at 0/10/20 it was a hint,
   // and a hint of it just looks like a compression artefact.
@@ -130,7 +130,7 @@ export const defaultGlass = (): GlassConfig => ({
   // bright rim. Several rounds were spent perfecting the thing that was
   // deleting the effect. A little flattening keeps a defined edge; a lot throws
   // the glass away.
-  flatness: 0.35,
+  flatness: 0.2,
   softness: 0.7,
   frost: 0,
   saturation: 1.1,
@@ -148,9 +148,17 @@ export const defaultGlass = (): GlassConfig => ({
  * inset shape in flat grey, blurred, stamped on top to erase all of it except a
  * soft band hugging the border.
  *
- * feDisplacementMap reads red for horizontal movement and green for vertical,
- * so a pixel's colour here IS the direction that pixel of the picture gets
- * pushed. Flat grey in the middle means "stay".
+ * feDisplacementMap reads RED for horizontal movement and GREEN for vertical.
+ * That is the whole reason this was wrong for so long: the second gradient was
+ * BLUE, differenced against the red, so the green channel stayed at zero
+ * everywhere. Zero green means a constant upward push — every pane refracted
+ * straight up the screen instead of outward from its own centre, which is
+ * exactly what it looked like.
+ *
+ * Red ramps left to right and green ramps top to bottom, screened together so
+ * the two channels stay independent. Now a pixel's displacement is its offset
+ * FROM THE CENTRE, in both axes at once — which is a lens, and bends a line
+ * around the middle of the disc rather than shearing the whole thing sideways.
  */
 function displacementMap(
   w: number,
@@ -165,11 +173,11 @@ function displacementMap(
   const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <linearGradient id="r" x1="100%" y1="0%" x2="0%" y2="0%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="red"/></linearGradient>
-<linearGradient id="b" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="blue"/></linearGradient>
+<linearGradient id="b" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#000"/><stop offset="100%" stop-color="lime"/></linearGradient>
 </defs>
 <rect width="${w}" height="${h}" fill="black"/>
 <rect width="${w}" height="${h}" rx="${radius}" fill="url(#r)"/>
-<rect width="${w}" height="${h}" rx="${radius}" fill="url(#b)" style="mix-blend-mode:difference"/>
+<rect width="${w}" height="${h}" rx="${radius}" fill="url(#b)" style="mix-blend-mode:screen"/>
 <rect x="${edge}" y="${edge}" width="${w - edge * 2}" height="${h - edge * 2}" rx="${radius}" fill="hsl(0 0% ${brightness}% / ${flatness})" style="filter:blur(${edgeBlur}px)"/>
 </svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
