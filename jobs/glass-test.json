@@ -1,8 +1,10 @@
 {
   "_comment": [
-    "Glass test, react-bits technique: a bevelled pane that bends only at",
-    "its rim. Orbit puts a real refracting disc behind each face; the caption",
-    "gets a pane sized to its own text. No full-frame pane any more."
+    "Glass test. Background deliberately SHARP and barely dimmed: the glass",
+    "must be judged against a crisp picture, or every soft edge could be the",
+    "footage rather than the pane. The glass itself adds no frost at all —",
+    "frost is 0 and stays 0. What you should see is a clear centre and a thick",
+    "band of colour-split refraction hugging each rim."
   ],
   "scriptPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/scripts/smoke.txt",
   "language": "el",
@@ -27,5 +29,7 @@
       "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-joy-medium.onnx",
       "borderColor": "#3cb4ff"
     }
-  ]
+  ],
+  "backgroundBlur": 0,
+  "backgroundDim": 0.15
 }

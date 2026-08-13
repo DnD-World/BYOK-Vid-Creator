@@ -36,8 +36,12 @@ export interface GlassConfig {
    *  which is always half. */
   radius: number;
   /** How wide the bent band at the rim is, as a fraction of the shorter side.
-   *  This is the thickness of the glass, and it is the single control that
-   *  most changes whether the thing reads as a pane or as a puddle. */
+   *
+   *  THE most important control here. It is the thickness of the glass seen
+   *  edge-on, and a thick rim with a clear middle is what makes a pane read as
+   *  a solid object rather than as a filter laid over the picture. Narrow
+   *  values scatter a little distortion across the whole pane and look like
+   *  smeared plastic. */
   edgeWidth: number;
   /** How hard the rim bends what is behind it, in pixels ON A 200px PANE.
    *
@@ -58,8 +62,13 @@ export interface GlassConfig {
   /** Softness of the rim band, in px at 1080 wide. Higher = a rounder, fatter
    *  looking edge. */
   edgeBlur: number;
-  /** Lightness and alpha of the flat inner region of the map, 0–100 and 0–1.
-   *  Together they decide how much of the pane is "flat glass". */
+  /** The flat inner region of the map: mid-grey means "displace nothing".
+   *
+   *  brightness must be 50 for true neutrality, and flatness is how completely
+   *  that neutrality is stamped over the gradients. Below 1 the gradients show
+   *  through the middle and the whole pane distorts slightly — which is exactly
+   *  the muddy look that wants removing. 1 gives a clear centre and confines
+   *  every bit of bending to the rim. */
   brightness: number;
   flatness: number;
   /** Blur of the final refracted image, in px at 1080 wide. Small. This is
@@ -78,14 +87,26 @@ export interface GlassConfig {
 export const defaultGlass = (): GlassConfig => ({
   shape: "rect",
   radius: 0.14,
-  edgeWidth: 0.07,
-  distortion: -180,
+  // A thick rim and a clear middle. react-bits' 0.07 is tuned for a small UI
+  // chip where the pane is mostly edge anyway; on an avatar disc it left a
+  // thin fringe and a faintly muddy centre.
+  edgeWidth: 0.22,
+  // MEASURED against a 367px avatar disc. The displacement has to stay small
+  // relative to the RIM BAND it lives in, not just to the pane: at -140 the
+  // rim sampled from most of the way across the disc and the whole face
+  // filled with rainbow smear. The band here is about 40px, so the bend has
+  // to be a fraction of that.
+  distortion: -34,
+  // The three channels pulled much further apart. This separation IS the
+  // colour that makes the rim read as thickness — at 0/10/20 it was a hint,
+  // and a hint of it just looks like a compression artefact.
   redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  edgeBlur: 11,
+  greenOffset: 14,
+  blueOffset: 28,
+  edgeBlur: 9,
   brightness: 50,
-  flatness: 0.93,
+  // Fully opaque: the centre is clear glass and bends nothing at all.
+  flatness: 1,
   softness: 0.7,
   frost: 0,
   saturation: 1.1,

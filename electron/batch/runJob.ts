@@ -92,6 +92,13 @@ export interface BatchJob {
    *  for social cuts, where the platform re-encodes everything anyway and the
    *  only thing a large file buys is upload time. */
   crf?: number;
+  /** Override the preset's scrim and blur over the footage.
+   *
+   *  Here because judging any new effect needs the picture behind it left
+   *  alone: a glass test run under a preset that blurs the whole background
+   *  shows a blurred video either way, and says nothing about the glass. */
+  backgroundDim?: number;
+  backgroundBlur?: number;
   /** A pane of glass over the background and waveform. Refracts those two
    *  only — the avatars and subtitles draw in front of it and stay sharp. */
   glass?: RenderJob["glass"];
@@ -361,8 +368,8 @@ export async function runBatchJob(
     musicDuck: defaultProject.musicDuck,
     sfx: [],
     backgrounds,
-    backgroundDim: preset.backgroundDim ?? defaultProject.backgroundDim,
-    backgroundBlur: preset.backgroundBlur ?? defaultProject.backgroundBlur,
+    backgroundDim: job.backgroundDim ?? preset.backgroundDim ?? defaultProject.backgroundDim,
+    backgroundBlur: job.backgroundBlur ?? preset.backgroundBlur ?? defaultProject.backgroundBlur,
     backgroundCrossfadeMs: preset.backgroundCrossfadeMs ?? defaultProject.backgroundCrossfadeMs,
     // MERGED, not chosen between. A preset is partial by contract — its own
     // doc comment says every field is optional on read so that older, hand-
