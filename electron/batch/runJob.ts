@@ -163,7 +163,7 @@ export async function runBatchJob(
       sheetPath: c.sheetPath ?? fromPreset?.sheetPath,
       puppetPath: c.puppetPath ?? fromPreset?.puppetPath,
       borderColor: c.borderColor ?? fromPreset?.borderColor ?? "#ff9a3c",
-      surface: s?.surface,
+      surface: s?.surface ?? fromPreset?.surface,
       bgColor: fromPreset?.bgColor ?? "#000000",
       bgOpacity: fromPreset?.bgOpacity ?? 0,
       borderOpacity: fromPreset?.borderOpacity ?? 1,
@@ -299,7 +299,6 @@ export async function runBatchJob(
       sheetPath: sp.sheetPath,
       puppetPath: sp.puppetPath,
     })),
-    musicWaveform: preset.musicWaveform ?? defaultProject.musicWaveform,
     musicColor: preset.musicColor ?? defaultProject.musicColor,
     width,
     height,
@@ -315,7 +314,14 @@ export async function runBatchJob(
     backgrounds,
     backgroundDim: preset.backgroundDim ?? defaultProject.backgroundDim,
     backgroundCrossfadeMs: preset.backgroundCrossfadeMs ?? defaultProject.backgroundCrossfadeMs,
-    subtitles: preset.subtitles ?? defaultProject.subtitles,
+    // MERGED, not chosen between. A preset is partial by contract — its own
+    // doc comment says every field is optional on read so that older, hand-
+    // written and AI-generated presets still load. `?? defaults` only fires
+    // when the whole object is missing, so a preset that set six subtitle
+    // fields was silently handing the renderer `enabled: undefined` and no
+    // colours at all. The nine built-ins all do exactly that.
+    subtitles: { ...defaultProject.subtitles, ...preset.subtitles },
+    musicWaveform: { ...defaultProject.musicWaveform, ...preset.musicWaveform },
     visemeFadeMs: defaultProject.visemeFadeMs,
     idleMotion: defaultProject.idleMotion,
     narrationSegments: narration.segments,

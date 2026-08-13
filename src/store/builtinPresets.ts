@@ -154,6 +154,14 @@ export function builtinPresets(): (ProjectPreset & { name: string })[] {
         speakerCount: count,
         builtIn: true,
         slots: slotsFor(style, count),
+        // Partial on purpose, and NOT cast to a full SubtitleConfig.
+        //
+        // A preset is partial by contract — anything it omits falls back to the
+        // app's defaults. An `as SubtitleConfig` here claimed otherwise, and
+        // the claim was believed: the batch runner used the object whole, so
+        // every render made from a built-in got `enabled: undefined` and no
+        // colours. The cast did not create the bug, but it is why nothing
+        // caught it. Consumers merge over defaults; the type now says so.
         subtitles: {
           ...style.subtitles,
           surface:
@@ -161,7 +169,7 @@ export function builtinPresets(): (ProjectPreset & { name: string })[] {
               ? { ...defaultSurface(), style: "glass", opacity: 0.4, blur: 0.006, radius: 0.2 }
               : { ...defaultSurface(), style: "none" },
           transition: defaultSubtitleTransition(),
-        } as SubtitleConfig,
+        },
         backgroundDim: style.backgroundDim,
         backgroundBlur: style.backgroundBlur,
         savedAt: 0,

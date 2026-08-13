@@ -254,7 +254,29 @@ export async function planBackgrounds(opts: {
     };
 
     if (first) look = (obj.look ?? "").trim();
-    for (const s of obj.scenes ?? []) byIndex.set(s.index, s);
+
+    // TRUST THE ORDER, VERIFY THE NUMBER.
+    //
+    // Batch two is sent scenes 20-39 and asked to reuse those numbers. Models
+    // renumber lists from zero anyway — it is one of the most reliable things
+    // they do — and `byIndex.set(s.index, ...)` would then quietly overwrite
+    // every query batch one produced, leaving scenes 20-39 to fall back to
+    // their own Greek text, which stock libraries cannot match. The first third
+    // of the video would get the wrong footage and the rest near-random, with
+    // no error anywhere.
+    //
+    // So an index is used only if it belongs to this batch. Anything else is
+    // taken as a renumbering and mapped back by position, which is the one
+    // thing the model does reliably: it returns them in the order given.
+    const lo = batch[0].index;
+    const hi = batch[batch.length - 1].index;
+    const returned = obj.scenes ?? [];
+    returned.forEach((s, i) => {
+      const inRange = typeof s.index === "number" && s.index >= lo && s.index <= hi;
+      const target = inRange ? s.index : batch[i]?.index;
+      if (target !== undefined) byIndex.set(target, { ...s, index: target });
+    });
+
     opts.onBatch?.(n + 1, batches.length);
   }
 

@@ -17,6 +17,13 @@ import { builtinPresets } from "./builtinPresets";
 
 interface TemplatesState {
   templates: Record<string, ProjectTemplate>;
+  /** Names of built-ins the user deleted.
+   *
+   *  Without this the seeder cannot tell "never seen" from "thrown away", and
+   *  a built-in you deleted comes back on the next launch — which is a bug
+   *  wearing a feature's clothes. Only names are kept; the preset itself is
+   *  still in code, so a reset restores it. */
+  removedBuiltins: string[];
   saveTemplate: (name: string, snapshot: Omit<ProjectTemplate, "savedAt">) => void;
   deleteTemplate: (name: string) => void;
   /** Put a built-in back the way it shipped. Does nothing for a preset that
@@ -38,6 +45,7 @@ export const useTemplatesStore = create<TemplatesState>()(
   persist(
     (set) => ({
       templates: {},
+      removedBuiltins: [],
       saveTemplate: (name, snapshot) =>
         set((s) => ({
           templates: {
@@ -52,24 +60,36 @@ export const useTemplatesStore = create<TemplatesState>()(
         set((s) => {
           const next = { ...s.templates };
           delete next[name];
-          return { templates: next };
+          // Remembered only if it was a built-in — a user's own preset is gone
+          // when it is gone, and nothing would ever bring it back.
+          const wasBuiltIn = name in builtinsByName();
+          return {
+            templates: next,
+            removedBuiltins: wasBuiltIn ? [...s.removedBuiltins, name] : s.removedBuiltins,
+          };
         }),
       resetToDefault: (name) =>
         set((s) => {
           const original = builtinsByName()[name];
           if (!original) return s;
-          return { templates: { ...s.templates, [name]: { ...original, savedAt: Date.now() } } };
+          return {
+            templates: { ...s.templates, [name]: { ...original, savedAt: Date.now() } },
+            // Resetting a built-in you had deleted is how you ask for it back.
+            removedBuiltins: s.removedBuiltins.filter((n) => n !== name),
+          };
         }),
       seedBuiltins: () =>
         set((s) => {
           const next = { ...s.templates };
+          const removed = new Set(s.removedBuiltins);
           for (const [name, preset] of Object.entries(builtinsByName())) {
-            // Missing only. A built-in you edited is yours, and a deleted one
-            // coming back on next launch would be a bug, not a feature — so
-            // deleting a built-in has to survive too. That is the cost of
-            // seeding on rehydrate, and it is paid in the panel: deleting a
-            // built-in is offered as "Reset", never as "Delete".
-            if (!(name in next)) next[name] = { ...preset, savedAt: Date.now() };
+            // Missing AND not deliberately thrown away. A built-in you edited
+            // is yours and is left alone; one you deleted stays deleted, which
+            // needs the tombstone list because "absent" alone cannot tell the
+            // two apart. Reset is how you ask for it back.
+            if (!(name in next) && !removed.has(name)) {
+              next[name] = { ...preset, savedAt: Date.now() };
+            }
           }
           return { templates: next };
         }),

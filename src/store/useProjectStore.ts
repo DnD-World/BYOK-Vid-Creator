@@ -231,14 +231,21 @@ export const useProjectStore = create<ProjectState & Actions>()(
 
   // Every field falls back to the current default, so a partial or older
   // preset loads rather than throwing or blanking the project.
+  //
+  // `??` is right for a whole object the preset either has or hasn't, and
+  // WRONG for one it can half-specify. Subtitles are the half-specifying kind:
+  // a preset that sets a font size and an uppercase flag is not a subtitle
+  // configuration, and swapping it in whole replaced `enabled`, the colours and
+  // the stroke with undefined. Merge those; choose between the rest.
   loadSnapshot: (snap) =>
     set((s) => ({
       render: snap.render ?? s.render,
       fps: snap.fps ?? s.fps,
-      musicWaveform: snap.musicWaveform ?? defaultProject.musicWaveform,
+      musicWaveform: { ...defaultProject.musicWaveform, ...snap.musicWaveform },
       musicColor: snap.musicColor ?? defaultProject.musicColor,
-      subtitles: snap.subtitles ?? s.subtitles,
+      subtitles: { ...s.subtitles, ...snap.subtitles },
       backgroundDim: snap.backgroundDim ?? s.backgroundDim,
+      backgroundBlur: snap.backgroundBlur ?? s.backgroundBlur,
       backgroundCrossfadeMs: snap.backgroundCrossfadeMs ?? s.backgroundCrossfadeMs,
       speakers: (snap.speakers ?? s.speakers).map(migrateSpeaker),
     })),

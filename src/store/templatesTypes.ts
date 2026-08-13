@@ -44,7 +44,11 @@ export interface ProjectPreset {
   speakers?: SpeakerConfig[];
   musicWaveform?: TrackWaveform;
   musicColor?: string;
-  subtitles?: SubtitleConfig;
+  /** Partial, like everything else here. A consumer must merge it over the
+   *  app's defaults rather than use it whole — a preset that sets six subtitle
+   *  fields is not a complete subtitle configuration, and treating it as one
+   *  handed the renderer an undefined `enabled` and no colours. */
+  subtitles?: Partial<SubtitleConfig>;
   /** How background clips are treated — not *which* clips, which belong to the
    *  script rather than to the look. */
   backgroundDim?: number;
