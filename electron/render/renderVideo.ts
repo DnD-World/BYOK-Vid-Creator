@@ -75,6 +75,11 @@ export interface RenderJob {
   visemeFadeMs?: number;
   idleMotion?: number;
   narrationSegments?: RenderProps["narrationSegments"];
+  /** x264 quality, 0–51: lower is better and bigger. Absent means 23, which is
+   *  x264's own default and the usual "visually transparent" mark. Exposed so
+   *  a batch can trade size against quality per row — a social cut and an LMS
+   *  master do not want the same file. */
+  crf?: number;
 }
 
 export interface RenderContext {
@@ -430,6 +435,27 @@ export async function renderVideo(
       codec: "h264",
       outputLocation: outputPath,
       inputProps,
+      // MEASURED: the first nine-minute render came out at 668 MB — about
+      // 10 Mbit/s — because nothing here set a quality and Remotion's default
+      // is deliberately generous. That is not a decision anyone made, and no
+      // LMS wants a 668 MB lesson.
+      //
+      // CRF is a quality target, not a bitrate: the encoder spends bits where
+      // the picture needs them and saves them where it doesn't, which suits
+      // this material well since long stretches are a near-static frame with a
+      // moving mouth and a waveform. 23 is x264's own default and the usual
+      // "visually transparent" mark for delivery.
+      //
+      // `medium` rather than `veryfast` because rendering frames already
+      // dominates the clock at two thirds of the total — spending a little
+      // more time in the encoder to make the file substantially smaller is the
+      // right side of that trade.
+      crf: job.crf ?? 23,
+      x264Preset: "medium",
+      // Audio at a real bitrate rather than whatever falls out. Narration is
+      // the one thing a lesson cannot afford to sound cheap.
+      audioCodec: "aac",
+      audioBitrate: "192k",
       // The composition can't talk back except through the browser console, and
       // the one thing it needs to say — "I couldn't load the spectrum, this
       // video is silently worse than it should be" — is invisible otherwise.

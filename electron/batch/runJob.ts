@@ -87,6 +87,10 @@ export interface BatchJob {
    *  batch is likely to vary per row — the same lesson, wide for the LMS and
    *  tall for social. */
   format?: "9:16" | "16:9";
+  /** x264 quality, 0–51: lower is better and bigger. Defaults to 23. Raise it
+   *  for social cuts, where the platform re-encodes everything anyway and the
+   *  only thing a large file buys is upload time. */
+  crf?: number;
 }
 
 export interface JobResult {
@@ -315,6 +319,7 @@ export async function runBatchJob(
     visemeFadeMs: defaultProject.visemeFadeMs,
     idleMotion: defaultProject.idleMotion,
     narrationSegments: narration.segments,
+    crf: job.crf,
   } as RenderJob;
 
   const result = await renderVideo(renderJob, ctx);
