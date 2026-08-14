@@ -237,6 +237,39 @@ are under a quarter of it.
    and worth remembering rather than chasing: it is exactly the class of thing
    that turns out to matter on the fortieth row of a batch.
 
+## Voice: DramaBox, and Chatterbox is gone — 14 Aug 2026
+
+**Chatterbox ran, and was rejected.** It loaded on CUDA and spoke Greek for the
+first time on this machine. The blocker had been the antivirus trap documented
+below: the server started fine, then failed to download its model with
+CERTIFICATE_VERIFY_FAILED, because Python does not read the Windows certificate
+store. Passing `tools/windows-ca-bundle.pem` as `SSL_CERT_FILE` fixed it — the
+same fix `childEnv.ts` already applies, which a hand-rolled launch bypassed.
+
+Ak listened and preferred **DramaBox** by a wide margin. Chatterbox uninstalled:
+5.3 GB of server and 3.0 GB of model cache removed. Its code paths are still in
+the app and are now dead weight to clear.
+
+**DramaBox is from the same people (Resemble AI)** and is open-weights, so this
+is an engine swap and not a change of approach. It is prompt-driven: stage
+directions like "her voice cracks" shape the delivery and never appear in the
+audio, which is why the sample sounded acted rather than read.
+
+**It cannot run on this machine.** ~24 GB peak VRAM against a laptop RTX 3070's
+8 GB, and 8.5 GB of weights before activations. There is no low-VRAM path.
+
+| | |
+|---|---|
+| Documented | 2.5 s/generation, warm H100, 30 steps |
+| Fits on | L4 24 GB — the cheapest card that clears the requirement |
+| 100 lessons × 5 min | ~300 generations, ~8.3 hours of audio |
+| Estimated cost | $1–4 on a GCP spot L4, against existing credit |
+
+The plan is a narration step that runs on a rented box — script and voice
+references up, WAVs and timings down. Everything after it stays local and
+unchanged. **Measure one lesson before trusting the table**: only the 2.5s is
+documented, and every number after it is inference from it.
+
 ## The agreed order — 12 Aug 2026
 
 Set after watching `render-1786118738784.mp4` (7 Aug) end to end. Each item is
