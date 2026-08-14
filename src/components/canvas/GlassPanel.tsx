@@ -92,48 +92,17 @@ export interface GlassConfig {
 export const defaultGlass = (): GlassConfig => ({
   shape: "rect",
   radius: 0.14,
-  // A thick rim and a clear middle. react-bits' 0.07 is tuned for a small UI
-  // chip where the pane is mostly edge anyway; on an avatar disc it left a
-  // thin fringe and a faintly muddy centre.
-  // 0.30 puts the inset at 15% of the shorter side — the outer 15% of the
-  // radius IS the bevel. GlassSurface's 0.07 is tuned for a small chip where
-  // a 3% lip is already most of the element; on a 367px disc it was a hairline
-  // and there was no thickness to see.
-  edgeWidth: 0.3,
-  // MEASURED against a 367px avatar disc. The displacement has to stay small
-  // relative to the RIM BAND it lives in, not just to the pane: at -140 the
-  // rim sampled from most of the way across the disc and the whole face
-  // filled with rainbow smear. The band here is about 40px, so the bend has
-  // to be a fraction of that.
-  distortion: -90,
-  // The three channels pulled much further apart. This separation IS the
-  // colour that makes the rim read as thickness — at 0/10/20 it was a hint,
-  // and a hint of it just looks like a compression artefact.
+  edgeWidth: 0.07,
+  distortion: -180,
   redOffset: 0,
-  greenOffset: 2,
-  blueOffset: 4,
-  // Crisp, not smeared. A soft rim blends the three colour bands into one
-  // muddy wash; keeping it tight leaves them as distinct stripes running
-  // parallel to the edge, which is what reads as dispersion.
-  edgeBlur: 8,
+  greenOffset: 10,
+  blueOffset: 20,
+  edgeBlur: 11,
   brightness: 50,
-  // Fully opaque: the centre is clear glass and bends nothing at all.
-  // 0.35, NOT 1. This is the correction that took longest to find.
-  //
-  // The flat grey centre erases the lens. The map's two gradients are a linear
-  // ramp across the whole pane, and a ramp IS a lens — it pushes what is behind
-  // outward from the middle, magnifying it and breaking any line that crosses
-  // the rim. That break is a straw standing in a glass of water, and it is what
-  // refraction actually looks like.
-  //
-  // Stamping mid-grey over the middle removes exactly that and leaves only a
-  // bright rim. Several rounds were spent perfecting the thing that was
-  // deleting the effect. A little flattening keeps a defined edge; a lot throws
-  // the glass away.
-  flatness: 0.2,
-  softness: 0.7,
+  flatness: 0.93,
+  softness: 0,
   frost: 0,
-  saturation: 1.1,
+  saturation: 1,
   tint: "#ffffff",
   tintOpacity: 0.04,
   edge: 1,
@@ -173,11 +142,11 @@ function displacementMap(
   const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <linearGradient id="r" x1="100%" y1="0%" x2="0%" y2="0%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="red"/></linearGradient>
-<linearGradient id="b" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#000"/><stop offset="100%" stop-color="lime"/></linearGradient>
+<linearGradient id="b" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="blue"/></linearGradient>
 </defs>
 <rect width="${w}" height="${h}" fill="black"/>
 <rect width="${w}" height="${h}" rx="${radius}" fill="url(#r)"/>
-<rect width="${w}" height="${h}" rx="${radius}" fill="url(#b)" style="mix-blend-mode:screen"/>
+<rect width="${w}" height="${h}" rx="${radius}" fill="url(#b)" style="mix-blend-mode:difference"/>
 <rect x="${edge}" y="${edge}" width="${w - edge * 2}" height="${h - edge * 2}" rx="${radius}" fill="hsl(0 0% ${brightness}% / ${flatness})" style="filter:blur(${edgeBlur}px)"/>
 </svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
@@ -275,8 +244,20 @@ export function glassBackdropStyle(
     backdropFilter: f,
     WebkitBackdropFilter: f,
     backgroundColor: withAlpha(glass.tint, glass.tintOpacity),
-    boxShadow: `inset 0 ${2 * k}px ${4 * k}px rgba(255,255,255,${0.4 * glass.edge}), inset 0 -${2 * k}px ${6 * k}px rgba(0,0,0,${0.2 * glass.edge}), inset 0 0 ${18 * k}px rgba(255,255,255,${0.12 * glass.edge})`,
-    border: `${Math.max(1, 1.2 * k)}px solid rgba(255,255,255,${0.3 * glass.edge})`,
+    // GlassSurface.css, verbatim in shape: two faint inset highlights and three
+    // soft drop shadows. NO BORDER — it has none, and every version of this
+    // file that drew one was painting a bezel over the refraction rather than
+    // letting the filter make the edge.
+    boxShadow: [
+      `inset 0 0 ${2 * k}px ${1 * k}px rgba(255,255,255,${0.35 * glass.edge})`,
+      `inset 0 0 ${10 * k}px ${4 * k}px rgba(255,255,255,${0.15 * glass.edge})`,
+      `0 ${4 * k}px ${16 * k}px rgba(17,17,26,0.05)`,
+      `0 ${8 * k}px ${24 * k}px rgba(17,17,26,0.05)`,
+      `0 ${16 * k}px ${56 * k}px rgba(17,17,26,0.05)`,
+      `inset 0 ${4 * k}px ${16 * k}px rgba(17,17,26,0.05)`,
+      `inset 0 ${8 * k}px ${24 * k}px rgba(17,17,26,0.05)`,
+      `inset 0 ${16 * k}px ${56 * k}px rgba(17,17,26,0.05)`,
+    ].join(", "),
   };
 }
 
