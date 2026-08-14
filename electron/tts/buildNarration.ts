@@ -19,6 +19,7 @@ import { synthesizeWithPiper } from "./piperEngine";
 import * as chatterbox from "./chatterboxEngine";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
+import { trimSilence } from "../audio/trimSilence";
 
 /** One line of script, with its speaker's voice already resolved.
  *
@@ -61,6 +62,11 @@ export interface BuiltNarration {
  *  the content is a cache that misses when it should hit. */
 function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): string {
   const material = JSON.stringify([
+    // Bumped whenever the AUDIO PIPELINE changes, not just its inputs. Silence
+    // trimming altered every byte a given script produces while leaving the
+    // script identical, so without this every cached narration would keep
+    // serving untrimmed audio and the fix would look like it did nothing.
+    "v2-trim",
     segments.map((s) => [
       s.speakerId,
       s.text,
@@ -121,6 +127,15 @@ export async function buildNarration(
     // No cache, or an unreadable one. Making it again is always correct.
   }
 
+  // Every engine leaves its own dead air at both ends, and it varies per line.
+  // Left in, the gap between two lines is the engine's leftovers plus the pause
+  // this app placed on purpose — so the rhythm belongs to nobody. Worse, the
+  // silence sits INSIDE the segment, and subtitle cues and viseme tracks are
+  // both derived from segment boundaries: every word and every mouth shape in
+  // that line shifts. One line is nothing; a hundred and sixty of them is the
+  // difference between lip-sync that holds and lip-sync that slides.
+  const trimmed = (b: Buffer): Buffer => trimSilence(b).buffer;
+
   const buffers: Buffer[] = [];
   for (const seg of segments) {
     if (seg.engine === "piper") {
@@ -134,7 +149,7 @@ export async function buildNarration(
         seg.piperOnnxPath,
         seg.text
       );
-      buffers.push(Buffer.from(audioBuffer));
+      buffers.push(trimmed(Buffer.from(audioBuffer)));
       continue;
     }
 
@@ -147,7 +162,7 @@ export async function buildNarration(
       exaggeration: seg.exaggeration,
       cfgWeight: seg.cfgWeight,
     });
-    buffers.push(Buffer.from(audioBuffer));
+    buffers.push(trimmed(Buffer.from(audioBuffer)));
   }
 
   // Nothing in front of the first line — leading silence only delays the video.
