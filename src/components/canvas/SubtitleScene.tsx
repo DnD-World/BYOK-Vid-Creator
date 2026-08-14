@@ -19,6 +19,7 @@
 
 import type { Surface, SubtitleConfig, SubtitleTransition } from "../../store/types";
 import { cueAt, type SubtitleCue } from "../../lib/subtitles/wordTiming";
+import { emojiFor } from "../../lib/subtitles/emoji";
 import { GlassFilterDefs, glassBackdropStyle, defaultGlass, type GlassConfig } from "./GlassPanel";
 
 /** A backdrop, as inline CSS. Shared shape for the panel behind text and the
@@ -243,7 +244,28 @@ export function SubtitleScene({
                 whiteSpace: "pre-wrap",
               }}
             >
-              {config.uppercase ? toUpperGreek(w.text) : w.text}
+              {(() => {
+                const swap = config.emoji ? emojiFor(w.text) : { text: w.text, isEmoji: false };
+                if (!swap.isEmoji) {
+                  return config.uppercase ? toUpperGreek(w.text) : w.text;
+                }
+                // Drawn larger, and without the stroke. An emoji set at the
+                // text's own size reads as a smudge beside capital letters, and
+                // a text-stroke traces every internal edge of a colour glyph
+                // until it looks like a sticker someone has outlined by hand.
+                return (
+                  <span
+                    style={{
+                      fontSize: "1.5em",
+                      lineHeight: 1,
+                      WebkitTextStrokeWidth: 0,
+                      verticalAlign: "-0.18em",
+                    }}
+                  >
+                    {swap.text}
+                  </span>
+                );
+              })()}
               {i < cue.words.length - 1 ? " " : ""}
             </span>
           );

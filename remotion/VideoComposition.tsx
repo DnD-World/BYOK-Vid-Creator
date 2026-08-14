@@ -246,6 +246,8 @@ export function VideoComposition({
             }}
             rect={{ x: sp.x * width - size / 2, y: sp.y * height - size / 2, w: size, h: size }}
             frameWidth={width}
+            frameHeight={height}
+            scene={behindGlass}
           />
         );
       })}

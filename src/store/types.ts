@@ -173,6 +173,11 @@ export interface SubtitleConfig {
    *  cache, re-fetchable on any machine. */
   fontFamily?: string | null;
   fontWeight?: number;
+  /** Replace a word with an emoji when the picture is unmistakable — 🍫 for
+   *  σοκολάτα, ⚕️ for κτηνίατρος, ❗ for a bare "!". Off by default: it is a
+   *  strong stylistic choice and a lesson may not want it. See
+   *  src/lib/subtitles/emoji.ts for what qualifies. */
+  emoji?: boolean;
   /** The panel behind the text. Optional so every project and preset written
    *  before surfaces existed still loads; absent means `none`, which is what
    *  those projects looked like. */

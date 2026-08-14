@@ -74,6 +74,16 @@ export interface GlassConfig {
   /** Blur of the final refracted image, in px at 1080 wide. Small. This is
    *  polish on the refraction, NOT a frosting of the whole pane. */
   softness: number;
+  /** How much the pane magnifies what is behind it. 1 = none.
+   *
+   *  THE HONEST WAY TO DO THIS. Every SVG-filter attempt bent the picture in a
+   *  direction that depended on where a pixel sat in the map, which is a bevel
+   *  and never quite a lens. A lens magnifies: it makes what is behind it
+   *  BIGGER, and breaks any line crossing its rim because the inside and the
+   *  outside no longer line up. Re-drawing the scene at a larger scale about
+   *  the pane's own centre and clipping it to the pane's shape IS that, exactly,
+   *  with nothing to misconfigure. */
+  magnify: number;
   /** Ordinary frost behind the pane, as a fraction of frame width. 0 for clear
    *  glass — which is what a lens looks like. */
   frost: number;
@@ -91,6 +101,7 @@ export interface GlassConfig {
 
 export const defaultGlass = (): GlassConfig => ({
   shape: "rect",
+  magnify: 1.18,
   radius: 0.14,
   edgeWidth: 0.07,
   distortion: -180,
@@ -278,7 +289,9 @@ export function GlassPanel({
   glass,
   rect,
   frameWidth,
+  frameHeight,
   id,
+  scene,
   children,
   style,
 }: {
@@ -288,9 +301,13 @@ export function GlassPanel({
    *  scaled by this. Same convention as every other size in the app: authored
    *  once, correct at any resolution. */
   frameWidth: number;
+  frameHeight: number;
   /** Unique per pane. Two panes sharing a filter id would silently share one
    *  shape, and a disk would be displaced by a rectangle's map. */
   id: string;
+  /** The layers to be seen THROUGH the pane, re-drawn magnified and clipped to
+   *  its shape. Omit for a pane that only tints. */
+  scene?: ReactNode;
   /** Drawn inside the pane, in front of the glass — a caption, a face. Never
    *  refracted. */
   children?: ReactNode;
@@ -371,6 +388,27 @@ export function GlassPanel({
           </filter>
         </defs>
       </svg>
+
+      {/* THE LENS. The scene again, larger, about this pane's own centre, cut to
+          its shape. Everything outside the pane is the original scale, so any
+          line crossing the rim steps — which is the whole tell. */}
+      {scene && glass.magnify !== 1 && (
+        <div style={{ position: "absolute", inset: 0, borderRadius: radiusPx, overflow: "hidden" }}>
+          <div
+            style={{
+              position: "absolute",
+              left: -rect.x,
+              top: -rect.y,
+              width: frameWidth,
+              height: frameHeight,
+              transform: `scale(${glass.magnify})`,
+              transformOrigin: `${rect.x + rect.w / 2}px ${rect.y + rect.h / 2}px`,
+            }}
+          >
+            {scene}
+          </div>
+        </div>
+      )}
 
       {/* The glass itself. backdrop-filter, so it acts on what is already
           painted beneath and on nothing drawn after. */}
