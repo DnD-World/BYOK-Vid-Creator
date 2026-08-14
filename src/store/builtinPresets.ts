@@ -170,8 +170,11 @@ export function builtinPresets(): (ProjectPreset & { name: string })[] {
         subtitles: {
           ...style.subtitles,
           surface:
-            style.name === "Broadcast"
-              ? { ...defaultSurface(), style: "glass", opacity: 0.4, blur: 0.006, radius: 0.2 }
+            style.name === "Broadcast" || style.name === "Orbit"
+              ? // A pill of glass under the caption. Orbit gets one too: its
+                // faces already sit on glass discs, and a bare caption beneath
+                // them looks like two different videos.
+                { ...defaultSurface(), style: "glass" }
               : { ...defaultSurface(), style: "none" },
           transition: defaultSubtitleTransition(),
         },

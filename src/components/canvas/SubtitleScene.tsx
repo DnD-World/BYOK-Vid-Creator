@@ -180,7 +180,7 @@ export function SubtitleScene({
       }}
     >
       {isGlass && (
-        <GlassFilterDefs id="subs" glass={g} w={1000} h={260} frameWidth={width} />
+        <GlassFilterDefs id="subs" glass={g} w={1000} h={220} frameWidth={width} />
       )}
       <div
         style={{
@@ -196,8 +196,15 @@ export function SubtitleScene({
           // project shifts.
           ...(hasSurface
             ? {
-                padding: `${fontSize * 0.3}px ${fontSize * 0.55}px`,
-                borderRadius: fontSize * 1.25 * (config.surface?.radius ?? 0.25),
+                padding: `${fontSize * 0.42}px ${fontSize * 0.9}px`,
+                // A PILL when it is glass. GlassSurface's demo runs at
+                // borderRadius 50 on an 80px-tall bar — the radius is half the
+                // height, so the ends are semicircles. 9999 gets that at any
+                // height, which matters here because the caption's height
+                // changes with the number of lines.
+                borderRadius: isGlass
+                  ? 9999
+                  : fontSize * 1.25 * (config.surface?.radius ?? 0.25),
               }
             : {}),
           ...(isGlass ? glassBackdropStyle("subs", g, width) : surfaceStyle(config.surface, width)),

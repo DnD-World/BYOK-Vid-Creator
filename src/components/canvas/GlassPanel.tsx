@@ -100,8 +100,13 @@ export const defaultGlass = (): GlassConfig => ({
   edgeBlur: 11,
   brightness: 50,
   flatness: 0.93,
-  softness: 0,
-  frost: 0,
+  // 0.5, from the demo's Displace slider. The component's own default is 0
+  // and the static markup says 0.7; the sliders are what the page is actually
+  // showing, so they win.
+  softness: 0.5,
+  // 0.1, the demo's Background Opacity. Not zero — a touch of milk behind the
+  // pane is part of the look.
+  frost: 0.1,
   saturation: 1,
   tint: "#ffffff",
   tintOpacity: 0.04,
