@@ -115,12 +115,20 @@ export const defaultGlass = (): GlassConfig => ({
   // and the static markup says 0.7; the sliders are what the page is actually
   // showing, so they win.
   softness: 0.5,
-  // 0.1, the demo's Background Opacity. Not zero — a touch of milk behind the
-  // pane is part of the look.
-  frost: 0.1,
+  // 0. THIS WAS THE BUG, and it hid everything else.
+  //
+  // The demo's "Background Opacity" slider is 0.1, and it was read straight
+  // into this field — but their --glass-frost is an ALPHA on a background
+  // colour, hsl(0 0% 0% / 0.1), and this is a BLUR expressed as a fraction of
+  // frame width. 0.1 of a 1080px frame is a 108 PIXEL blur. Every pane was a
+  // sheet of frosted bathroom glass, and the refraction and the magnification
+  // underneath it could not possibly be seen. Two different quantities with
+  // similar names, and the value moved between them without being checked.
+  frost: 0,
   saturation: 1,
   tint: "#ffffff",
-  tintOpacity: 0.04,
+  // Where the demo's 0.1 background opacity actually belongs.
+  tintOpacity: 0.1,
   edge: 1,
 });
 
