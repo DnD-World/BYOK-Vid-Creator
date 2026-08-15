@@ -34,6 +34,19 @@ export interface RibbonTwist {
    *  waist, not a turn. `front` is the sign of this same number, so the colour
    *  flip cannot land a slice away from the crossing. */
   lean: number;
+  /** How far the ribbon's CENTRE has swung off the guide curve, -1 to 1.
+   *
+   *  Without this the twist is invisible on a circular ring. Narrowing is then
+   *  the only thing that changes anywhere on the shape, and a band that only
+   *  narrows reads as a string of sausages — which is exactly what it looked
+   *  like. It read correctly on a SQUARE only because the spine already swings
+   *  out at the corners, and that swing was doing the work.
+   *
+   *  A ribbon wound round a ring sits on the surface of a tube, so its centre
+   *  circles the guide as it goes. That puts the swing a quarter turn out of
+   *  phase with the width: widest as it crosses the guide, a hairline at the
+   *  far side of the swing. The two together are a twist; either alone is not. */
+  swing: number;
 }
 
 export interface RibbonOptions {
@@ -75,11 +88,12 @@ export function ribbonTwistAt(
   // The honest foreshortening is |cos|, which spends most of its time thin. The
   // power opens the band out and keeps the pinch sharp — the ribbon is meant to
   // be seen, not to spend the shot on its edge.
-  const open = Math.pow(Math.abs(c), 0.62);
+  const open = Math.pow(Math.abs(c), 0.7);
   return {
     openness: open,
     front: c >= 0,
     lean: c >= 0 ? open : -open,
+    swing: Math.sin(phase),
   };
 }
 

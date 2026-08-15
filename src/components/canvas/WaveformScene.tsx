@@ -354,12 +354,20 @@ export function WaveformScene({
           const back = backFaceColor(track.color);
 
           const STEPS = 180;
-          // The centre line: where the ribbon's spine sits at an angle, boiling
-          // in and out. Shape-aware, so a square frame gets a square ribbon.
-          const spineAt = (ang: number) =>
+          // The GUIDE: the curve the ribbon is wound around, boiling in and out.
+          // Shape-aware, so a square frame gets a square ribbon.
+          const guideAt = (ang: number) =>
             (r0 + shape(surfaceAt(bubbles, ang) * gain) * band * 0.26) *
             shapeRadius(ang, expo);
           const twistAt = (ang: number) => ribbonTwistAt(ang, timeMs, {});
+          // The tube the ribbon is wound on, as a radius. Comparable to the
+          // ribbon's own width — much smaller and the swing is invisible, which
+          // is the state it shipped in.
+          const tube = halfW * 1.05;
+          // The SPINE swings around the guide as the ribbon turns. This is what
+          // makes the twist readable on a circle: see `swing` in ribbon.ts, and
+          // the sausages that were there without it.
+          const spineAt = (ang: number) => guideAt(ang) + tube * twistAt(ang).swing;
           // A floor under the width. A ribbon exactly edge-on is a hairline, not
           // nothing — letting it reach zero punches a hole in the band and reads
           // as a dropped frame rather than as a turn.
@@ -388,7 +396,13 @@ export function WaveformScene({
               edgeA.push({ x: cx + Math.cos(a) * (s + off), y: cy + Math.sin(a) * (s + off) });
               edgeB.push({ x: cx + Math.cos(a) * (s - off), y: cy + Math.sin(a) * (s - off) });
             }
-            const pad = (a1 - a0) * 0.6;
+            // JUST enough overlap to cover antialiasing between neighbours, and
+            // no more. The boil can afford 0.6 because its gradient fades to
+            // nothing at both ends, so an overlap there is invisible. The
+            // ribbon's fill is opaque edge to edge, so each slice repainted 60%
+            // of the last one with a gradient aimed a couple of degrees
+            // differently — which came out as a herringbone down the band.
+            const pad = (a1 - a0) * 0.08;
             const p = (ang: number, r: number) =>
               `${(cx + Math.cos(ang) * r).toFixed(2)} ${(cy + Math.sin(ang) * r).toFixed(2)}`;
             const outer = (ang: number) => spineAt(ang) + halfAt(ang);
@@ -397,47 +411,29 @@ export function WaveformScene({
               d:
                 `M ${p(a0 - pad, outer(a0 - pad))} L ${p(a1 + pad, outer(a1 + pad))}` +
                 ` L ${p(a1 + pad, inner(a1 + pad))} L ${p(a0 - pad, inner(a0 - pad))} Z`,
-              // Across the ribbon's width, so the sheen runs along the band the
-              // way light does on a real one — not from the centre of the frame,
-              // which would put the highlight on whichever side faced the middle.
-              x1: cx + Math.cos(a) * inner(a), y1: cy + Math.sin(a) * inner(a),
-              x2: cx + Math.cos(a) * outer(a), y2: cy + Math.sin(a) * outer(a),
-              face: t.front ? track.color : back,
-              // Sheen scales with how square-on the band is: a stretch caught
-              // edge-on goes matte, which is what sells the pinch as a turn.
-              lit: litFaceColor(t.front ? track.color : back, 0.12 + t.openness * 0.4),
-              // A darker line where the surface rolls away toward each edge.
-              edge: backFaceColor(t.front ? track.color : back),
+              // FLAT, one colour per slice. There was a gradient across the
+              // width here, and it herringboned the whole band: its colour
+              // bands run perpendicular to that slice's own radius, so they
+              // kink by the angle between neighbours — two degrees, 180 times
+              // round, at full contrast. Shading a slice by how square-on it is
+              // gives the turn without any structure inside the band to kink.
+              //
+              // It also suits the artwork better. The puppets are flat vector;
+              // a glossy shaded tube round a flat drawing was the wrong object.
+              // Face-on catches the light, edge-on goes matte. That shading is
+              // what makes the pinch read as a turn rather than a gap — and the
+              // UNDERSIDE catches much less of it, which is what keeps the two
+              // sides reading as two colours instead of two shades of one.
+              fill: t.front
+                ? litFaceColor(track.color, 0.06 + t.openness * 0.34)
+                : litFaceColor(back, 0.02 + t.openness * 0.12),
             });
           }
 
           return (
             <g key={ti} opacity={opacity}>
-              <defs>
-                {slices.map((s, i) => (
-                  <linearGradient
-                    key={i}
-                    id={`ribbon-${ti}-${i}`}
-                    gradientUnits="userSpaceOnUse"
-                    x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-                  >
-                    {/* Full colour at both edges with a sheen down the middle.
-                        The sheen fades out as the band turns away, so a ribbon
-                        caught edge-on goes matte — that, more than the width,
-                        is what makes the pinch look like a turn.
-
-                        Every stop is OPAQUE. See litFaceColor: the slices
-                        overlap so no seams show, and an overlap of anything
-                        transparent composites twice and stripes the band. */}
-                    <stop offset="0%" stopColor={s.edge} />
-                    <stop offset="45%" stopColor={s.lit} />
-                    <stop offset="70%" stopColor={s.face} />
-                    <stop offset="100%" stopColor={s.edge} />
-                  </linearGradient>
-                ))}
-              </defs>
               {slices.map((s, i) => (
-                <path key={i} d={s.d} fill={`url(#ribbon-${ti}-${i})`} />
+                <path key={i} d={s.d} fill={s.fill} />
               ))}
               {/* Both edges, lit. Drawn over the fill and in white rather than
                   in either face colour — an edge catches light whichever side
