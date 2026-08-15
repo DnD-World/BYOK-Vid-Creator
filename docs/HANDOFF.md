@@ -24,7 +24,12 @@ Script → narration → background clips → render → MP4. All of it works.
 ```bash
 npm run job -- jobs/smoke.json          # 27s, no backgrounds, ~30 seconds
 npm run job -- jobs/glass-test.json     # with stock footage
+npm run job -- jobs/ribbon-test.json    # one waveform style, judged alone
 ```
+
+A job can set `waveformStyle` and `outlineShape` for the whole cast, and both
+**throw on an unknown name**. Comparing looks used to mean editing a preset in
+source, which is how four "different" renders came out identical.
 
 `electron/batch/runJob.ts` is the headless runner. It calls the same functions
 the UI calls, in the same order — if a headless render and a clicked render ever
@@ -90,7 +95,8 @@ Nothing DramaBox-related can be finished until those exist.
 
 ## Waveforms — done this session
 
-Five styles chosen from `tools/waveform-lab.html` and all five now render:
+All six chosen from `tools/waveform-lab.html` now render, and all six are in
+the picker:
 
 | Style | What it is |
 |---|---|
@@ -98,7 +104,18 @@ Five styles chosen from `tools/waveform-lab.html` and all five now render:
 | `particles` | Bars plus a corona thrown on consonants |
 | `sparks` | No bars, scattered embers, random headings |
 | `bloomBars` | Bar ring with a glow that scales with the moment |
-| `ribbon` | **Named in the type, not implemented** — the one gap |
+| `ribbon` | Wide two-sided band, a colour per face, twisting on the boil |
+
+`WAVEFORM_STYLES` in `src/store/types.ts` is the one list — the union, the
+picker and the headless runner all read it. Four styles rendered correctly for
+a week and none appeared in the picker, because the union was extended and
+`WaveformControls` was not.
+
+The ribbon's twist is its **width**: the offset from the spine is the signed
+cosine of the twist phase, so at a pinch it crosses zero, the edges swap sides
+and the visible face flips. Use the absolute value and you get a waist, not a
+turn. Its width does not follow the superellipse even though its spine does — a
+ribbon's width belongs to the ribbon, not to where it happens to be.
 
 **All shape-aware.** `src/lib/waveform/superellipse.ts` gives circle, rounded
 square and square from one exponent, taken from the speaker's `outlineShape`.
@@ -117,10 +134,13 @@ definition, so a superellipse drawn with arcs stays round.
 
 ## Open, in the order I would take them
 
-1. **Choppy face movement.** Ak's original complaint #4, raised again, never
-   diagnosed. Walked past five times. `idleMotion` (0.7) drives head and blink
-   via `src/lib/motion/idleMotion.ts` and `facePerformance.ts`. **Diagnose before
-   changing anything.**
+1. **Make the render say what it could not apply.** The failure mode here is
+   never a crash — it is a render reporting success while quietly leaving
+   something out. It has happened four times (the spectrum 404,
+   `backgroundBlur`, subtitle surfaces, transitions) and a fifth would put a
+   subtly wrong video in front of a student. `onBrowserLog` carries exactly one
+   message today. Ak raised this as his stability worry and it is the answer to
+   it.
 2. **Remote narration step** — script and clips up to the L4, WAVs and timings
    back. `buildNarration` is the seam.
 3. **Rip out Chatterbox** — `chatterboxEngine.ts`, the engine enum, settings and
@@ -130,7 +150,12 @@ definition, so a superellipse drawn with arcs stays round.
    lesson; a row carries a finished script, a topic, or a URL.
 5. **Render a series in one process.** 72 short videos pay bundle+browser startup
    72 times — about 50 minutes of pure setup.
-6. `ribbon` style; narration-cache eviction; preview has no audio at all.
+6. Narration-cache eviction; preview has no audio at all.
+
+**Done since this list was written:** the blink is a crossfade (it was a
+three-state step function inside 3½ frames, which is what "a bit choppy"
+was); the `ribbon` style; and the four lab styles that had no way to be
+selected.
 
 ---
 
