@@ -82,12 +82,38 @@ allowed to be funny and is not allowed to be unclear.
 
 ---
 
-## Open, and worth settling before a hundred lessons are made
+## Settled, 15 Aug 2026
 
-- **Cloned or prompted?** DramaBox takes a 10-second reference clip and copies a
-  timbre. Prompted voices drift between generations; a cloned voice is the same
-  voice every time. For a course spanning months, that consistency is probably
-  worth more than the convenience.
-- **Which Greek?** The sample that convinced everyone was in Cretan dialect
-  ("Ίντα πράμα..."). Deliberate, or incidental to that one script?
-- **Does Τσίκα baby-talk back**, or is the baby talk one-directional from Καίτη?
+**Standard Greek**, not Cretan. The dialect in the test clip was incidental to
+that script. Neutral travels further for a paying LMS audience.
+
+**Baby talk is one-directional.** Καίτη coos at Τσίκα; Τσίκα answers in her own
+voice and does not appear to notice she is being talked down to. That is the
+joke, and it only works if she never plays along.
+
+**Voices are CLONED, not prompted.** This was a real question and the code
+answers it:
+
+- `generate(..., seed=42)` — generation is seeded, so the same prompt with the
+  same seed is byte-identical. Auditioning two versions of a character paragraph
+  is therefore a fair test.
+- But the seed fixes the NOISE, not the speaker. Every line of dialogue is
+  different text, so a prompted voice is re-imagined line by line and drifts
+  across a course.
+- The repo settles it itself: `generate_long` passes "same voice reference +
+  seed for every chunk". If a seed alone held a voice steady, the reference
+  would be redundant.
+
+### What a reference clip needs
+
+- **10+ seconds.** `ref_duration` defaults to 10.0 and only that much is read.
+- **One speaker. Nothing else.** No music, no second voice, no overlap — two
+  people in a clip averages into a voice that is neither.
+- **Neutral delivery is fine, and probably better.** The reference supplies
+  TIMBRE; the prompt supplies the acting. Recording Καίτη already shrieking with
+  delight bakes a performance into every line she ever speaks, including the
+  calm ones. Record the voice, not the mood.
+- Clean and close. There is a denoiser (`_denoise_voice_ref`, via nvidia/RE-USE)
+  but a clean clip beats a repaired one.
+
+Three clips needed: Καίτη, Σερίφης, Τσίκα. Ak is making them in Voicemod.
