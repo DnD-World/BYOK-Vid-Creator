@@ -210,23 +210,43 @@ export function WaveformScene({
         // Every bubble is derived from the clock rather than carried frame to
         // frame, so this survives being rendered out of order. See
         // lib/waveform/emitters.ts.
-        // KNOWN GAP: this reads cfg.ringX/ringY, which are FRAME fractions, so
-        // it always boils at the middle of the picture. It does not yet honour
-        // position: "speaker" the way bars do, which is how a waveform comes to
-        // ring a face. Verified in a render — it boils correctly and in the
-        // wrong place. Fixing it means taking the same speaker centre the bars
-        // resolve, not changing anything about the motion.
+        // BOILING. Bumps that swell where they start and subside there, while
+        // others do the same elsewhere on their own schedule.
+        //
+        // Every bubble is derived from the clock rather than carried frame to
+        // frame, so this survives being rendered out of order. See
+        // lib/waveform/emitters.ts.
         if (cfg.style === "boil") {
-          const cx = width * cfg.ringX;
-          const cy = height * cfg.ringY;
-          const r0 = frameMin * 0.5 * Math.max(0.12, cfg.ringInnerRadius);
-          const band = frameMin * 0.17 * cfg.scale;
+          // AROUND THE FACE, not the frame. The first version read
+          // cfg.ringX/ringY — frame fractions — so it boiled in the middle of
+          // the picture with nobody in it. `halo` is the same centre and radius
+          // the bars use to ring a speaker, and it already exists here.
+          const cx = halo ? halo.cx : width * cfg.ringX;
+          const cy = halo ? halo.cy : height * cfg.ringY;
+          // ringInnerRadius sizes the hole, so a face can be given room without
+          // touching the swell. Against the halo when there is one — a fraction
+          // of the frame is meaningless around a head.
+          const r0 = halo
+            ? halo.r * (0.7 + cfg.ringInnerRadius * 0.9)
+            : frameMin * 0.5 * Math.max(0.12, cfg.ringInnerRadius);
+          const band = (halo ? halo.r * 0.55 : frameMin * 0.17) * cfg.scale;
 
-          // Loudness at an arbitrary past moment — bubbles are born before now
-          // and need to know how loud it was then, not how loud it is at this
-          // frame.
-          const levelAt = (ms: number) => sampleAnalysis(analysis, ms, spectrum)?.level ?? 0.25;
+          // FOLLOWS THE VOICE. `src` is this track's own moment — the speaker's
+          // level when they are speaking, and nothing when they are not — where
+          // the first version sampled the whole mix and boiled through everyone
+          // else's lines.
+          const here = src?.level ?? 0;
+          const levelAt = (ms: number) =>
+            (sampleAnalysis(analysis, ms, spectrum)?.level ?? 0.25) * (active ? 1 : 0.25);
           const bubbles = bubblesAt(timeMs, levelAt);
+
+          // APEX SPARINGLY. A surface pinned at full height reads as a solid
+          // blob and stops meaning anything. This curve keeps ordinary speech
+          // in the lower half of the range and lets only a genuinely loud
+          // moment reach the top — roughly a tenth of the time on normal
+          // narration.
+          const shape = (v: number) => Math.pow(Math.min(1, v), 1.9);
+          const gain = 0.45 + here * 0.75;
 
           const STEPS = 128;
           const slices = [];
@@ -234,17 +254,17 @@ export function WaveformScene({
             const a0 = (i / STEPS) * Math.PI * 2;
             const a1 = ((i + 1) / STEPS) * Math.PI * 2;
             const a = (a0 + a1) / 2;
-            const swell = surfaceAt(bubbles, a);
+            const swell = shape(surfaceAt(bubbles, a) * gain);
             const inner = r0 - (0.10 + swell * 0.06) * band;
             const outer = r0 + (0.26 + swell * 0.74) * band;
             const pad = (a1 - a0) * 0.6;
             const p = (ang: number, r: number) =>
               `${(cx + Math.cos(ang) * r).toFixed(2)} ${(cy + Math.sin(ang) * r).toFixed(2)}`;
             slices.push({
-              // The gradient belongs to THIS slice's band, not to the frame —
-              // so the bright core rides outward with the swell instead of
-              // sitting at a fixed radius, which is what made it read as a disc
-              // filling up rather than light coming off a bubble.
+              // The gradient belongs to THIS slice's band, not to the frame — so
+              // the bright core rides outward with the swell instead of sitting
+              // at a fixed radius, which is what made it read as a disc filling
+              // up rather than light coming off a bubble.
               d: `M ${p(a0 - pad, outer)} A ${outer} ${outer} 0 0 1 ${p(a1 + pad, outer)}` +
                  ` L ${p(a1 + pad, inner)} A ${inner} ${inner} 0 0 0 ${p(a0 - pad, inner)} Z`,
               x1: cx + Math.cos(a) * inner, y1: cy + Math.sin(a) * inner,
@@ -264,8 +284,8 @@ export function WaveformScene({
                     x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
                   >
                     <stop offset="0%" stopColor={track.color} stopOpacity={0} />
-                    <stop offset="30%" stopColor={track.color} stopOpacity={0.55 + s.swell * 0.4} />
-                    <stop offset="60%" stopColor={track.color} stopOpacity={0.35 + s.swell * 0.35} />
+                    <stop offset="30%" stopColor={track.color} stopOpacity={0.45 + s.swell * 0.5} />
+                    <stop offset="60%" stopColor={track.color} stopOpacity={0.28 + s.swell * 0.42} />
                     <stop offset="100%" stopColor={track.color} stopOpacity={0} />
                   </linearGradient>
                 ))}

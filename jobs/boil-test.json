@@ -28,5 +28,7 @@
       "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-joy-medium.onnx",
       "borderColor": "#3cb4ff"
     }
-  ]
+  ],
+  "backgroundDim": 0,
+  "backgroundBlur": 0
 }
