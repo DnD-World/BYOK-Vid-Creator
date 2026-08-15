@@ -106,7 +106,10 @@ function bandAt(x, smooth, src) {
  *  than snaps. This chases dev slowly, so a peak takes a moment to arrive and
  *  longer to leave. */
 const flow = new Float32Array(N).fill(0.2);
+let amp = 0.3;
 function tickFlow() {
+  // One number for the tide's height. A wave does not have 24 amplitudes.
+  amp += (Math.min(1, energy * 2.2) - amp) * 0.05;
   for (let i = 0; i < N; i++) {
     const target = dev[i];
     // Rises faster than it falls, like a swell.
@@ -135,7 +138,7 @@ const STYLES = [
   },
   {
     name: "D · ribbon, rounded",
-    note: "flowing + drifting — no band owns an angle",
+    note: "sharp again, drifting so no band owns an angle",
     draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.26, k=Math.min(w,h)*0.13;
       const spin = t/2600;
@@ -146,26 +149,36 @@ const STYLES = [
         // stationary lump Ak spotted. Rotating the mapping means no angle is
         // owned by one frequency for long.
         smoothRing(c, cx, cy,
-          i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96 + spin, true, flow)*k), 96);
+          i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96 + spin, true)*k), 96);
         c.strokeStyle = colour; c.lineWidth = Math.max(2.5,w/140);
         c.lineJoin = "round"; c.stroke();
       }
     },
   },
   {
-    name: "E · gradient ring",
-    note: "<b>water</b>, not drums — inertia plus a travelling swell",
+    name: "E · tide",
+    note: "<b>one</b> swell travelling, not 24 breathing",
     draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.15;
       const g = c.createRadialGradient(cx,cy,r0,cx,cy,r0+k);
       g.addColorStop(0,"rgba(255,214,107,.95)");
       g.addColorStop(.45,"rgba(255,154,60,.7)");
       g.addColorStop(1,"rgba(255,80,40,0)");
+
+      // A TIDE, not a spectrum. Mapping 24 bands around the circle gives 24
+      // lobes rising and falling in place, which is breathing — Ak's word, and
+      // the right one. Water has FEW crests and they TRAVEL. So the shape is
+      // one dominant wave plus a smaller second, both rolling around at a
+      // steady rate, and the audio only sets how tall they are.
+      const phase = t / 1400;
+      const swell = i => {
+        const a = (i / 96) * Math.PI * 2;
+        return 0.62 * Math.sin(a - phase) + 0.38 * Math.sin(a * 2 - phase * 1.35);
+      };
       c.beginPath();
-      // A floor of 18% so the ring never disappears in a quiet moment.
-      smoothRing(c, cx, cy, i => r0 + (0.22 + bandAt(i*N/96 + t/3400, true, flow)*0.78)*k, 96);
-      smoothRing(c, cx, cy, () => r0, 96);                              // inner hole
-      c.fillStyle = g; c.fill("evenodd");                               // annulus
+      smoothRing(c, cx, cy, i => r0 + (0.30 + 0.70 * amp * (0.5 + swell(i) * 0.5)) * k, 96);
+      smoothRing(c, cx, cy, () => r0, 96);
+      c.fillStyle = g; c.fill("evenodd");
     },
   },
   {
