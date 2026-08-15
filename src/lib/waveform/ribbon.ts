@@ -50,8 +50,14 @@ export interface RibbonTwist {
 }
 
 export interface RibbonOptions {
-  /** Half-twists in one trip round the ring. 2.5 gives five pinches, which is
-   *  enough to read as a twist without turning the band into a barber pole. */
+  /** Full twists in one trip round the ring. 3 gives six pinches, which is
+   *  enough to read as a twist without turning the band into a barber pole.
+   *
+   *  MUST BE A WHOLE NUMBER. The ribbon is a closed loop, so the twist has to
+   *  come back to where it started after 2π. At 2.5 it came back half a turn
+   *  out — the band arrived at angle 0 showing the opposite face and jumped,
+   *  which Ak saw as the right-hand middle being malformed. It is the only
+   *  place on the ring where a seam can appear, and this is why. */
   turns?: number;
   /** How long the twist takes to travel once round, in ms. Negative runs the
    *  other way. */
@@ -59,6 +65,10 @@ export interface RibbonOptions {
   /** A slower second turn laid over the first, so the pinches are unevenly
    *  spaced and the whole thing does not look machined. 0 disables it. */
   wander?: number;
+  /** How many times the wander cycles per trip round. A WHOLE NUMBER, for
+   *  exactly the same reason as `turns` — a term that does not close leaves the
+   *  same seam, and it is easy to fix one and forget the other. */
+  wanderTurns?: number;
 }
 
 /**
@@ -73,16 +83,20 @@ export function ribbonTwistAt(
   timeMs: number,
   opts: RibbonOptions = {}
 ): RibbonTwist {
-  const turns = opts.turns ?? 2.5;
+  // Rounded rather than trusted. A fractional turn count does not close the
+  // loop, and the resulting seam is subtle enough to survive review — it did.
+  const turns = Math.max(1, Math.round(opts.turns ?? 3));
+  const wanderTurns = Math.max(1, Math.round(opts.wanderTurns ?? 2));
   const periodMs = opts.periodMs ?? 9000;
   const wander = opts.wander ?? 0.55;
 
   const phase =
     angle * turns +
     (timeMs / periodMs) * Math.PI * 2 +
-    // The second turn is deliberately not a whole multiple of the first, so the
-    // two never line up and the pattern does not repeat within a shot.
-    Math.sin(angle * 1.7 + timeMs / 3300) * wander;
+    // A second, slower turn so the pinches are unevenly spaced. It closes too,
+    // and at a different rate from the first, so the two drift against each
+    // other and the pattern does not repeat within a shot.
+    Math.sin(angle * wanderTurns + timeMs / 3300) * wander;
 
   const c = Math.cos(phase);
   // The honest foreshortening is |cos|, which spends most of its time thin. The

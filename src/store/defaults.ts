@@ -30,7 +30,16 @@ export const defaultProject: ProjectState = {
   },
   pauseSameMs: 120,
   pauseTurnMs: 340,
-  visemeFadeMs: 70,
+  // A CUT, not a dissolve. Cross-fading two mouth drawings blends them, and a
+  // half-and-half of an open mouth and a closed one has neither shape's outline
+  // nor either fill — it reads as the mouth vanishing for a frame. At 70ms,
+  // under two frames at 24fps, about one frame of every viseme change landed in
+  // that state. Measured against a hard cut on the same frames of the same
+  // render: two washed-out mouths in eight, versus none.
+  //
+  // This is what cel animation has always done — mouths cut. The control is
+  // still in the Scene panel for anyone who wants it.
+  visemeFadeMs: 0,
   idleMotion: 0.7,
   fps: 24,
   speakers: [],

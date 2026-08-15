@@ -203,14 +203,20 @@ export function PuppetAvatar({
     prevViseme !== undefined && prevViseme !== viseme
       ? puppet.mouths[String(prevViseme)] ?? puppet.mouths["0"]
       : undefined;
-  // A TRUE crossfade, unlike the sprite sheet's, which stacks the outgoing cell
-  // opaque underneath the incoming one. That was necessary there because each
-  // cell is a whole face and fading both would let the background show through
-  // the middle of the transition. Here the face underneath is blank — the mouth
-  // is its own layer over solid skin — so there is nothing to show through, and
-  // fading both out and in is what actually reads as a mouth changing shape.
-  // Stacking would instead hold the old mouth at full strength until the last
-  // instant and then pop.
+  // OFF BY DEFAULT — see visemeFadeMs in store/defaults.ts. Fading between two
+  // mouth drawings does not produce an in-between mouth, it produces both at
+  // half strength, and a half-and-half of an open mouth and a closed one has
+  // no solid outline and no solid fill. That is what Ak saw as the mouth
+  // disappearing on some frames.
+  //
+  // Kept, because the control exists and a small fade between two SIMILAR
+  // shapes is harmless. Two corrections are baked in for when it is used.
+  //
+  // The incoming layer is opaque and the outgoing one fades off it. It used to
+  // fade both, which additionally let the SKIN through — an "over" composite
+  // reaches full opacity only if one layer is opaque, so one of them has to be,
+  // and it is the arriving mouth. That way the fade ends smoothly rather than
+  // holding the old mouth to the last instant and popping it off.
   const fading = prevMouth !== undefined && mix < 1;
 
   // ---- head / body separation -------------------------------------------
@@ -289,19 +295,20 @@ export function PuppetAvatar({
         {draw(puppet.eyes.whites, "whites")}
         {draw(puppet.eyes.pupilLeft, "pupilL")}
         {draw(puppet.eyes.pupilRight, "pupilR")}
-        {/* Crossfaded exactly the way the mouth below is. Two lid images, the
-            outgoing one fading out under the incoming one — a blink is under
-            four frames long, so a hard swap between three drawings is visible
-            as a stutter in a face that is otherwise moving continuously. */}
+        {/* Crossfaded exactly the way the mouth below is, and carrying the same
+            correction: the ARRIVING lid is opaque and the leaving one fades off
+            it. Fading both left the lid at half opacity mid-blink, with the eye
+            white showing through it — the same ghost the mouth had, on a
+            feature that changes four times in a 150ms blink. */}
+        {draw({ ...(lidLNext ?? lidL), split: "left" }, "lidL")}
         {lidLNext && fade < 1 && draw({ ...lidL, split: "left" }, "lidLPrev", 1 - fade)}
-        {draw({ ...(lidLNext ?? lidL), split: "left" }, "lidL", lidLNext ? fade : undefined)}
+        {draw({ ...(lidRNext ?? lidR), split: "right" }, "lidR")}
         {lidRNext && fade < 1 && draw({ ...lidR, split: "right" }, "lidRPrev", 1 - fade)}
-        {draw({ ...(lidRNext ?? lidR), split: "right" }, "lidR", lidRNext ? fade : undefined)}
         {draw(browL, "browL")}
         {draw(browR, "browR")}
         {puppet.extras?.map((l, i) => draw(l, `ex${i}`))}
+        {draw(mouth, "mouth")}
         {fading && draw(prevMouth, "mouthPrev", 1 - mix)}
-        {draw(mouth, "mouth", fading ? mix : undefined)}
       </div>
     </div>
   );
