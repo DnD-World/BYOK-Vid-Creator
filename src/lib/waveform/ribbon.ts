@@ -68,14 +68,22 @@ export interface RibbonOptions {
    *  time is exactly the same as subtracting angle. However much twisting the
    *  maths contained, the eye saw a rigid object turning. */
   periodMs?: number;
-  /** How long one rock takes, in ms, and how far it rocks, in radians.
+  /** How long one winding cycle takes, in ms, and how hard it winds, in
+   *  radians.
    *
-   *  This is what a twist actually looks like. Rocking the phase back and forth
-   *  is NOT equivalent to a rotation, because it reverses: the pinches stay
-   *  roughly where they are and the surface rolls through them, which is what
-   *  happens when you twist a real ribbon between your fingers. */
-  rockMs?: number;
-  rock?: number;
+   *  THE ONLY TERM HERE THAT ACTUALLY TWISTS, and it took two wrong attempts to
+   *  get to. Any term added to the phase that depends on time ALONE is a rigid
+   *  rotation of the whole pattern, because on a ring adding time is the same
+   *  as subtracting angle. Making that term swing back and forth does not help:
+   *  it just rotates one way and then the other, which is exactly what Ak saw.
+   *
+   *  So the winding is a function of time AND angle: an oscillating amount of
+   *  extra twist, distributed unevenly around the ring. Where it is positive
+   *  the ribbon winds up, and half a ring away it unwinds at the same moment.
+   *  That cannot be undone by rotating the picture, which is what makes it read
+   *  as the surface turning over rather than the whole thing spinning. */
+  windMs?: number;
+  wind?: number;
   /** A slower second turn laid over the first, so the pinches are unevenly
    *  spaced and the whole thing does not look machined. 0 disables it. */
   wander?: number;
@@ -102,23 +110,24 @@ export function ribbonTwistAt(
   const turns = Math.max(1, Math.round(opts.turns ?? 3));
   const wanderTurns = Math.max(1, Math.round(opts.wanderTurns ?? 2));
   const periodMs = opts.periodMs ?? 30000;
-  const rockMs = opts.rockMs ?? 2400;
-  const rock = opts.rock ?? 2.2;
+  const windMs = opts.windMs ?? 2600;
+  const wind = opts.wind ?? 2.0;
   const wander = opts.wander ?? 0.55;
 
   const phase =
     angle * turns +
-    // The rocking term does the twisting. It has no angle in it, so it moves
-    // the whole pattern — but it reverses, and a rotation that reverses is a
-    // roll, not a spin.
-    Math.sin((timeMs / rockMs) * Math.PI * 2) * rock +
+    // THE TWIST. Time and angle together: the amount of extra winding swings
+    // with time, and how much of it lands at a given place swings with angle.
+    // One side of the ring winds up while the other unwinds, so no rotation of
+    // the picture can reproduce it. Both frequencies are whole numbers so the
+    // loop still closes.
+    Math.sin((timeMs / windMs) * Math.PI * 2) * wind * Math.sin(angle * wanderTurns) +
     // A slow drift underneath, so the pinches do not sit at the same six angles
     // for nine minutes. Small enough not to read as spinning on its own.
     (timeMs / periodMs) * Math.PI * 2 +
-    // A second, slower turn so the pinches are unevenly spaced. It closes too,
-    // and at a different rate from the first, so the two drift against each
-    // other and the pattern does not repeat within a shot.
-    Math.sin(angle * wanderTurns + timeMs / 3300) * wander;
+    // A second, slower turn so the pinches are unevenly spaced, drifting at a
+    // different rate so the pattern does not repeat within a shot.
+    Math.sin(angle * (wanderTurns + 1) + timeMs / 3300) * wander;
 
   const c = Math.cos(phase);
   // The honest foreshortening is |cos|, which spends most of its time thin. The
