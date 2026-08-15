@@ -13,6 +13,7 @@
 // tracks exist and which are enabled is the behaviour.
 // ---------------------------------------------------------------------------
 
+import { useMemo } from "react";
 import type { AudioAnalysis } from "../../store/types";
 import { samplePath, type PathPoint } from "../../lib/waveform/samplePath";
 import type { RenderTrack } from "../../lib/waveform/buildTracks";
@@ -23,7 +24,7 @@ import {
   bandAmplitude,
 } from "../../lib/waveform/amplitude";
 import { sparklesFor } from "../../lib/waveform/sparkle";
-import { bubblesAt, surfaceAt } from "../../lib/waveform/emitters";
+import { bubblesAt, surfaceAt, findBursts, particlesAt } from "../../lib/waveform/emitters";
 import { exponentFor, shapeRadius } from "../../lib/waveform/superellipse";
 import { sampleAnalysis, type DecodedSpectrum } from "../../lib/waveform/audioAnalysis";
 
@@ -152,6 +153,17 @@ export function WaveformScene({
     ? sampleAnalysis(musicAnalysis, timeMs, musicSpectrum)
     : null;
 
+  // ONSETS, found once. Every particle style needs to know when the voice
+  // struck, and every frame needs the same answer — so this is derived from the
+  // analysis rather than from whatever the current frame happens to see.
+  const bursts = useMemo(() => {
+    if (!analysis) return [];
+    return findBursts(
+      analysis.durationMs,
+      (ms) => sampleAnalysis(analysis, ms, spectrum)?.level ?? 0
+    );
+  }, [analysis, spectrum]);
+
   return (
     <svg
       className="absolute inset-0 pointer-events-none"
@@ -217,6 +229,93 @@ export function WaveformScene({
         // Every bubble is derived from the clock rather than carried frame to
         // frame, so this survives being rendered out of order. See
         // lib/waveform/emitters.ts.
+        // PARTICLES, SPARKS and BLOOM — all three derived from the clock rather
+        // than accumulated, so they survive being rendered out of order. The
+        // ring they are born on follows the speaker's own frame shape, like the
+        // boil does.
+        if (cfg.style === "particles" || cfg.style === "sparks" || cfg.style === "bloomBars") {
+          const cx = halo ? halo.cx : width * cfg.ringX;
+          const cy = halo ? halo.cy : height * cfg.ringY;
+          const base = halo ? halo.r : frameMin * 0.28;
+          const expo = exponentFor(track.outlineShape ?? undefined);
+          const sparks = cfg.style === "sparks";
+
+          // Sparks scatter far and wide; particles stay a tidier corona.
+          const live = active
+            ? particlesAt(bursts, timeMs, {
+                ringRadius: base,
+                lifeMs: sparks ? 1100 : 900,
+                perBurst: sparks ? 44 : 16,
+                speed: sparks ? 0.9 : 0.55,
+                spread: sparks ? 1.7 : 0.5,
+                swirl: sparks ? 0.9 : 0.25,
+              })
+            : [];
+
+          const bars =
+            cfg.style !== "sparks" ? (
+              <g
+                // The bloom is the whole point of bloomBars, and it scales with
+                // the moment rather than being a constant halo.
+                filter={cfg.style === "bloomBars" ? `url(#glow-${ti})` : undefined}
+              >
+                {[...Array(density)].map((_, i) => {
+                  const a = (i / density) * Math.PI * 2 - Math.PI / 2;
+                  const k = shapeRadius(a, expo);
+                  const r1 = base * k;
+                  const r2 = r1 + Math.min(1, ampAt(i, density, true)) * maxLen;
+                  return (
+                    <line
+                      key={i}
+                      x1={cx + Math.cos(a) * r1} y1={cy + Math.sin(a) * r1}
+                      x2={cx + Math.cos(a) * r2} y2={cy + Math.sin(a) * r2}
+                      stroke={track.color}
+                      strokeWidth={Math.max(1.5, frameMin * 0.004 * cfg.thickness)}
+                      strokeLinecap="round"
+                    />
+                  );
+                })}
+              </g>
+            ) : null;
+
+          return (
+            <g key={ti} opacity={opacity}>
+              {cfg.style === "bloomBars" && (
+                <defs>
+                  <filter id={`glow-${ti}`} x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation={frameMin * 0.006 * (0.4 + (src?.level ?? 0))} result="b" />
+                    <feMerge>
+                      <feMergeNode in="b" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+              )}
+              {bars}
+              {live.map((p, i) => {
+                // Born on the shape, not on a circle, so a square frame throws
+                // its sparks from its own edge.
+                const k = shapeRadius(p.angle, expo);
+                const scale = 1 / p.z;
+                const size = Math.max(
+                  0.8,
+                  (sparks ? 1.8 : 3.2) * scale * (frameMin / 900) * cfg.dotSize
+                );
+                return (
+                  <circle
+                    key={i}
+                    cx={cx + Math.cos(p.angle) * p.radius * k}
+                    cy={cy + Math.sin(p.angle) * p.radius * k}
+                    r={size}
+                    fill={sparks && p.seed > 0.65 ? "#ffffff" : track.color}
+                    opacity={p.life * p.life * Math.min(1, scale)}
+                  />
+                );
+              })}
+            </g>
+          );
+        }
+
         if (cfg.style === "boil") {
           // AROUND THE FACE, not the frame. The first version read
           // cfg.ringX/ringY — frame fractions — so it boiled in the middle of
