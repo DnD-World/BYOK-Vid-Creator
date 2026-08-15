@@ -45,14 +45,22 @@ pip install -q --upgrade pip
 pip install -q -r requirements.txt
 
 # --- weights --------------------------------------------------------------
-# ~8.5 GB of DramaBox plus the Gemma-3-12B text encoder. Pulled once, cached in
-# ~/.cache/huggingface, and the slowest step by far.
+# Through the repo's OWN downloader, not a hand-rolled snapshot_download.
+#
+# The first version of this script called snapshot_download("ResembleAI/Dramabox")
+# directly, which put the files in the HuggingFace cache under names the loader
+# never looks for, and the run died on a file that is in no manifest and no
+# download. get_model_path() knows both the repo layout and where the loader
+# expects to find things; reimplementing half of that by hand is what broke it.
 echo "=== fetching weights $(date -Is) ==="
-python3 - <<'PY'
-from huggingface_hub import snapshot_download
-snapshot_download("ResembleAI/Dramabox")
-print("weights ready")
-PY
+python3 - <<'PYEOF'
+import sys
+sys.path.insert(0, "/opt/dramabox/DramaBox")
+from src.model_downloader import get_model_path, get_gemma_path
+for name in ("transformer", "audio_components", "silence_latent"):
+    print(name, "->", get_model_path(name), flush=True)
+print("gemma ->", get_gemma_path(), flush=True)
+PYEOF
 
 touch "$MARKER"
 echo "=== setup complete $(date -Is) ==="
