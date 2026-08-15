@@ -51,6 +51,7 @@ function tick(t) {
     sum += dev[i];
   }
   energy = sum / N;
+  tickFlow();
 }
 
 /** A closed curve through the band points, with ROUNDED peaks.
@@ -79,21 +80,38 @@ function smoothRing(c, cx, cy, radiusAt, steps) {
  *  by steps — which is what made the filled ring look like a cog rather than a
  *  waveform. Smoothing the curve could not fix it because the data itself was
  *  a staircase. Reading between the bands is the actual fix. */
-function bandAt(x, smooth) {
+function bandAt(x, smooth, src) {
+  const d = src || dev;
   const at = j => {
     const k = ((j % N) + N) % N;
-    if (!smooth) return dev[k];
+    if (!smooth) return d[k];
     // NEIGHBOUR AVERAGE. Interpolating between 24 points still traces 24
     // lobes, which is the "coggish" Ak keeps seeing — the curve is smooth but
     // the SHAPE still has 24 corners' worth of information in it. Blending
     // each band with the two beside it turns lobes into a flowing line, at the
     // cost of a little per-band detail that a ribbon was never showing anyway.
-    return (dev[(k - 1 + N) % N] + dev[k] * 2 + dev[(k + 1) % N]) / 4;
+    return (d[(k - 1 + N) % N] + d[k] * 2 + d[(k + 1) % N]) / 4;
   };
   const f = ((x % N) + N) % N, i = Math.floor(f), frac = f - i;
   const a = at(i), b = at(i + 1);
   // Cosine rather than linear: no corner where two segments meet.
   return a + (b - a) * (1 - Math.cos(frac * Math.PI)) / 2;
+}
+
+/** A SLOW copy of the deviation, for the styles that should flow.
+ *
+ *  dev has a sharp attack and a quick decay, which is right for particles and
+ *  bloom — they are supposed to hit like a drum. It is wrong for a ribbon or a
+ *  filled ring, where Ak wants water: something with inertia that rolls rather
+ *  than snaps. This chases dev slowly, so a peak takes a moment to arrive and
+ *  longer to leave. */
+const flow = new Float32Array(N).fill(0.2);
+function tickFlow() {
+  for (let i = 0; i < N; i++) {
+    const target = dev[i];
+    // Rises faster than it falls, like a swell.
+    flow[i] += (target - flow[i]) * (target > flow[i] ? 0.055 : 0.028);
+  }
 }
 
 const P = [];    // particles
@@ -117,13 +135,18 @@ const STYLES = [
   },
   {
     name: "D · ribbon, rounded",
-    note: "neighbour-smoothed — a flowing line, not 24 lobes",
+    note: "flowing + drifting — no band owns an angle",
     draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.26, k=Math.min(w,h)*0.13;
-      const spin = t/4000;
+      const spin = t/2600;
       for (const [side,colour] of [[1,ACCENT],[-1,COOL]]) {
         c.beginPath();
-        smoothRing(c, cx, cy, i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96, true)*k), 96);
+        // DRIFT. Band 0 was always drawn at the top, and low bands carry most
+        // of a voice's energy, so the same corner bulged permanently — the
+        // stationary lump Ak spotted. Rotating the mapping means no angle is
+        // owned by one frequency for long.
+        smoothRing(c, cx, cy,
+          i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96 + spin, true, flow)*k), 96);
         c.strokeStyle = colour; c.lineWidth = Math.max(2.5,w/140);
         c.lineJoin = "round"; c.stroke();
       }
@@ -131,8 +154,8 @@ const STYLES = [
   },
   {
     name: "E · gradient ring",
-    note: "true gradient, <b>annulus</b> not disc, smooth",
-    draw(c,w,h){
+    note: "<b>water</b>, not drums — inertia plus a travelling swell",
+    draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.15;
       const g = c.createRadialGradient(cx,cy,r0,cx,cy,r0+k);
       g.addColorStop(0,"rgba(255,214,107,.95)");
@@ -140,7 +163,7 @@ const STYLES = [
       g.addColorStop(1,"rgba(255,80,40,0)");
       c.beginPath();
       // A floor of 18% so the ring never disappears in a quiet moment.
-      smoothRing(c, cx, cy, i => r0 + (0.18 + bandAt(i*N/96, true)*0.82)*k, 96);
+      smoothRing(c, cx, cy, i => r0 + (0.22 + bandAt(i*N/96 + t/3400, true, flow)*0.78)*k, 96);
       smoothRing(c, cx, cy, () => r0, 96);                              // inner hole
       c.fillStyle = g; c.fill("evenodd");                               // annulus
     },
