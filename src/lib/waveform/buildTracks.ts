@@ -9,7 +9,7 @@
 // which is the whole reason the waveform moved onto the speaker.
 // ---------------------------------------------------------------------------
 
-import type { SpeakerConfig, TrackWaveform } from "../../store/types";
+import type { OutlineShape, SpeakerConfig, TrackWaveform } from "../../store/types";
 
 export interface RenderTrack {
   cfg: TrackWaveform;
@@ -22,9 +22,16 @@ export interface RenderTrack {
   /** Where the owning face sits, as 0–1 fractions, for the "speaker" position.
    *  null for music, which has no face to ring. */
   anchor: { x: number; y: number; size: number } | null;
+  /** The speaker's frame shape, so a ring can match it — round face, round
+   *  waveform; square frame, square waveform. Null for music, which has no
+   *  face to agree with. */
+  outlineShape: OutlineShape | null;
 }
 
-type TrackSpeaker = Pick<SpeakerConfig, "borderColor" | "waveform" | "x" | "y" | "size">;
+type TrackSpeaker = Pick<
+  SpeakerConfig,
+  "borderColor" | "waveform" | "x" | "y" | "size" | "outlineShape"
+>;
 
 export function buildTracks(
   speakers: TrackSpeaker[],
@@ -40,12 +47,16 @@ export function buildTracks(
         color: sp.borderColor,
         speakerIndex: i,
         anchor: { x: sp.x, y: sp.y, size: sp.size },
+        outlineShape: sp.outlineShape,
       });
     }
   });
 
   if (musicWaveform?.enabled) {
-    tracks.push({ cfg: musicWaveform, color: musicColor, speakerIndex: null, anchor: null });
+    tracks.push({
+      cfg: musicWaveform, color: musicColor,
+      speakerIndex: null, anchor: null, outlineShape: null,
+    });
   }
 
   return tracks;

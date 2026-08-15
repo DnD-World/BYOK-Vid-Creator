@@ -24,6 +24,7 @@ import {
 } from "../../lib/waveform/amplitude";
 import { sparklesFor } from "../../lib/waveform/sparkle";
 import { bubblesAt, surfaceAt } from "../../lib/waveform/emitters";
+import { exponentFor, shapeRadius } from "../../lib/waveform/superellipse";
 import { sampleAnalysis, type DecodedSpectrum } from "../../lib/waveform/audioAnalysis";
 
 export interface WaveformSceneProps {
@@ -258,16 +259,30 @@ export function WaveformScene({
           // an outline that dies completely reads as a bug, not as silence.
           const gain = active ? 0.45 + here * 0.85 : 0.06;
 
-          const STEPS = 128;
+          // ROUND, ROUNDED-SQUARE OR SQUARE, from one exponent. The ring
+          // follows whatever frame the speaker was given, so a square avatar
+          // does not get a circular halo.
+          const expo = exponentFor(track.outlineShape ?? undefined);
+
+          const STEPS = 160;
           const slices = [];
           for (let i = 0; i < STEPS; i++) {
             const a0 = (i / STEPS) * Math.PI * 2;
             const a1 = ((i + 1) / STEPS) * Math.PI * 2;
             const a = (a0 + a1) / 2;
             const swell = shape(surfaceAt(bubbles, a) * gain);
-            const inner = r0 - (0.10 + swell * 0.06) * band;
-            const outer = r0 + (0.26 + swell * 0.74) * band;
+            // Measured along the shape, so a corner reaches further than an
+            // edge exactly as the frame does.
+            const k = shapeRadius(a, expo);
+            const inner = (r0 - (0.10 + swell * 0.06) * band) * k;
+            const outer = (r0 + (0.26 + swell * 0.74) * band) * k;
             const pad = (a1 - a0) * 0.6;
+            const outerAt = (ang: number) =>
+              (r0 + (0.26 + shape(surfaceAt(bubbles, ang) * gain) * 0.74) * band) *
+              shapeRadius(ang, expo);
+            const innerAt = (ang: number) =>
+              (r0 - (0.10 + shape(surfaceAt(bubbles, ang) * gain) * 0.06) * band) *
+              shapeRadius(ang, expo);
             const p = (ang: number, r: number) =>
               `${(cx + Math.cos(ang) * r).toFixed(2)} ${(cy + Math.sin(ang) * r).toFixed(2)}`;
             slices.push({
@@ -275,8 +290,11 @@ export function WaveformScene({
               // the bright core rides outward with the swell instead of sitting
               // at a fixed radius, which is what made it read as a disc filling
               // up rather than light coming off a bubble.
-              d: `M ${p(a0 - pad, outer)} A ${outer} ${outer} 0 0 1 ${p(a1 + pad, outer)}` +
-                 ` L ${p(a1 + pad, inner)} A ${inner} ${inner} 0 0 0 ${p(a0 - pad, inner)} Z`,
+              // Straight edges, not arcs. An arc is a circle by definition, so
+              // a superellipse drawn with arcs quietly stays round however the
+              // radii are computed. At 160 slices the difference is invisible.
+              d: `M ${p(a0 - pad, outerAt(a0 - pad))} L ${p(a1 + pad, outerAt(a1 + pad))}` +
+                 ` L ${p(a1 + pad, innerAt(a1 + pad))} L ${p(a0 - pad, innerAt(a0 - pad))} Z`,
               x1: cx + Math.cos(a) * inner, y1: cy + Math.sin(a) * inner,
               x2: cx + Math.cos(a) * outer, y2: cy + Math.sin(a) * outer,
               swell,
