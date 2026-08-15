@@ -21,7 +21,14 @@ export interface RenderSettings {
  *  their outline colour, so the two cannot drift apart. */
 export interface TrackWaveform {
   enabled: boolean;
-  style: "bars" | "lines" | "wave" | "mirror" | "dots" | "rings";
+  /** The six original styles, plus the five chosen from the waveform lab.
+   *
+   *  "boil", "particles", "sparks" and "bloomBars" are DERIVED FROM TIME, not
+   *  accumulated frame to frame — see src/lib/waveform/emitters.ts for why
+   *  that is not optional in a renderer that draws frames out of order. */
+  style:
+    | "bars" | "lines" | "wave" | "mirror" | "dots" | "rings"
+    | "boil" | "particles" | "sparks" | "bloomBars" | "ribbon";
   /** "speaker" rings the owning speaker's own face rather than the frame —
    *  the halo look. Music has no face, so it falls back to "circular". */
   position: "circular" | "speaker" | "top" | "bottom" | "left" | "right";
