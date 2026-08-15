@@ -1,282 +1,185 @@
-# Handoff — state, decisions, and what not to revisit
+# Handoff — 15 Aug 2026
 
-> Rewritten 4 Aug 2026. Read this plus `PLAN.md` and you have everything.
->
-> `main` is at "Waveform glitter, and Poiret One for decorative type only".
-> One branch is open and unmerged: **`feat/media-fetch`**.
+Everything a fresh session needs. `PLAN.md` holds the long history; this is the
+working state.
 
 ---
 
-## 1. What the app is
+## What this project is
 
-A Windows desktop app (Electron) that turns a written script into a narrated,
-subtitled, lip-synced short video in Greek and English. Built for Ak's Greek
-dog-owner community project, and as a showcase piece for client work.
+Two LMS courses of lesson videos, Greek, 3–8 minutes each. Dog training first
+(**23 lessons → 72 sub-lesson videos**, plus 18 handouts that are not video),
+professional soft skills second. Same material also cut for social, so a project
+must come out in more than one orientation.
 
-Priority order: **(1) stability** — no crashes, clear seams, bundle rather than
-depend; **(2) engaging output**, to compensate for not using generative video;
-**(3) UI**, as CSS only.
+Three characters: **Καίτη** (human), **Σερίφης** (serious dog), **Τσίκα**
+(chihuahua). Voice briefs in `docs/CHARACTER-VOICES.md`.
 
-## 2. What works end to end
+---
 
-Script → per-speaker TTS → one WAV with turn pauses → 60Hz analysis (envelope,
-active speaker, 24-band FFT) → Remotion render → MP4 with burned-in subtitles,
-lip-sync, blinking, brows, head lean, and reactive waveforms.
+## The pipeline, end to end
 
-**This whole pipeline has been driven through the real UI and rendered.**
+Script → narration → background clips → render → MP4. All of it works.
 
-## 3. The avatar system
+```bash
+npm run job -- jobs/smoke.json          # 27s, no backgrounds, ~30 seconds
+npm run job -- jobs/glass-test.json     # with stock footage
+```
 
-Characters are **layered puppets**, not sprite sheets. A base body plus
-independent layers: eye whites, per-eye pupils, per-eye lids, per-side brows,
-nose, one mouth per viseme. Everything is positioned in **head-width units from
-the head's centre**.
+`electron/batch/runJob.ts` is the headless runner. It calls the same functions
+the UI calls, in the same order — if a headless render and a clicked render ever
+disagree, that is a bug, not a variant.
 
-| Can | Cannot |
+### Measured, not estimated
+
+| | |
 |---|---|
-| 9 visemes, lip-synced to real audio | Speak without a puppet assigned |
-| Blink **while** speaking, any mouth shape | Look up or down (no vertical gaze art) |
-| Wink — each eye independent | Turn to a 3/4 view (needs a second drawn pose) |
-| Half-lids, 4 brow moods, independently per side | Animate hair, ears or clothing |
-| Recolour any layer; **multi-tone bands** (Σερίφης' brows) | Change body pose |
-| **Head tilt / shake / droop / laugh-bob**, head moving on its own | Anything needing art that doesn't exist |
+| 8m50s render, end to end | **21 min** (narration 3.1, planning 1.5, clips 1.2, render 14.5) |
+| Production cost | ~2.5× the finished video's runtime |
+| Whole dog course (~3.6 h of video) | **~8.6 h of rendering**, ~1 h of narration |
+| CRF 23 | 668 MB → about a sixth |
 
-### The head really does move independently
+**Rendering is the bottleneck by a factor of ten.** Narration is the cheap part.
 
-The base is one drawing of a whole short body. It is drawn **twice from the same
-file**: once keeping everything below the neck, once everything above, and only
-the second copy rotates.
+---
 
-The cut is a **horizontal line** at the neck. An ellipse around the head was
-tried first and fails on the thing that matters — a head silhouette is not an
-ellipse, and it sliced through Καίτη's ponytail and Σερίφης' muzzle. A neck
-really is a narrow horizontal band, which is where a paper puppet is cut. The
-head's copy continues past the line so the two overlap, and that overlap hides
-the join. Per-character geometry is `neck: { y, overlap, feather }` in the spec.
+## Voices — DramaBox
 
-### Files
+**Decided and proven.** Chatterbox was tried, rejected, and uninstalled.
 
-- `puppet/*.spec.json` — author-facing, hand-tuned
-- `puppet/*.puppet.json` — runtime, generated, layer pixel dims stamped in
-- `tools/make-puppet.mjs` — spec → runtime, validates
-- `tools/render-puppet.mjs` — offline contact sheets; `--contact`, `--one`, `--cells`
-- `src/components/canvas/PuppetAvatar.tsx` — the live renderer, used by preview AND render
-- `src/lib/motion/facePerformance.ts` — blink, brows, head pose
-- `src/store/builtinCast.ts` — the three characters, offered in the Cast panel
+- Open weights, Resemble AI. **Prompt-driven**: stage directions control the
+  acting and never appear in the audio.
+- **Will not run locally** — ~24 GB VRAM against an 8 GB laptop 3070.
+- Runs on a **GCP L4** (24 GB, the cheapest card that clears it).
+  Measured: **8.5 s per generation**, ~3.4× slower than the documented H100.
+- Greek works and costs the same as English. This was the load-bearing unknown.
 
-**Geometry is specified once, in the puppet JSON.** The offline tool and the
-component only apply it. If they ever disagree, that is the bug — and a feature
-added to one and not the other (as `tintBands` briefly was) is how that starts.
+### The instance
 
-## 4. The cast
+`dramabox-smoke`, `us-east1-c`, `g2-standard-8`. **Currently TERMINATED.**
+us-central1 was stocked out in all three zones; L4 capacity fluctuates.
 
-Art lives in `viseme/` — **gitignored, 45MB, and only on Ak's machine.** A fresh
-clone gets the characters with no layers; they degrade to a faceless disk.
-**Treat this as a backup problem.** The PSD is already gone.
+```bash
+gcloud compute instances list --project=tier-1-ak      # TERMINATED = not billing
+powershell -ExecutionPolicy Bypass -File tools/gpu-light.ps1   # red/green widget
+```
 
-| | Set | Notes |
-|---|---|---|
-| Καίτη | B (female) | Human presenter. Mouth scale 0.78 |
-| Σερίφης | A (dog) + B lids | Schnauzer. Bushy brows: scaleX 1.45, scaleY 2.6, **three tone bands** |
-| Τσίκα | B (female) | Chihuahua. Mouth small — ~55px between nose and collar |
+**Ak's standing rule: turn it off as the last step of the work, every time.**
+Set `sudo shutdown -h +N` on the box before anything long, so it dies even if the
+session ends.
 
-Component layers were exported with **"Trim Layers" ON**, so every layer lost
-its position. Worked around with one anchor per category. **If art is ever
-re-exported, untick Trim Layers.**
+Setup is `tools/dramabox-vm-setup.sh`; the Greek test is
+`tools/dramabox-greek-test.py`. **The repo's own README example cannot work** —
+it falls back to filenames from Resemble's machine. The real mapping:
 
-## 5. The look — Deco Noir
+```
+checkpoint      → dramabox-dit-v1.safetensors
+full_checkpoint → dramabox-audio-components.safetensors
+gemma_root      → unsloth/gemma-3-12b-it-bnb-4bit, read from $GEMMA_DIR
+```
 
-The app wears the identity system at
-**https://github.com/Stravelakis/deco-noir-template** (v1.2.0), vendored into
-`src/styles/` rather than installed: this ships as an offline Electron build.
+### Blocked on
 
-That repo's `AGENTS.md` is the authority on the design rules. The short version:
-chamfer on top-left and bottom-right only, dressed with a double brass rule;
-bezels are always the theme accent and only the lamp changes colour; status
-colour is never the accent; a switch shows exactly one state word.
+**Three reference clips** — `kaiti.wav`, `serifis.wav`, `tsika.wav`. Ak is making
+them in Voicemod. Spec in `docs/HANDOFF-VOICE-CLIPS.md`. Rule: **record the
+voice, not the mood** — timbre comes from the clip, acting from the prompt.
 
-App-specific notes:
-- `.panel-hud` is a **one-element approximation** of the library's three-div
-  `.frame` — background is the trim, `::before` the face, `::after` the corner
-  rules. Rewriting every panel into three wrappers was not worth the diff.
-- The Appearance colour picker drives the whole identity. It writes
-  `--accent-rgb` (space-separated channels) **and** `--accent`/`-hi`/`-lo`
-  (hex) from the same source in the same effect, so they cannot drift.
-- **Poiret One is decorative only** — app name and panel titles. Never a control.
+Nothing DramaBox-related can be finished until those exist.
 
-## 6. Decisions — do not revisit
+---
 
-- **Layered puppet, not sprite sheets.** Sheets bake mouth+eyes+brows together.
-- **Head-relative anchoring.** It is what made the head separation possible.
-- **Layer dimensions stamped into the runtime JSON**, not measured on load.
-- **Piper for drafts, Chatterbox for finals.** Per-speaker engine choice.
-- **Greek viseme priority is NEUTRAL, AH, EE, OH, L** — not OO (~1% of Greek
-  graphemes). `tools/viseme-coverage.mjs` re-derives this for any script.
-- **Spectrum travels to renders as a file** in the public dir, not inputProps.
-- **Assets for a render must be written BEFORE `bundle()`** — the bundler copies
-  the public dir; anything written after silently 404s.
-- **Everything on the render path is PURE.** No clock, no `Math.random()`.
-  Remotion renders frames out of order across workers.
-- **Gestures don't scale with the idle-motion setting** the way ambient sway
-  does. At the default 0.5 they were being halved into illegibility.
-- **The LLM plans backgrounds; code picks them.** See §8.
-- **Presets = the look. Project = everything.** Kept separate deliberately.
+## Waveforms — done this session
 
-## 7. Rejected — do not re-propose
+Five styles chosen from `tools/waveform-lab.html` and all five now render:
 
-- **Fish Audio / OpenAudio S1** — CC-BY-NC weights, collides with client work
-- **LivePortrait** — needs a driving performance on camera
-- **JoyVASA** — tested; long ears break, output is "wavy"
-- **Cloud avatar APIs** (Hedra, HeyGen, D-ID) — per-render cost, licence problems
-- **Combinatorial sprite sheets** — 54+ cells, models drift between them
-- **Jamendo, Freesound (unfiltered), Mixkit, Orange Free Sounds** — non-commercial
-  licences. Freesound is acceptable **only** filtered to CC0
-- **Envato Elements as the pipeline's source** — per-project registration is
-  unworkable at hundreds of videos
-- **Openverse** — does not verify licence data per work
-- **Azure Speech, Edge TTS, ElevenLabs** — every extra engine multiplies breakage
-- **Responsive / mobile layout** — Windows desktop, min width 1280
-- **SSML** — neither engine supports it
-- **Waveform style library frozen at six styles**
-- **Auto-fitting a puppet's zoom** — scaling doesn't recentre; it clipped chins
-  and threw shoulders out of frame. `zoom` exists, defaults to 1, opt-in
+| Style | What it is |
+|---|---|
+| `boil` | Bubbles swelling where they start, gradient per slice |
+| `particles` | Bars plus a corona thrown on consonants |
+| `sparks` | No bars, scattered embers, random headings |
+| `bloomBars` | Bar ring with a glow that scales with the moment |
+| `ribbon` | **Named in the type, not implemented** — the one gap |
 
-## 8. Where things stand — `feat/media-fetch`
+**All shape-aware.** `src/lib/waveform/superellipse.ts` gives circle, rounded
+square and square from one exponent, taken from the speaker's `outlineShape`.
 
-Open branch, not merged. Background video from **Pixabay and Pexels** — both
-first-party licences, commercial use, no attribution, **no per-project
-registration**, which is the whole reason they were chosen.
+**The rule that shapes all of it:** Remotion renders frames out of order and in
+parallel, so nothing may accumulate. Every particle is computed from its birth
+time (`src/lib/waveform/emitters.ts`). Randomness is a hash of the particle's
+index, never `Math.random()`.
 
-**Built:**
-- `electron/net/mediaSearch.ts` — search both, normalise, **interleave** results
-  (concatenating makes the first screenful one library). Missing key = a note,
-  not a failure. Downloads cache by provider+id.
-- `electron/llm/backgroundPlanner.ts` — **two stages, deliberately apart.** The
-  LLM reads the narration and returns a search query per scene plus one shared
-  `look`; ordinary code then searches and picks. The model never sees the
-  results — it cannot watch video, so choosing between thumbnails would be
-  guessing, while writing "dog looking at chocolate on table" from a Greek line
-  is exactly what it is good at. Coordination comes from the shared look
-  appended to every query.
-- `src/components/panels/BackgroundPanel.tsx` — Scene → Background. Shows each
-  scene's query and the model's reason, so a bad pick is diagnosable. Manual
-  search maximizes. Carries the two look knobs: **Dim** and **Crossfade**.
-- **The clips render.** `src/lib/background/backgroundTiming.ts` decides *when*
-  each clip is on screen and is the only thing allowed to; `remotion/Background‑
-  Layer.tsx` draws it with `TransitionSeries` + `OffthreadVideo` (looping any
-  clip shorter than its scene), `src/components/canvas/BackgroundScene.tsx`
-  draws the same frames in the preview with `<video>` and an opacity ramp.
-  Two mechanisms, one arithmetic — see §10.
+Two things learned the hard way: `moment` is the whole mix and the same object
+for every track, so `active` is the only thing that knows whose turn it is — and
+it must gate the **swell**, not just the colour. And SVG arcs are circles by
+definition, so a superellipse drawn with arcs stays round.
 
-  Measured off a rendered MP4 rather than asserted: three clips at 0/3/8s, dim
-  0.4, 600ms crossfade. A pure-red source read `rgb(153,0,0)` — exactly
-  255×0.6 — held until 3.000s to the frame, crossed over between 3.0 and 3.6,
-  and a 2s source covering a 5s scene read identically at 4.0s and 6.0s, which
-  is the loop.
+---
 
-**NOT done, and the branch is not shippable without it:**
-1. **The preview path is written but never run.** It needs the app; the render
-   path is the one that was measured.
-2. **Never verified against live APIs.** Keys live in Electron `safeStorage`, so
-   this needs the running app. The Pixabay video thumbnail field is the known
-   uncertainty — it reads the API's value first and falls back to a CDN path.
-3. **No asset ledger.** Deferred by Ak. Author and page URL are already captured
-   on every hit, so the data exists when it is wanted.
+## Open, in the order I would take them
 
-## 8a. Audio, subtitles and type — built, measured off the output
+1. **Choppy face movement.** Ak's original complaint #4, raised again, never
+   diagnosed. Walked past five times. `idleMotion` (0.7) drives head and blink
+   via `src/lib/motion/idleMotion.ts` and `facePerformance.ts`. **Diagnose before
+   changing anything.**
+2. **Remote narration step** — script and clips up to the L4, WAVs and timings
+   back. `buildNarration` is the seam.
+3. **Rip out Chatterbox** — `chatterboxEngine.ts`, the engine enum, settings and
+   test panels. Dead weight; remove before DramaBox lands so there are two
+   engines, not three.
+4. **Batch spreadsheet** — CSV → queue on the existing runner. One row per
+   lesson; a row carries a finished script, a topic, or a URL.
+5. **Render a series in one process.** 72 short videos pay bundle+browser startup
+   72 times — about 50 minutes of pure setup.
+6. `ribbon` style; narration-cache eviction; preview has no audio at all.
 
-Four things the README promised or the plan listed as missing. Each was checked
-against a rendered file, not asserted.
+---
 
-- **SRT export** — `src/lib/subtitles/srt.ts`, button in Scene → Subtitles.
-  Built from the SAME `buildCues` the video burns in, so the file and the
-  picture cannot disagree about timing or where a line breaks. Carries no
-  styling: an .srt is text and timing. Verified against Greek, an empty
-  segment (numbering must not skip) and an hour rollover.
-- **Music bed** — Cast → ♪ Music. Loads a file, mixes it UNDER the narration,
-  and **auto-ducks**. `src/lib/audio/ducking.ts` looks 260ms FORWARD and 700ms
-  back in the narration analysis, so the bed is already out of the way when the
-  voice lands; a gate that reacts to the current sample always sounds late.
-  Forward-looking is free here and impossible live — the whole narration is
-  analysed before a frame is drawn.
-  Measured on a render: full 0.050 rms, 0.0122 under speech (asked for −75%,
-  got −76%), ducking starts 250ms early, recovers over 700ms, and a 2s track
-  still playing at 6s — the loop.
-- **The music waveform finally has something of its own to animate to.** With a
-  track loaded it reads the music's analysis; without one it borrows the
-  narration exactly as before.
-- **Subtitle fonts** — Google Fonts, downloaded once into userData and then
-  owned locally (`electron/net/fonts.ts`), registered identically in the
-  preview and the render. The render HOLDS frame capture until the font has
-  loaded: Remotion renders out of order, so without that the fallback typeface
-  appears on a random scatter of frames rather than obviously at the start.
-  **The picker says which families have Greek, and it is not a guess** — the
-  coverage is read out of the CSS Google returns (does a subset actually contain
-  α). Montserrat, Oswald, Lato, Rubik and Nunito — all obvious subtitle faces —
-  have no Greek at all.
-- **Sound effects** — Cast → SFX. A file from disk or a **CC0-only** Freesound
-  search (`electron/net/soundSearch.ts`; the filter is hard-coded, not a
-  dropdown, and every hit is re-checked client side). Each effect is a file and
-  a time, never ducked. Verified: two beeps landed at 1.00s and 3.50s with a
-  0.39 volume ratio against the 0.39 asked for.
+## Traps that have each cost a day
 
-Not covered: the preview still has no audio at all — it never played the
-narration either — so music, ducking and effects are heard only in the render.
-The Freesound search itself has never run against a live key.
+**Antivirus HTTPS scanning.** Avast re-signs every response with its own root,
+which only Windows and Chromium trust. Python, gcloud and every engine fail with
+`CERTIFICATE_VERIFY_FAILED`. Fix: `tools/windows-ca-bundle.pem` via
+`SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE`, already applied in
+`electron/net/childEnv.ts` and in gcloud's config. **Any provider-specific
+network failure on this machine should be checked against this first.**
 
-## 9. Next, in order
+**Same-ish name, different quantity.** GlassSurface's `backgroundOpacity: 0.1` is
+an alpha; it was read into a `frost` field that is a blur as a fraction of frame
+width — a **108 pixel blur** that hid every other effect for several rounds.
 
-1. **Drive the whole thing through the real UI** — backgrounds, music, SFX,
-   fonts. Every render path above was measured by calling `renderVideo`
-   directly; none of the panels has been clicked.
-2. **Verify Pixabay/Pexels/NVIDIA/Freesound live**, in the app.
-3. Packaging. `puppet/` must be in the build's `files` or the built-in cast
-   resolves to nothing.
+**Judge an effect in isolation.** The glass was judged over a frame of the
+finished video (discs on discs) and over footage a preset had already blurred.
+Both wasted more time than any bug. `tools/glass-lab.py` and
+`tools/waveform-lab.html` exist for this — seconds per iteration, not 20 minutes.
 
-## 10. Gotchas learned the hard way
+**Silent success.** The spectrum 404, `backgroundBlur`, subtitle surfaces,
+transitions — four times a render has reported success while quietly leaving
+something out. `onBrowserLog` carries exactly one message today.
 
-- **A measurement that barely responds to a large input is measuring the wrong
-  thing.** Pupil offsets looked immobile because lashes are as dark as pupils.
-- **Guard on the thing you act on.** A "% of pixels changed" threshold passed
-  two different images at 8%, whose bounding box was 91% of the frame.
-- **Sample the art before choosing a colour.** Σερίφης' brow bands were picked
-  around the tint they replaced; his forehead samples `#908981`, so the lightest
-  band vanished into his coat and the rest read as a bar across his head.
-- **`@import` must precede every other CSS statement**, including `@tailwind`.
-- **`.cut-sm` carries its own clip-path.** Setting only `--c` renders a plain
-  rectangle — the commonest way to think the look is applied when it is not.
-- **`electron-vite dev` needs `--watch`** or main is never rebuilt.
-- **Inside `<Loop>` the frame counter restarts.** Which makes `<Loop>` wrong for
-  looping music: the `volume` callback is how ducking is applied, and after the
-  first repeat it would be handed loop-relative frames and duck to the wrong
-  words. `remotion/MusicTrack.tsx` lays out plain Sequences instead, each of
-  which knows its own offset, so absolute time is recoverable.
-- **A popular font is not a Greek font.** Montserrat, Oswald, Lato, Rubik and
-  Nunito ship no Greek subset. The symptom is not an error — it is a silent
-  per-glyph fallback mid-sentence.
-- **A `TransitionSeries` transition is paid for twice.** It eats the last *t*
-  frames of the outgoing sequence and the first *t* of the incoming one, so the
-  series is *t* shorter per transition than the sum of its parts. Give each clip
-  `length + t` frames and the next one lands exactly on its own start; hand it
-  raw scene lengths instead and every background after the first drifts early,
-  cumulatively, while the subtitles stay put.
-- **zustand `persist` merges shallowly.** Both persisted stores deep-merge now.
-- **Node's global HTTP agent keeps sockets alive since v19**; Piper drops idle
-  ones → `ECONNRESET`. Fixed with `agent: false` + one retry.
-- **Downscaling must be alpha-premultiplied**, or every antialiased edge gets a
-  dark fringe at ~10x reductions.
-- **The app cannot be driven outside Electron.** `window.byok` is absent, so a
-  browser-served build renders but breaks on any IPC. Screenshots of the built
-  renderer are fine; interaction is not.
+**A regex that matches nothing fails silently.** Four "different" waveform styles
+were rendered and all four were bars.
 
-## 11. Environment
+---
 
-- Windows 11. Ak uses GitHub Desktop, not raw git.
-- **At least three unrelated Python environments** on the machine. Always point
-  at a full `python.exe` path, never bare `python`. Piper currently resolves
-  into a shared `hermes-agent` venv, which is a live fragility: anything that
-  upgrades that venv breaks narration here. `piper-venv/` exists for exactly
-  this isolation and is unused.
-- Chatterbox is a separate cloned repo (`devnen/Chatterbox-TTS-Server`) that
-  Electron auto-starts. Not vendored, not pinned.
-- Renders need ~150MB of headless Chromium on first run, into Remotion's cache.
+## Glass — called as a failure
+
+**Avatar disc works** (a magnifier: the scene redrawn larger and clipped).
+**Caption pill failed** and is turned off. Full account in `docs/GLASS.md`.
+Do not reopen without reading it; the next move is either giving the caption the
+disc's magnifier or bringing in WebGL `FluidGlass`.
+
+---
+
+## How Ak wants to be worked with
+
+In `CLAUDE.md`, and worth reading before the first reply:
+
+- **Answer in the first line or two.** Everything else in skippable sections.
+- **Cut filler.** No preamble, no summarising what you just did.
+- **Plain language.** Define any unavoidable term in the same sentence.
+- **Prepare, then ask.** Bring a recommendation, not a menu.
+- **Never overclaim.** Saying something works when the picture shows otherwise is
+  the one thing he has called unacceptable. If you cannot judge it — audio,
+  subtle motion — say so and hand it over.
+- Everything stays inside this folder. Never kill a process by name; other agents
+  own `python.exe` and `node.exe` on this machine.
