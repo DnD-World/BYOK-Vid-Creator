@@ -106,6 +106,14 @@ export interface SubtitleSceneProps {
   /** Glass physics, when the caption's surface asks for glass. Shared with
    *  the speakers rather than configured twice. */
   glass?: GlassConfig | null;
+  /** True when the COMPOSITION is drawing the pane behind this caption.
+   *
+   *  It has to, because a pane can only refract if it can redraw the scene
+   *  behind it, and this component has never had the background or the
+   *  waveform — which is exactly why every earlier attempt to make the caption
+   *  glass from in here produced a tinted slab. When the composition owns the
+   *  pane, this draws text and padding only and adds no backdrop of its own. */
+  externalPane?: boolean;
 }
 
 // The fallback, and what is used when no font has been chosen. Segoe UI
@@ -139,7 +147,7 @@ function toUpperGreek(s: string): string {
 }
 
 export function SubtitleScene({
-  cues, config, width, height, timeMs, speakerColors, glass,
+  cues, config, width, height, timeMs, speakerColors, glass, externalPane,
 }: SubtitleSceneProps) {
   if (!config.enabled || width <= 0 || height <= 0) return null;
 
@@ -158,7 +166,8 @@ export function SubtitleScene({
   const hasSurface = !!config.surface && config.surface.style !== "none";
   // "glass" is no longer a heavier blur — it is a real bevelled pane, so it
   // takes a different road from solid and blur.
-  const isGlass = config.surface?.style === "glass";
+  // When the composition draws the pane, this must not draw a second one.
+  const isGlass = config.surface?.style === "glass" && !externalPane;
   const g = { ...defaultGlass(), ...(glass ?? {}), shape: "rect" as const };
 
   const vertical: React.CSSProperties =
@@ -195,7 +204,7 @@ export function SubtitleScene({
           // Padding only when there is a surface to pad. Without a panel the
           // text should sit exactly where it always has, or every existing
           // project shifts.
-          ...(hasSurface
+          ...(hasSurface || externalPane
             ? {
                 padding: `${fontSize * 0.42}px ${fontSize * 0.9}px`,
                 // A PILL when it is glass. GlassSurface's demo runs at
@@ -203,7 +212,7 @@ export function SubtitleScene({
                 // height, so the ends are semicircles. 9999 gets that at any
                 // height, which matters here because the caption's height
                 // changes with the number of lines.
-                borderRadius: isGlass
+                borderRadius: isGlass || externalPane
                   ? 9999
                   : fontSize * 1.25 * (config.surface?.radius ?? 0.25),
               }

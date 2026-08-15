@@ -22,7 +22,7 @@ import { BackgroundLayer } from "./BackgroundLayer";
 import { MusicTrack } from "./MusicTrack";
 import { SubtitleFont } from "./SubtitleFont";
 import { GlassPanel, defaultGlass } from "../src/components/canvas/GlassPanel";
-import { buildCues } from "../src/lib/subtitles/wordTiming";
+import { buildCues, cueAt } from "../src/lib/subtitles/wordTiming";
 import { buildTracks } from "../src/lib/waveform/buildTracks";
 import { buildSpeakerVisemeTracks } from "../src/lib/visemes/speakerTracks";
 import { visemeBlendAt } from "../src/lib/visemes/timeline";
@@ -191,6 +191,35 @@ export function VideoComposition({
     </>
   );
 
+  // The caption's pane, as a rectangle, or null when there is nothing to draw.
+  //
+  // Derived, never measured: fontSize and maxChars are both known, so the line
+  // count and a close-enough line width follow from the cue's own text. 0.52 em
+  // per character is a rough average for Greek at this weight — generous rather
+  // than tight, because a pane slightly wider than its text still looks like a
+  // pane and one slightly narrower clips a letter.
+  const captionGlass = (() => {
+    if (!subtitles.enabled || subtitles.surface?.style !== "glass") return null;
+    const cue = cueAt(cues, timeMs);
+    if (!cue) return null;
+
+    const fontSize = Math.max(8, width * subtitles.fontSize);
+    const text = cue.words.map((w) => w.text).join(" ");
+    const maxChars = Math.max(8, subtitles.maxChars);
+    const lines = Math.max(1, Math.ceil(text.length / maxChars));
+    const longest = Math.min(text.length, maxChars);
+
+    const padX = fontSize * 0.9;
+    const padY = fontSize * 0.42;
+    const w = Math.min(width * 0.92, longest * fontSize * 0.52 + padX * 2);
+    const h = lines * fontSize * 1.25 + padY * 2;
+
+    // Matches SubtitleScene's own bottom placement, so the text lands inside
+    // the pane rather than beside it.
+    const bottom = height * 0.1;
+    return { x: (width - w) / 2, y: height - bottom - h, w, h };
+  })();
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0b0d" }}>
       {audioFileName ? <Audio src={staticFile(audioFileName)} /> : null}
@@ -322,6 +351,29 @@ export function VideoComposition({
       <SubtitleFont font={subtitleFont} />
 
       {/* Last, so subtitles sit above the waveform and the avatars. */}
+      {/* THE CAPTION'S PANE, and it lives here rather than inside SubtitleScene
+          for one reason: this is where the scene is. A pane only refracts if it
+          can redraw what is behind it, and the subtitle component has never had
+          access to the background or the waveform — which is why every attempt
+          to make the pill glass from in there produced a tinted slab instead.
+
+          The box is COMPUTED rather than measured. A caption is sized by its own
+          text, and there is no measuring in a render that has to be a pure
+          function of the clock — so its width and height are derived from the
+          font size, the wrap width and the number of lines, all of which are
+          already known. Slightly generous is fine; a pane a little wider than
+          its text still reads as a pane. */}
+      {captionGlass && (
+        <GlassPanel
+          id="caption"
+          glass={{ ...(glass ?? defaultGlass()), shape: "rect", radius: 0.5 }}
+          rect={captionGlass}
+          frameWidth={width}
+          frameHeight={height}
+          scene={behindGlass}
+        />
+      )}
+
       <SubtitleScene
         cues={cues}
         config={subtitles}
@@ -329,6 +381,8 @@ export function VideoComposition({
         height={height}
         timeMs={timeMs}
         speakerColors={speakerColors}
+        glass={glass}
+        externalPane={!!captionGlass}
       />
     </AbsoluteFill>
   );
