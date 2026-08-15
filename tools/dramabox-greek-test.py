@@ -28,9 +28,53 @@ The 22B in that stray filename is also worth not panicking about: nothing
 downloads a 22-billion-parameter model. DramaBox is the audio-only branch, and
 the pieces above are ~8.5 GB in total.
 """
-import os, sys, time
+import os, subprocess, sys, time
 
 APP = "/opt/dramabox/DramaBox"
+
+
+def require_empty_gpu(max_used_mib: int = 500) -> None:
+    """Refuse to start if something else is still holding the card.
+
+    A crashed run left 18 GB occupied and kill -9 would not release it; only a
+    reboot did. The next attempt then failed with "CUDA out of memory", which
+    reads as THE MODEL IS TOO BIG FOR THIS CARD — a conclusion that would have
+    sent the whole plan back to pricing a bigger GPU. It fit fine. The card was
+    simply still full.
+
+    So the check runs before anything loads, and names the real problem in the
+    words of the real problem. On an unattended batch that is the difference
+    between one clear line in a log and a wrong architectural decision.
+    """
+    def smi(query: str) -> str:
+        return subprocess.run(
+            ["nvidia-smi", f"--query-{query}", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=30,
+        ).stdout.strip()
+
+    try:
+        used = int(smi("gpu=memory.used").splitlines()[0])
+    except Exception as e:
+        print(f"[gpu] could not read nvidia-smi ({e}) — continuing", flush=True)
+        return
+
+    if used <= max_used_mib:
+        print(f"[gpu] {used} MiB in use — clear", flush=True)
+        return
+
+    apps = smi("compute-apps=pid,used_memory") or "no compute apps listed"
+    raise SystemExit(
+        "  ".join([
+            f"[gpu] REFUSING TO START: {used} MiB already held by another process.",
+            apps,
+            "This is NOT the model being too large. Kill that process, and if",
+            "kill -9 does not free the memory, reboot the instance — a wedged",
+            "CUDA context outlives the process that created it.",
+        ])
+    )
+
+
+require_empty_gpu()
 sys.path.insert(0, APP)
 
 from src.model_downloader import get_model_path, get_gemma_path

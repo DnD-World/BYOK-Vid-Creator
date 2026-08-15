@@ -99,6 +99,10 @@ export interface BatchJob {
    *  shows a blurred video either way, and says nothing about the glass. */
   backgroundDim?: number;
   backgroundBlur?: number;
+  /** Background clips per minute of finished video. 3.5 by default, clamped
+   *  2-6. The first long render cut every 8 seconds, which is a music video,
+   *  not a lesson. */
+  backgroundsPerMinute?: number;
   /** A pane of glass over the background and waveform. Refracts those two
    *  only — the avatars and subtitles draw in front of it and stay sharp. */
   glass?: RenderJob["glass"];

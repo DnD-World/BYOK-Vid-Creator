@@ -135,8 +135,21 @@ export async function planBackgrounds(opts: {
   segments: Segment[];
   languageName: string;
   /** Roughly how long one background should stay on screen. Lines are grouped
-   *  up to this, so a fast exchange doesn't cut the picture every 1.5s. */
+   *  up to this, so a fast exchange doesn't cut the picture every 1.5s.
+   *
+   *  Prefer setting `perMinute` — this is the raw form it resolves to. */
   minSceneMs?: number;
+  /** How many background clips per minute of finished video.
+   *
+   *  THE FREQUENCY HALF OF THE DIAL, in the unit a person actually thinks in.
+   *  The nine-minute test render cut 66 times — a new clip every 8 seconds,
+   *  which is music-video pacing and fights a narrator who is explaining
+   *  something. Ak's answer: aim for 3-4 a minute, and never outside 2-6.
+   *
+   *  2/min is a 30s hold, restful and cheap; 6/min is a 10s hold and about as
+   *  fast as a lesson can take. Clamped, because outside that range this stops
+   *  being a lesson. */
+  perMinute?: number;
   topic?: string;
   /** Called once per batch. A nine-minute script takes several minutes to
    *  plan, and a caller with no way to say so looks hung. */
@@ -148,7 +161,8 @@ export async function planBackgrounds(opts: {
 
   // Group consecutive lines into scenes of at least minSceneMs. A cut per line
   // is exhausting to watch and burns through the search quota for no gain.
-  const minMs = opts.minSceneMs ?? 6000;
+  const perMinute = Math.max(2, Math.min(6, opts.perMinute ?? 3.5));
+  const minMs = opts.minSceneMs ?? Math.round(60000 / perMinute);
   const groups: Segment[][] = [];
   let current: Segment[] = [];
   for (const seg of opts.segments) {
