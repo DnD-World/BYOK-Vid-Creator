@@ -1,215 +1,229 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Waveform lab</title>
+<title>Waveform lab — round 2</title>
 <!--
-  Eight waveform treatments, side by side, over the same fake speech.
+  ROUND 2, from Ak's ranking: 6 (particles) > 5 (bloom) > 2 (deviation) > 4.
+  The motion question is settled — every cell here runs on DEVIATION, each
+  band's departure from its own rolling average, so the ring is still on a
+  steady vowel and erupts on a consonant.
 
-  WHY FAKE AUDIO. This lab exists to choose a LOOK, and a look is chosen by
-  watching motion. Real narration would make it prettier and no more decisive,
-  while costing a render every time a number changed. The band data below is
-  synthetic but shaped like speech: a formant silhouette that barely moves, plus
-  syllable transients that do. That combination is the whole problem — see
-  "deviation" below.
+  Three things were wrong and are rebuilt rather than tweaked:
 
-  Every cell reads the SAME bands at the same instant, so differences are the
-  treatment and nothing else.
+    - the fill was one flat colour, showed its inner disc, and had jagged
+      corners. It is a real gradient on an ANNULUS now, drawn through a smooth
+      curve instead of straight segments between bands.
+    - the ribbon had the same jagged corners. Same curve fix.
+    - the sparkles were invisible: a handful of dots hidden behind bars. The
+      bars are gone, there are ~40x as many, and they burst in random
+      directions rather than sliding straight out along a spoke.
 -->
 <style>
   body { margin:0; background:#0b0b0d; color:#eee; font:13px system-ui; }
-  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:4px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:4px; }
   .cell { position:relative; aspect-ratio:1; background:#111318; border-radius:6px; overflow:hidden; }
   canvas { position:absolute; inset:0; width:100%; height:100%; }
-  .lab { position:absolute; left:6px; top:6px; background:#000a; padding:3px 6px;
+  .lab { position:absolute; left:6px; top:6px; background:#000b; padding:3px 6px;
          border-radius:4px; font-size:11px; line-height:1.35; pointer-events:none; }
   .lab b { color:#ff9a3c; }
   .hint { padding:6px 10px; color:#999; font-size:12px; }
 </style>
 
 <div class="grid" id="grid"></div>
-<div class="hint">Same band data in every cell. Face circle drawn only as a size reference.</div>
+<div class="hint">All six run on deviation. Faint circle = avatar size.</div>
 
 <script>
-const N = 24;                       // bands, as the app uses
-const ACCENT = "#ff9a3c";
-const COOL   = "#3cb4ff";
+const N = 24, ACCENT = "#ff9a3c", COOL = "#3cb4ff", WARM = "#ffd66b";
 
-// ---------------------------------------------------------------------------
-// Fake speech. A fixed formant shape (which is the problem) plus syllables
-// (which is the signal). `bands` is what today's app draws; `dev` is each
-// band's departure from its own rolling average — the thing worth drawing.
-// ---------------------------------------------------------------------------
 const avg = new Float32Array(N).fill(0.2);
 let bands = new Float32Array(N), dev = new Float32Array(N);
-let syllable = 0, nextSyl = 0;
+let syllable = 0, nextSyl = 0, energy = 0;
 
 function tick(t) {
   if (t > nextSyl) { syllable = 1; nextSyl = t + 120 + Math.random() * 260; }
-  syllable *= 0.90;                                   // sharp attack, quick decay
+  syllable *= 0.90;
+  let sum = 0;
   for (let i = 0; i < N; i++) {
-    const formant = Math.exp(-Math.pow((i - 5) / 5, 2)) * 0.55      // fixed voice colour
-                  + Math.exp(-Math.pow((i - 14) / 6, 2)) * 0.3;
-    const noise = 0.06 * Math.sin(t / 190 + i * 1.7) + 0.05 * Math.random();
-    bands[i] = Math.min(1, formant * (0.45 + syllable * 0.9) + noise);
-    avg[i] += (bands[i] - avg[i]) * 0.06;             // slow rolling mean
-    dev[i] = Math.max(0, bands[i] - avg[i]) * 3.2;    // what actually changed
+    const formant = Math.exp(-Math.pow((i-5)/5,2))*0.55 + Math.exp(-Math.pow((i-14)/6,2))*0.3;
+    const noise = 0.06*Math.sin(t/190 + i*1.7) + 0.05*Math.random();
+    bands[i] = Math.min(1, formant*(0.45 + syllable*0.9) + noise);
+    avg[i] += (bands[i]-avg[i])*0.06;
+    dev[i] = Math.max(0, bands[i]-avg[i])*3.2;
+    sum += dev[i];
   }
+  energy = sum / N;
 }
 
-// ---------------------------------------------------------------------------
+/** A closed curve through the band points, with ROUNDED peaks.
+ *
+ *  Straight lines between 24 points give the corners Ak called jagged and
+ *  unnatural — a waveform is a continuous thing and the eye knows it. Each
+ *  segment is a quadratic through the midpoints of its neighbours, which is
+ *  the cheapest curve that never overshoots and never cusps. */
+function smoothRing(c, cx, cy, radiusAt, steps) {
+  const pt = i => { const a = (i/steps)*Math.PI*2 - Math.PI/2, r = radiusAt(i);
+                    return [cx+Math.cos(a)*r, cy+Math.sin(a)*r]; };
+  const mid = (p,q) => [(p[0]+q[0])/2, (p[1]+q[1])/2];
+  let prev = pt(0), start = mid(pt(steps-1), prev);
+  c.moveTo(start[0], start[1]);
+  for (let i = 1; i <= steps; i++) {
+    const cur = pt(i % steps), m = mid(prev, cur);
+    c.quadraticCurveTo(prev[0], prev[1], m[0], m[1]);
+    prev = cur;
+  }
+  c.closePath();
+}
+
+/** Band value at a FRACTIONAL position, interpolated.
+ *
+ *  Snapping each curve point to its nearest band gave 24 flat plateaus joined
+ *  by steps — which is what made the filled ring look like a cog rather than a
+ *  waveform. Smoothing the curve could not fix it because the data itself was
+ *  a staircase. Reading between the bands is the actual fix. */
+function bandAt(x) {
+  const f = ((x % N) + N) % N, i = Math.floor(f), frac = f - i;
+  const a = dev[i], b = dev[(i + 1) % N];
+  // Cosine rather than linear: no corner where two segments meet.
+  return a + (b - a) * (1 - Math.cos(frac * Math.PI)) / 2;
+}
+
+const P = [];    // particles
+const S = [];    // sparks
+
 const STYLES = [
   {
-    name: "1 · bars today",
-    note: "level per band — the baseline",
-    draw(c, w, h, t) {
-      ring(c, w, h, bands, ACCENT, false);
-    },
+    name: "A · particles",
+    note: "your pick, unchanged",
+    draw(c,w,h,t){ particles(c,w,h,t,6,false); ringBars(c,w,h,"rgba(255,154,60,.5)"); },
   },
   {
-    name: "2 · deviation",
-    note: "<b>change</b>, not level. Still on steady vowels, erupts on consonants",
-    draw(c, w, h) { ring(c, w, h, dev, ACCENT, false); },
+    name: "B · particles, denser",
+    note: "3x emission, wider spread, no bars",
+    draw(c,w,h,t){ particles(c,w,h,t,18,true); },
   },
   {
-    name: "3 · gradient fill",
-    note: "filled polygon + gradient instead of separate bars",
-    draw(c, w, h) {
-      const cx = w/2, cy = h/2, r0 = Math.min(w,h)*0.24;
-      const g = c.createRadialGradient(cx,cy,r0,cx,cy,r0*2.1);
-      g.addColorStop(0, "rgba(255,154,60,.85)"); g.addColorStop(1, "rgba(255,154,60,0)");
-      c.beginPath();
-      for (let i=0;i<=N*2;i++){
-        const b = dev[i % N], a = (i/(N*2))*Math.PI*2 - Math.PI/2;
-        const r = r0 + b*Math.min(w,h)*0.16;
-        c[i?"lineTo":"moveTo"](cx+Math.cos(a)*r, cy+Math.sin(a)*r);
-      }
-      c.closePath(); c.fillStyle = g; c.fill();
-    },
+    name: "C · sparkle storm",
+    note: "no bars, <b>random blowouts</b>, ~40x more",
+    draw: sparkles,
   },
   {
-    name: "4 · mirrored",
-    note: "12 bands mirrored — symmetric, hides the seam",
-    draw(c, w, h) {
-      const m = new Float32Array(N);
-      for (let i=0;i<N;i++) m[i] = dev[i < N/2 ? i : N-1-i];
-      ring(c, w, h, m, ACCENT, false);
-    },
-  },
-  {
-    name: "5 · peak bloom",
-    note: "glow scaled to the transient",
-    draw(c, w, h) {
-      c.shadowColor = ACCENT; c.shadowBlur = 8 + syllable*40;
-      ring(c, w, h, dev, ACCENT, false);
-      c.shadowBlur = 0;
-    },
-  },
-  {
-    name: "6 · particles 3D",
-    note: "emitted on transients, perspective depth",
-    draw: particles,
-  },
-  {
-    name: "7 · sparkles",
-    note: "glitter thrown off the loud tips only",
-    draw(c, w, h, t) {
-      ring(c, w, h, dev, ACCENT, false);
-      const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.24;
-      for (let i=0;i<N;i++){
-        if (dev[i] < 0.45) continue;
-        const a = (i/N)*Math.PI*2 - Math.PI/2;
-        const r = r0 + dev[i]*Math.min(w,h)*0.16;
-        for (let k=0;k<3;k++){
-          const j = (Math.sin(t/60 + i*9 + k*3)+1)/2;
-          const rr = r + j*Math.min(w,h)*0.06;
-          c.globalAlpha = (1-j) * 0.9;
-          c.fillStyle = "#fff";
-          c.fillRect(cx+Math.cos(a)*rr, cy+Math.sin(a)*rr, 2, 2);
-        }
-      }
-      c.globalAlpha = 1;
-    },
-  },
-  {
-    name: "8 · ribbon",
-    note: "one continuous band, thickness = energy",
-    draw(c, w, h, t) {
-      const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.26;
-      for (let side=0; side<2; side++){
+    name: "D · ribbon, rounded",
+    note: "smooth curve, no corners",
+    draw(c,w,h,t){
+      const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.26, k=Math.min(w,h)*0.13;
+      const spin = t/4000;
+      for (const [side,colour] of [[1,ACCENT],[-1,COOL]]) {
         c.beginPath();
-        for (let i=0;i<=N*2;i++){
-          const b = dev[i % N], a = (i/(N*2))*Math.PI*2 - Math.PI/2 + t/3000;
-          const r = r0 + (side? -1:1) * (0.02 + b*0.12) * Math.min(w,h);
-          c[i?"lineTo":"moveTo"](cx+Math.cos(a)*r, cy+Math.sin(a)*r);
-        }
-        c.strokeStyle = side ? COOL : ACCENT;
-        c.lineWidth = 2.5; c.lineJoin = "round"; c.stroke();
+        smoothRing(c, cx, cy, i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96)*k), 96);
+        c.strokeStyle = colour; c.lineWidth = Math.max(2.5,w/140);
+        c.lineJoin = "round"; c.stroke();
       }
+    },
+  },
+  {
+    name: "E · gradient ring",
+    note: "true gradient, <b>annulus</b> not disc, smooth",
+    draw(c,w,h){
+      const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.15;
+      const g = c.createRadialGradient(cx,cy,r0,cx,cy,r0+k);
+      g.addColorStop(0,"rgba(255,214,107,.95)");
+      g.addColorStop(.45,"rgba(255,154,60,.7)");
+      g.addColorStop(1,"rgba(255,80,40,0)");
+      c.beginPath();
+      smoothRing(c, cx, cy, i => r0 + bandAt(i*N/96)*k, 96);           // outer
+      smoothRing(c, cx, cy, () => r0, 96);                              // inner hole
+      c.fillStyle = g; c.fill("evenodd");                               // annulus
+    },
+  },
+  {
+    name: "F · particles + bloom",
+    note: "your top two together",
+    draw(c,w,h,t){
+      c.shadowColor = ACCENT; c.shadowBlur = 6 + syllable*36;
+      ringBars(c,w,h,ACCENT);
+      c.shadowBlur = 0;
+      particles(c,w,h,t,10,true);
     },
   },
 ];
 
-// shared ring-of-bars renderer
-function ring(c, w, h, data, colour, mirror) {
-  const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.24, maxLen=Math.min(w,h)*0.17;
-  c.lineCap = "round"; c.strokeStyle = colour; c.lineWidth = Math.max(2, w/150);
+function ringBars(c,w,h,colour){
+  const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.24, maxLen=Math.min(w,h)*0.16;
+  c.lineCap="round"; c.strokeStyle=colour; c.lineWidth=Math.max(2,w/150);
   for (let i=0;i<N*2;i++){
-    const b = data[i % N];
-    const a = (i/(N*2))*Math.PI*2 - Math.PI/2;
-    const r1 = r0 + Math.min(1,b)*maxLen;
-    c.beginPath();
-    c.moveTo(cx+Math.cos(a)*r0, cy+Math.sin(a)*r0);
-    c.lineTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*r1);
-    c.stroke();
+    const a=(i/(N*2))*Math.PI*2-Math.PI/2, r1=r0+Math.min(1,dev[i%N])*maxLen;
+    c.beginPath(); c.moveTo(cx+Math.cos(a)*r0, cy+Math.sin(a)*r0);
+    c.lineTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*r1); c.stroke();
   }
 }
 
-// 3D-ish particles: emitted on a transient, pushed outward, shrinking with z
-const P = [];
-function particles(c, w, h, t) {
+function particles(c,w,h,t,rate,wide){
   const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.24;
-  if (syllable > 0.5) {
-    for (let k=0;k<6;k++){
-      const i = Math.floor(Math.random()*N);
-      const a = (i/N)*Math.PI*2 - Math.PI/2;
-      P.push({ a, r:r0, z: 0.6+Math.random()*0.8, v: 0.6+dev[i]*2.4, life:1 });
-    }
+  if (syllable > 0.5) for (let k=0;k<rate;k++){
+    const i = Math.floor(Math.random()*N);
+    const a = (i/N)*Math.PI*2 - Math.PI/2 + (wide ? (Math.random()-.5)*0.5 : 0);
+    P.push({ a, r:r0, z:0.6+Math.random()*0.8, v:(0.5+dev[i]*2.4)*(w/300), life:1 });
   }
   for (let n=P.length-1;n>=0;n--){
-    const p = P[n];
-    p.r += p.v; p.life -= 0.012; p.z += 0.004;
-    if (p.life <= 0) { P.splice(n,1); continue; }
-    const scale = 1/p.z;                    // perspective: far particles smaller
-    c.globalAlpha = p.life * Math.min(1, scale);
-    c.fillStyle = p.z < 1 ? ACCENT : COOL;  // depth cue by colour too
-    const s = Math.max(1, 3*scale);
-    c.beginPath();
-    c.arc(cx+Math.cos(p.a)*p.r, cy+Math.sin(p.a)*p.r, s, 0, 7);
-    c.fill();
+    const p=P[n]; p.r+=p.v; p.life-=0.012; p.z+=0.004;
+    if (p.life<=0){ P.splice(n,1); continue; }
+    const sc=1/p.z;
+    c.globalAlpha=p.life*Math.min(1,sc); c.fillStyle=p.z<1?ACCENT:COOL;
+    c.beginPath(); c.arc(cx+Math.cos(p.a)*p.r, cy+Math.sin(p.a)*p.r, Math.max(1,3*sc*(w/300)),0,7); c.fill();
   }
-  c.globalAlpha = 1;
-  ring(c, w, h, dev, "rgba(255,154,60,.55)", false);
+  c.globalAlpha=1;
 }
 
-// ---------------------------------------------------------------------------
-const grid = document.getElementById("grid");
-const cells = STYLES.map(s => {
-  const d = document.createElement("div"); d.className = "cell";
-  const cv = document.createElement("canvas");
-  const lab = document.createElement("div"); lab.className = "lab";
-  lab.innerHTML = `<b>${s.name}</b><br>${s.note}`;
-  d.append(cv, lab); grid.append(d);
-  return { s, cv, ctx: cv.getContext("2d") };
+/** Sparks that BURST rather than radiate.
+ *
+ *  The first version put a few dots on a spoke and they read as a fringe on the
+ *  bars. These are born on the ring but given their own random heading and a
+ *  little gravity, so they scatter — closer to embers off a fire than to a
+ *  starburst diagram. Emission scales with the transient, so a loud consonant
+ *  throws a shower and a quiet stretch throws none. */
+function sparkles(c,w,h,t){
+  const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.25, s=w/300;
+  const born = Math.round(energy*140 + syllable*90);
+  for (let k=0;k<born;k++){
+    const i = Math.floor(Math.random()*N);
+    if (dev[i] < 0.15) continue;
+    const a = (i/N)*Math.PI*2 - Math.PI/2 + (Math.random()-.5)*0.55;
+    const heading = a + (Math.random()-.5)*1.6;          // its own direction
+    const sp = (0.4 + Math.random()*dev[i]*2.6)*s;
+    S.push({ x:cx+Math.cos(a)*r0, y:cy+Math.sin(a)*r0,
+             vx:Math.cos(heading)*sp, vy:Math.sin(heading)*sp,
+             life:1, warm:Math.random()<0.35 });
+  }
+  for (let n=S.length-1;n>=0;n--){
+    const p=S[n];
+    p.x+=p.vx; p.y+=p.vy; p.vx*=0.985; p.vy=p.vy*0.985+0.012*s;   // drag + drift
+    p.life-=0.016;
+    if (p.life<=0){ S.splice(n,1); continue; }
+    c.globalAlpha=p.life*p.life;
+    c.fillStyle=p.warm?WARM:"#fff";
+    const sz=Math.max(0.8,1.7*p.life*s);
+    c.fillRect(p.x,p.y,sz,sz);
+  }
+  c.globalAlpha=1;
+}
+
+const grid=document.getElementById("grid");
+const cells=STYLES.map(s=>{
+  const d=document.createElement("div"); d.className="cell";
+  const cv=document.createElement("canvas");
+  const lab=document.createElement("div"); lab.className="lab";
+  lab.innerHTML=`<b>${s.name}</b><br>${s.note}`;
+  d.append(cv,lab); grid.append(d);
+  return {s,cv,ctx:cv.getContext("2d")};
 });
 
-function frame(t) {
+function frame(t){
   tick(t);
-  for (const { s, cv, ctx } of cells) {
-    const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight;
+  for (const {s,cv,ctx} of cells){
+    const w=cv.width=cv.clientWidth, h=cv.height=cv.clientHeight;
     ctx.clearRect(0,0,w,h);
-    // face reference, so bar lengths are judged against a real avatar size
-    ctx.strokeStyle = "#ffffff18"; ctx.lineWidth = 1;
+    ctx.strokeStyle="#ffffff18"; ctx.lineWidth=1;
     ctx.beginPath(); ctx.arc(w/2,h/2,Math.min(w,h)*0.22,0,7); ctx.stroke();
-    s.draw(ctx, w, h, t);
+    s.draw(ctx,w,h,t);
   }
   requestAnimationFrame(frame);
 }
