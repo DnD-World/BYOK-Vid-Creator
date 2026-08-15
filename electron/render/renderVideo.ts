@@ -113,7 +113,14 @@ function lerp(stage: { from: number; to: number }, t: number): number {
 export async function renderVideo(
   job: RenderJob,
   ctx: RenderContext
-): Promise<{ outputPath: string; durationSec: number; frames: number }> {
+): Promise<{
+  outputPath: string;
+  durationSec: number;
+  frames: number;
+  /** Everything the render could NOT apply. Returned rather than only logged,
+   *  so a batch can decide what to do about a row that came out wrong. */
+  warnings: string[];
+}> {
   const { projectRoot, outputDir, onProgress } = ctx;
 
   const entryPoint = path.join(projectRoot, "remotion", "index.ts");
@@ -465,18 +472,36 @@ export async function renderVideo(
       // the one thing it needs to say — "I couldn't load the spectrum, this
       // video is silently worse than it should be" — is invisible otherwise.
       onBrowserLog: (log) => {
-        if (log.text.includes("[byok]")) warnings.push(log.text);
+        // Deduped, because these come from inside the composition and the
+        // composition runs once per frame across several workers. Without this
+        // one missing eyebrow is six hundred identical lines.
+        if (log.text.includes("[byok]") && !warnings.includes(log.text)) {
+          warnings.push(log.text);
+        }
       },
       onProgress: ({ progress }) => {
         onProgress(lerp(STAGE.render, progress), "Rendering frames…");
       },
     });
 
-    onProgress(100, warnings.length ? warnings[0] : "Done");
+    // EVERY warning, not just the first.
+    //
+    // This line used to read `warnings[0]`, so a render that dropped four
+    // different things reported one of them and called the rest done. That is
+    // this project's actual failure mode — not crashing, but succeeding while
+    // quietly leaving something out — and it has happened with the spectrum,
+    // backgroundBlur, subtitle surfaces and transitions. A wrong video that
+    // reports success is the one thing that can reach a student.
+    for (const w of warnings) onProgress(99, w);
+    onProgress(
+      100,
+      warnings.length ? `Done, with ${warnings.length} thing(s) left out — see above` : "Done"
+    );
     return {
       outputPath,
       durationSec: job.durationSec,
       frames: composition.durationInFrames,
+      warnings,
     };
   } finally {
     // Best-effort: a leftover temp dir must never fail an otherwise good render.

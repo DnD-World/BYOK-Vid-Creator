@@ -35,17 +35,25 @@ export function useWaitForImages(urls: string[]): void {
 
     let remaining = list.length;
     let done = false;
-    const settle = () => {
+    const finish = () => {
       if (done) return;
+      done = true;
+      continueRender(handle);
+    };
+    // ONCE PER IMAGE. This used to be a bare counter, and an image could settle
+    // twice — decode() resolved AND onerror was left attached — which lets the
+    // count reach zero while other images are still loading, releasing the
+    // render early. That is the exact failure this hook exists to prevent.
+    const settleOnce = (settled: { done: boolean }) => () => {
+      if (settled.done) return;
+      settled.done = true;
       remaining -= 1;
-      if (remaining <= 0) {
-        done = true;
-        continueRender(handle);
-      }
+      if (remaining <= 0) finish();
     };
 
     for (const url of list) {
       const img = new Image();
+      const settle = settleOnce({ done: false });
       img.onload = settle;
       img.onerror = settle;
       img.src = url;
@@ -53,8 +61,6 @@ export function useWaitForImages(urls: string[]): void {
       // real precondition — `onload` can fire while decoding is still pending.
       if (typeof img.decode === "function") {
         img.decode().then(settle, settle);
-        img.onload = null;
-        img.onerror = settle;
       }
     }
   }, [handle, key]);

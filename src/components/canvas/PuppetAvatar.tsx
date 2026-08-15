@@ -21,6 +21,20 @@ import type { Puppet, PuppetLayer } from "../../store/puppetTypes";
 import type { OutlineShape } from "../../store/types";
 import { BROW_REST, HEAD_STILL, type HeadPose } from "../../lib/motion/facePerformance";
 
+/** Layers already complained about, so one missing mouth is one message and not
+ *  one per frame per worker. Module scope on purpose: it must outlive the
+ *  component, and a render's workers each keep their own, which is fine because
+ *  the collector on the other side dedupes too. */
+const reportedMissing = new Set<string>();
+
+function reportMissingLayer(file: string) {
+  if (reportedMissing.has(file)) return;
+  reportedMissing.add(file);
+  // "[byok]" is the prefix the renderer greps for. Without it this is invisible
+  // outside a devtools window nobody has open during a render.
+  console.error(`[byok] puppet layer has no image and was not drawn: ${file}`);
+}
+
 interface Props {
   puppet: Puppet;
   /** file path -> loadable URL (blob: in the preview, staticFile() in a render). */
@@ -172,10 +186,20 @@ export function PuppetAvatar({
     };
   };
 
-  const draw = (l: PuppetLayer | undefined, key: string, opacity?: number) =>
-    l && urls[l.file] ? (
+  const draw = (l: PuppetLayer | undefined, key: string, opacity?: number) => {
+    if (!l) return null;
+    if (!urls[l.file]) {
+      // SAY SO. A layer with no image used to return null, so a missing mouth
+      // was a face with no mouth and a render that reported success. The
+      // renderer collects "[byok]" lines out of the browser console and prints
+      // them at the end; see onBrowserLog in electron/render/renderVideo.ts.
+      reportMissingLayer(l.file);
+      return null;
+    }
+    return (
       <div key={key} style={opacity === undefined ? layerStyle(l) : { ...layerStyle(l), opacity }} />
-    ) : null;
+    );
+  };
 
   const lids = puppet.eyes.lids;
   const lidL = lids[lidLeft] ?? lids.open;
@@ -292,6 +316,24 @@ export function PuppetAvatar({
         {puppet.base_layers?.map((l, i) => draw(l, `bl${i}`))}
         {/* Whites first, then pupils, then a lid per eye on top — so the eye
             white stays visible behind a closed or half-closed lid. */}
+        {/* EVERY CELL, KEPT IN THE DOM AND INVISIBLE.
+            Not padding — this fixes a real, intermittent fault. The preload in
+            remotion/useWaitForImages.ts decodes each URL into an Image object,
+            but these layers draw through CSS background-image, and that is a
+            SEPARATE decode. A mouth cell only enters the document when its
+            viseme first comes up, so its background could still be decoding
+            when that frame was captured, and the frame came out with no mouth
+            on it at all.
+            It bit the mouth and the lids because they are the layers that
+            SWAP; the base and the hair are there from the first frame and were
+            never at risk. Proved by rendering the same job twice: the bad
+            frames were 287, then 40/287/297/539. Different frames from
+            identical input is a race, not a bug in the drawing.
+            Holding every cell at opacity 0 means nothing is ever introduced
+            mid-render, so there is nothing left to lose that race. */}
+        {Object.values(puppet.mouths).map((m, i) => draw(m, `warm-m${i}`, 0))}
+        {Object.values(lids).map((l, i) => draw({ ...l, split: "left" }, `warm-lL${i}`, 0))}
+        {Object.values(lids).map((l, i) => draw({ ...l, split: "right" }, `warm-lR${i}`, 0))}
         {draw(puppet.eyes.whites, "whites")}
         {draw(puppet.eyes.pupilLeft, "pupilL")}
         {draw(puppet.eyes.pupilRight, "pupilR")}

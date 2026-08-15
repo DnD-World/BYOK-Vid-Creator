@@ -60,8 +60,22 @@ export interface RibbonOptions {
    *  place on the ring where a seam can appear, and this is why. */
   turns?: number;
   /** How long the twist takes to travel once round, in ms. Negative runs the
-   *  other way. */
+   *  other way.
+   *
+   *  DELIBERATELY SLOW, and this is the whole reason the ribbon "only rotated".
+   *  A phase of `turns x angle + w x t` is a travelling wave, and on a ring a
+   *  travelling wave is indistinguishable from the pattern being spun: adding
+   *  time is exactly the same as subtracting angle. However much twisting the
+   *  maths contained, the eye saw a rigid object turning. */
   periodMs?: number;
+  /** How long one rock takes, in ms, and how far it rocks, in radians.
+   *
+   *  This is what a twist actually looks like. Rocking the phase back and forth
+   *  is NOT equivalent to a rotation, because it reverses: the pinches stay
+   *  roughly where they are and the surface rolls through them, which is what
+   *  happens when you twist a real ribbon between your fingers. */
+  rockMs?: number;
+  rock?: number;
   /** A slower second turn laid over the first, so the pinches are unevenly
    *  spaced and the whole thing does not look machined. 0 disables it. */
   wander?: number;
@@ -87,11 +101,19 @@ export function ribbonTwistAt(
   // loop, and the resulting seam is subtle enough to survive review — it did.
   const turns = Math.max(1, Math.round(opts.turns ?? 3));
   const wanderTurns = Math.max(1, Math.round(opts.wanderTurns ?? 2));
-  const periodMs = opts.periodMs ?? 9000;
+  const periodMs = opts.periodMs ?? 30000;
+  const rockMs = opts.rockMs ?? 2400;
+  const rock = opts.rock ?? 2.2;
   const wander = opts.wander ?? 0.55;
 
   const phase =
     angle * turns +
+    // The rocking term does the twisting. It has no angle in it, so it moves
+    // the whole pattern — but it reverses, and a rotation that reverses is a
+    // roll, not a spin.
+    Math.sin((timeMs / rockMs) * Math.PI * 2) * rock +
+    // A slow drift underneath, so the pinches do not sit at the same six angles
+    // for nine minutes. Small enough not to read as spinning on its own.
     (timeMs / periodMs) * Math.PI * 2 +
     // A second, slower turn so the pinches are unevenly spaced. It closes too,
     // and at a different rate from the first, so the two drift against each
