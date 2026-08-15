@@ -29,5 +29,6 @@
     }
   ],
   "backgroundBlur": 0,
-  "backgroundDim": 0.15
+  "backgroundDim": 0.15,
+  "backgroundsPerMinute": 2
 }

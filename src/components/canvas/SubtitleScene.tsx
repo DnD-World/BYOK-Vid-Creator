@@ -217,7 +217,17 @@ export function SubtitleScene({
                   : fontSize * 1.25 * (config.surface?.radius ?? 0.25),
               }
             : {}),
-          ...(isGlass ? glassBackdropStyle("subs", g, width) : surfaceStyle(config.surface, width)),
+          // THREE cases, and conflating the last two is what produced the
+          // grey slab. When the COMPOSITION owns the pane this must paint
+          // nothing at all — not even the old blur-and-tint — because anything
+          // drawn here lands ON TOP of the refraction and hides it. Turning
+          // `isGlass` off was not enough; it fell through to surfaceStyle,
+          // which for a glass surface still paints a tint and a blur.
+          ...(externalPane
+            ? {}
+            : isGlass
+              ? glassBackdropStyle("subs", g, width)
+              : surfaceStyle(config.surface, width)),
           fontFamily: config.fontFamily
             ? `"${config.fontFamily}", ${FONT_STACK}`
             : FONT_STACK,

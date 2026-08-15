@@ -169,13 +169,11 @@ export function builtinPresets(): (ProjectPreset & { name: string })[] {
         // caught it. Consumers merge over defaults; the type now says so.
         subtitles: {
           ...style.subtitles,
-          surface:
-            style.name === "Broadcast" || style.name === "Orbit"
-              ? // A pill of glass under the caption. Orbit gets one too: its
-                // faces already sit on glass discs, and a bare caption beneath
-                // them looks like two different videos.
-                { ...defaultSurface(), style: "glass" }
-              : { ...defaultSurface(), style: "none" },
+          // NO GLASS UNDER THE CAPTION. Called as a failure on 15 Aug after a
+          // day of attempts — see docs/GLASS.md. The disc works; the caption
+          // pane never got past a grey slab, and the final filter-only version
+          // broke rendering outright. Left off rather than shipped bad.
+          surface: { ...defaultSurface(), style: "none" },
           transition: defaultSubtitleTransition(),
         },
         backgroundDim: style.backgroundDim,

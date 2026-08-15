@@ -366,11 +366,26 @@ export function VideoComposition({
       {captionGlass && (
         <GlassPanel
           id="caption"
-          glass={{ ...(glass ?? defaultGlass()), shape: "rect", radius: 0.5 }}
+          // STRIPPED TO THE FILTER AND NOTHING ELSE, which is the whole
+          // experiment. GlassSurface bends the pixels already painted beneath
+          // it and draws NOTHING over them. Every version of this that added a
+          // tint, a rim, or a re-rendered copy of the scene stacked opaque
+          // layers on top and produced a grey slab — an overlay where the
+          // reference is a lens. So: no scene copy, no tint, no frost, no
+          // shadows. If their filter cannot carry it alone over video, then it
+          // cannot, and that is the answer.
+          glass={{
+            ...(glass ?? defaultGlass()),
+            shape: "rect",
+            radius: 0.5,
+            magnify: 1,
+            tintOpacity: 0,
+            frost: 0,
+            edge: 0,
+          }}
           rect={captionGlass}
           frameWidth={width}
           frameHeight={height}
-          scene={behindGlass}
         />
       )}
 
