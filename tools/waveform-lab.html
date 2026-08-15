@@ -199,16 +199,25 @@ const STYLES = [
   },
   {
     name: "E · boiling",
-    note: "<b>bubbles</b> swelling where they start, then subsiding",
+    note: "<b>bubbles</b>, emanating — no hard rim",
     draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.17;
-      const g = c.createRadialGradient(cx,cy,r0,cx,cy,r0+k);
-      g.addColorStop(0,"rgba(255,214,107,.95)");
-      g.addColorStop(.45,"rgba(255,154,60,.7)");
-      g.addColorStop(1,"rgba(255,80,40,0)");
+      // TRANSPARENT AT BOTH ENDS. The hard rim Ak saw was this gradient being
+      // fully opaque at its innermost stop: the fill met the inner circle at
+      // full strength and stopped dead, so it read as a disc filling up rather
+      // than as something radiating. Fading in from nothing at the inner edge
+      // and out to nothing at the outer means neither boundary is ever drawn —
+      // only the glow between them.
+      const g = c.createRadialGradient(cx,cy,r0*0.92,cx,cy,r0+k);
+      g.addColorStop(0.00,"rgba(255,214,107,0)");
+      g.addColorStop(0.18,"rgba(255,214,107,.85)");
+      g.addColorStop(0.50,"rgba(255,154,60,.55)");
+      g.addColorStop(1.00,"rgba(255,80,40,0)");
       c.beginPath();
+      // Reaches inward a little too, so a swell pushes both ways from the band
+      // rather than growing out of a fixed floor.
       smoothRing(c, cx, cy, i => r0 + (0.26 + bubbleAt((i/96)*Math.PI*2) * 0.74) * k, 96);
-      smoothRing(c, cx, cy, () => r0, 96);
+      smoothRing(c, cx, cy, i => r0 - 0.10 * k - bubbleAt((i/96)*Math.PI*2) * 0.06 * k, 96);
       c.fillStyle = g; c.fill("evenodd");
     },
   },
