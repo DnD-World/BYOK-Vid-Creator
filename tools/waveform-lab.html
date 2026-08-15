@@ -52,6 +52,7 @@ function tick(t) {
   }
   energy = sum / N;
   tickFlow();
+  tickBubbles(t);
 }
 
 /** A closed curve through the band points, with ROUNDED peaks.
@@ -117,6 +118,47 @@ function tickFlow() {
   }
 }
 
+
+/** BOILING. Not a tide and not breathing.
+ *
+ *  A tide is one crest that travels; breathing is every band pulsing in place.
+ *  Boiling is neither — it is a bump that swells at ONE spot, peaks, and
+ *  subsides, while other bumps do the same elsewhere on their own schedule.
+ *  So each bubble owns an angle, a width and a life, and contributes a smooth
+ *  hump to the radius around that angle. They are born faster when the voice is
+ *  loud, which is what ties it to the audio without making it percussive.
+ */
+const B = [];
+function tickBubbles(t) {
+  // Emission scales with energy, with a trickle even in silence so the surface
+  // is never perfectly still — a pot off the boil still moves.
+  if (Math.random() < 0.04 + energy * 0.5) {
+    B.push({
+      a: Math.random() * Math.PI * 2,
+      w: 0.35 + Math.random() * 0.75,          // angular width, radians
+      h: 0.35 + Math.random() * 0.65 + energy, // how far it pushes out
+      born: t,
+      dur: 700 + Math.random() * 900,
+    });
+  }
+  for (let i = B.length - 1; i >= 0; i--) if (t - B[i].born > B[i].dur) B.splice(i, 1);
+}
+
+function bubbleAt(angle) {
+  let sum = 0;
+  for (const b of B) {
+    let d = Math.abs(angle - b.a);
+    if (d > Math.PI) d = Math.PI * 2 - d;      // shortest way round
+    if (d > b.w * 2) continue;
+    const shape = Math.exp(-(d * d) / (b.w * b.w));       // smooth hump
+    const p = (performance.now() - b.born) / b.dur;
+    // Rises, holds briefly, subsides — a bubble, not a spike.
+    const life = Math.sin(Math.min(1, Math.max(0, p)) * Math.PI);
+    sum += shape * life * b.h;
+  }
+  return Math.min(1, sum);
+}
+
 const P = [];    // particles
 const S = [];    // sparks
 
@@ -156,27 +198,16 @@ const STYLES = [
     },
   },
   {
-    name: "E · tide",
-    note: "<b>one</b> swell travelling, not 24 breathing",
+    name: "E · boiling",
+    note: "<b>bubbles</b> swelling where they start, then subsiding",
     draw(c,w,h,t){
-      const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.15;
+      const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.17;
       const g = c.createRadialGradient(cx,cy,r0,cx,cy,r0+k);
       g.addColorStop(0,"rgba(255,214,107,.95)");
       g.addColorStop(.45,"rgba(255,154,60,.7)");
       g.addColorStop(1,"rgba(255,80,40,0)");
-
-      // A TIDE, not a spectrum. Mapping 24 bands around the circle gives 24
-      // lobes rising and falling in place, which is breathing — Ak's word, and
-      // the right one. Water has FEW crests and they TRAVEL. So the shape is
-      // one dominant wave plus a smaller second, both rolling around at a
-      // steady rate, and the audio only sets how tall they are.
-      const phase = t / 1400;
-      const swell = i => {
-        const a = (i / 96) * Math.PI * 2;
-        return 0.62 * Math.sin(a - phase) + 0.38 * Math.sin(a * 2 - phase * 1.35);
-      };
       c.beginPath();
-      smoothRing(c, cx, cy, i => r0 + (0.30 + 0.70 * amp * (0.5 + swell(i) * 0.5)) * k, 96);
+      smoothRing(c, cx, cy, i => r0 + (0.26 + bubbleAt((i/96)*Math.PI*2) * 0.74) * k, 96);
       smoothRing(c, cx, cy, () => r0, 96);
       c.fillStyle = g; c.fill("evenodd");
     },
