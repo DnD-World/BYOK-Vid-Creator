@@ -199,26 +199,45 @@ const STYLES = [
   },
   {
     name: "E · boiling",
-    note: "<b>bubbles</b>, emanating — no hard rim",
+    note: "gradient follows <b>the band</b>, not the disc",
     draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.235, k=Math.min(w,h)*0.17;
-      // TRANSPARENT AT BOTH ENDS. The hard rim Ak saw was this gradient being
-      // fully opaque at its innermost stop: the fill met the inner circle at
-      // full strength and stopped dead, so it read as a disc filling up rather
-      // than as something radiating. Fading in from nothing at the inner edge
-      // and out to nothing at the outer means neither boundary is ever drawn —
-      // only the glow between them.
-      const g = c.createRadialGradient(cx,cy,r0*0.92,cx,cy,r0+k);
-      g.addColorStop(0.00,"rgba(255,214,107,0)");
-      g.addColorStop(0.18,"rgba(255,214,107,.85)");
-      g.addColorStop(0.50,"rgba(255,154,60,.55)");
-      g.addColorStop(1.00,"rgba(255,80,40,0)");
-      c.beginPath();
-      // Reaches inward a little too, so a swell pushes both ways from the band
-      // rather than growing out of a fixed floor.
-      smoothRing(c, cx, cy, i => r0 + (0.26 + bubbleAt((i/96)*Math.PI*2) * 0.74) * k, 96);
-      smoothRing(c, cx, cy, i => r0 - 0.10 * k - bubbleAt((i/96)*Math.PI*2) * 0.06 * k, 96);
-      c.fillStyle = g; c.fill("evenodd");
+      const STEPS = 128;
+
+      // THE GRADIENT BELONGS TO THE BAND, NOT THE FRAME.
+      //
+      // One radial gradient across the whole disc puts its bright core at a
+      // FIXED radius, so when a bubble swells the colour stays put and only the
+      // outline moves — which is why it read as a disc filling rather than as
+      // light coming off a swell. Drawn per angle instead: each thin slice gets
+      // its own gradient running from that slice's inner edge to its outer one,
+      // so the bright core rides outward with the bubble and the falloff is
+      // always the same shape however thick the band happens to be there.
+      for (let i = 0; i < STEPS; i++) {
+        const a0 = (i / STEPS) * Math.PI * 2, a1 = ((i + 1) / STEPS) * Math.PI * 2;
+        const a = (a0 + a1) / 2;
+        const swell = bubbleAt(a);
+        const inner = r0 - (0.10 + swell * 0.06) * k;
+        const outer = r0 + (0.26 + swell * 0.74) * k;
+
+        const g = c.createLinearGradient(
+          cx + Math.cos(a) * inner, cy + Math.sin(a) * inner,
+          cx + Math.cos(a) * outer, cy + Math.sin(a) * outer
+        );
+        g.addColorStop(0.00, "rgba(255,214,107,0)");
+        g.addColorStop(0.30, `rgba(255,214,107,${0.55 + swell * 0.4})`);
+        g.addColorStop(0.60, `rgba(255,154,60,${0.35 + swell * 0.35})`);
+        g.addColorStop(1.00, "rgba(255,80,40,0)");
+
+        // A slice a touch wider than its share, so neighbours overlap and no
+        // seams show between them.
+        const pad = (a1 - a0) * 0.6;
+        c.beginPath();
+        c.arc(cx, cy, outer, a0 - pad, a1 + pad);
+        c.arc(cx, cy, inner, a1 + pad, a0 - pad, true);
+        c.closePath();
+        c.fillStyle = g; c.fill();
+      }
     },
   },
   {
