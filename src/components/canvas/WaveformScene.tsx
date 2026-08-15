@@ -229,15 +229,23 @@ export function WaveformScene({
           const r0 = halo
             ? halo.r * (0.7 + cfg.ringInnerRadius * 0.9)
             : frameMin * 0.5 * Math.max(0.12, cfg.ringInnerRadius);
-          const band = (halo ? halo.r * 0.55 : frameMin * 0.17) * cfg.scale;
+          // Thicker than the first pass. The version Ak called "3D like" had a
+          // deep band with a bright core inside it; narrowing it to hug the face
+          // flattened it into a generic outline.
+          const band = (halo ? halo.r * 0.95 : frameMin * 0.17) * cfg.scale;
 
           // FOLLOWS THE VOICE. `src` is this track's own moment — the speaker's
           // level when they are speaking, and nothing when they are not — where
           // the first version sampled the whole mix and boiled through everyone
           // else's lines.
-          const here = src?.level ?? 0;
-          const levelAt = (ms: number) =>
-            (sampleAnalysis(analysis, ms, spectrum)?.level ?? 0.25) * (active ? 1 : 0.25);
+          // SILENT WHEN THIS SPEAKER IS SILENT. `moment` is the whole mix, the
+          // same object for every track, so reading a level from it made both
+          // rings boil through everyone's lines. `active` is the only thing here
+          // that knows whose turn it is, and it has to gate the SWELL — dimming
+          // the colour while the surface still churns is what it looked like
+          // before, and it read as both of them talking at once.
+          const here = active ? src?.level ?? 0 : 0;
+          const levelAt = (ms: number) => sampleAnalysis(analysis, ms, spectrum)?.level ?? 0.25;
           const bubbles = bubblesAt(timeMs, levelAt);
 
           // APEX SPARINGLY. A surface pinned at full height reads as a solid
@@ -246,7 +254,9 @@ export function WaveformScene({
           // moment reach the top — roughly a tenth of the time on normal
           // narration.
           const shape = (v: number) => Math.pow(Math.min(1, v), 1.9);
-          const gain = 0.45 + here * 0.75;
+          // A listening speaker keeps a thin living rim rather than vanishing —
+          // an outline that dies completely reads as a bug, not as silence.
+          const gain = active ? 0.45 + here * 0.85 : 0.06;
 
           const STEPS = 128;
           const slices = [];
@@ -283,9 +293,13 @@ export function WaveformScene({
                     gradientUnits="userSpaceOnUse"
                     x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
                   >
+                    {/* A hard bright core with a long fade out is what gives it
+                        depth. An even ramp across the band is the flat, generic
+                        outline it had become. */}
                     <stop offset="0%" stopColor={track.color} stopOpacity={0} />
-                    <stop offset="30%" stopColor={track.color} stopOpacity={0.45 + s.swell * 0.5} />
-                    <stop offset="60%" stopColor={track.color} stopOpacity={0.28 + s.swell * 0.42} />
+                    <stop offset="12%" stopColor="#ffffff" stopOpacity={(0.25 + s.swell * 0.5) * 0.7} />
+                    <stop offset="22%" stopColor={track.color} stopOpacity={0.75 + s.swell * 0.25} />
+                    <stop offset="55%" stopColor={track.color} stopOpacity={0.3 + s.swell * 0.4} />
                     <stop offset="100%" stopColor={track.color} stopOpacity={0} />
                   </linearGradient>
                 ))}
