@@ -11,9 +11,20 @@
 import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
-import type { TrackWaveform } from "../../store/types";
+import { WAVEFORM_STYLES, type TrackWaveform } from "../../store/types";
 
-const STYLES: TrackWaveform["style"][] = ["bars", "lines", "wave", "mirror", "dots", "rings"];
+// Read from the one list in types.ts rather than repeated here. The lab styles
+// rendered correctly for a week and could not be selected, because the union
+// was extended and this panel was not — a second copy of the list is exactly
+// how that happens again.
+const STYLES = WAVEFORM_STYLES;
+
+/** Plain names, where the code's name would not do. "bloomBars" is camelCase
+ *  and "boil" is a verb; nobody choosing a look should have to read either. */
+const STYLE_LABEL: Partial<Record<TrackWaveform["style"], string>> = {
+  bloomBars: "bloom bars",
+  boil: "boiling",
+};
 const POSITIONS: TrackWaveform["position"][] = [
   "speaker", "circular", "top", "bottom", "left", "right",
 ];
@@ -47,7 +58,7 @@ export function WaveformControls({ value, onChange, label, canAnchorToFace = tru
             <div className="flex flex-wrap gap-2">
               {STYLES.map((s) => (
                 <HudButton key={s} active={value.style === s} onClick={() => onChange({ style: s })}>
-                  {s}
+                  {STYLE_LABEL[s] ?? s}
                 </HudButton>
               ))}
             </div>

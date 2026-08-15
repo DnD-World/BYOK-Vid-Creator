@@ -26,6 +26,7 @@ import {
 import { sparklesFor } from "../../lib/waveform/sparkle";
 import { bubblesAt, surfaceAt, findBursts, particlesAt } from "../../lib/waveform/emitters";
 import { exponentFor, shapeRadius } from "../../lib/waveform/superellipse";
+import { ribbonTwistAt, backFaceColor, litFaceColor } from "../../lib/waveform/ribbon";
 import { sampleAnalysis, type DecodedSpectrum } from "../../lib/waveform/audioAnalysis";
 
 export interface WaveformSceneProps {
@@ -312,6 +313,147 @@ export function WaveformScene({
                   />
                 );
               })}
+            </g>
+          );
+        }
+
+        // RIBBON. A wide two-sided band wrapped round the face, twisting as it
+        // goes — a colour per face, and the flip happens at the pinch where the
+        // band turns edge-on. It rides the SAME boiling surface the boil does,
+        // which is what Ak asked for: the ribbon should churn like the pot, not
+        // sit still and spin.
+        if (cfg.style === "ribbon") {
+          const cx = halo ? halo.cx : width * cfg.ringX;
+          const cy = halo ? halo.cy : height * cfg.ringY;
+          // The SPINE sits clear of the artwork rather than starting at its
+          // edge the way the boil's inner rim does — a ribbon is a strip with a
+          // centre line, not a band filling the space around a face.
+          const r0 = halo
+            ? halo.r * (0.86 + cfg.ringInnerRadius * 0.6)
+            : frameMin * 0.5 * Math.max(0.12, cfg.ringInnerRadius);
+          const band = (halo ? halo.r * 0.95 : frameMin * 0.17) * cfg.scale;
+
+          // Same gating as the boil, and for the same reason: `moment` is the
+          // whole mix, so `active` is the only thing that knows whose turn it
+          // is, and it has to gate the SWELL rather than only the colour.
+          const here = active ? src?.level ?? 0 : 0;
+          const levelAt = (ms: number) => sampleAnalysis(analysis, ms, spectrum)?.level ?? 0.25;
+          const bubbles = bubblesAt(timeMs, levelAt);
+          const shape = (v: number) => Math.pow(Math.min(1, v), 1.9);
+          const gain = active ? 0.45 + here * 0.85 : 0.06;
+          const expo = exponentFor(track.outlineShape ?? undefined);
+
+          // WIDE FOR A RIBBON, which is not the same as thick. The first pass
+          // used 0.30 of the band — a strip more than half the radius across —
+          // and each stretch between two pinches came out roughly twice as long
+          // as it was wide. That is a petal, and five of them round a face is a
+          // flower. At 0.10 a stretch is about six times its width, which is
+          // what reads as a ribbon. Thickness scales it, so it can still be
+          // fattened deliberately rather than by accident.
+          const halfW = band * 0.10 * cfg.thickness;
+          const back = backFaceColor(track.color);
+
+          const STEPS = 180;
+          // The centre line: where the ribbon's spine sits at an angle, boiling
+          // in and out. Shape-aware, so a square frame gets a square ribbon.
+          const spineAt = (ang: number) =>
+            (r0 + shape(surfaceAt(bubbles, ang) * gain) * band * 0.26) *
+            shapeRadius(ang, expo);
+          const twistAt = (ang: number) => ribbonTwistAt(ang, timeMs, {});
+          // A floor under the width. A ribbon exactly edge-on is a hairline, not
+          // nothing — letting it reach zero punches a hole in the band and reads
+          // as a dropped frame rather than as a turn.
+          // NOT scaled by the shape. The SPINE follows the superellipse, so a
+          // square frame gets a square ribbon — but a ribbon's width is a
+          // property of the ribbon, not of where it happens to be. Scaling it
+          // too made the band 1.41x fatter at each corner of a square, which
+          // read as the ribbon bunching up in the corners.
+          const halfAt = (ang: number) => halfW * Math.max(0.05, twistAt(ang).openness);
+
+          const slices = [];
+          // The two EDGES, kept as their own polylines. They are what a ribbon
+          // is read by — and they cross each other at every pinch, because past
+          // a twist the edge that was on the outside is on the inside. Stroking
+          // them is what separates a ribbon from a smear of fill.
+          const edgeA: { x: number; y: number }[] = [];
+          const edgeB: { x: number; y: number }[] = [];
+          for (let i = 0; i < STEPS; i++) {
+            const a0 = (i / STEPS) * Math.PI * 2;
+            const a1 = ((i + 1) / STEPS) * Math.PI * 2;
+            const a = (a0 + a1) / 2;
+            const t = twistAt(a);
+            {
+              const off = halfW * t.lean;
+              const s = spineAt(a);
+              edgeA.push({ x: cx + Math.cos(a) * (s + off), y: cy + Math.sin(a) * (s + off) });
+              edgeB.push({ x: cx + Math.cos(a) * (s - off), y: cy + Math.sin(a) * (s - off) });
+            }
+            const pad = (a1 - a0) * 0.6;
+            const p = (ang: number, r: number) =>
+              `${(cx + Math.cos(ang) * r).toFixed(2)} ${(cy + Math.sin(ang) * r).toFixed(2)}`;
+            const outer = (ang: number) => spineAt(ang) + halfAt(ang);
+            const inner = (ang: number) => spineAt(ang) - halfAt(ang);
+            slices.push({
+              d:
+                `M ${p(a0 - pad, outer(a0 - pad))} L ${p(a1 + pad, outer(a1 + pad))}` +
+                ` L ${p(a1 + pad, inner(a1 + pad))} L ${p(a0 - pad, inner(a0 - pad))} Z`,
+              // Across the ribbon's width, so the sheen runs along the band the
+              // way light does on a real one — not from the centre of the frame,
+              // which would put the highlight on whichever side faced the middle.
+              x1: cx + Math.cos(a) * inner(a), y1: cy + Math.sin(a) * inner(a),
+              x2: cx + Math.cos(a) * outer(a), y2: cy + Math.sin(a) * outer(a),
+              face: t.front ? track.color : back,
+              // Sheen scales with how square-on the band is: a stretch caught
+              // edge-on goes matte, which is what sells the pinch as a turn.
+              lit: litFaceColor(t.front ? track.color : back, 0.12 + t.openness * 0.4),
+              // A darker line where the surface rolls away toward each edge.
+              edge: backFaceColor(t.front ? track.color : back),
+            });
+          }
+
+          return (
+            <g key={ti} opacity={opacity}>
+              <defs>
+                {slices.map((s, i) => (
+                  <linearGradient
+                    key={i}
+                    id={`ribbon-${ti}-${i}`}
+                    gradientUnits="userSpaceOnUse"
+                    x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
+                  >
+                    {/* Full colour at both edges with a sheen down the middle.
+                        The sheen fades out as the band turns away, so a ribbon
+                        caught edge-on goes matte — that, more than the width,
+                        is what makes the pinch look like a turn.
+
+                        Every stop is OPAQUE. See litFaceColor: the slices
+                        overlap so no seams show, and an overlap of anything
+                        transparent composites twice and stripes the band. */}
+                    <stop offset="0%" stopColor={s.edge} />
+                    <stop offset="45%" stopColor={s.lit} />
+                    <stop offset="70%" stopColor={s.face} />
+                    <stop offset="100%" stopColor={s.edge} />
+                  </linearGradient>
+                ))}
+              </defs>
+              {slices.map((s, i) => (
+                <path key={i} d={s.d} fill={`url(#ribbon-${ti}-${i})`} />
+              ))}
+              {/* Both edges, lit. Drawn over the fill and in white rather than
+                  in either face colour — an edge catches light whichever side
+                  of the ribbon it is bounding, and tinting it would make the
+                  crossing at each pinch look like a mistake. */}
+              {[edgeA, edgeB].map((edge, e) => (
+                <path
+                  key={`edge-${e}`}
+                  d={toPathD(edge, true, true)}
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeOpacity={0.5}
+                  strokeWidth={Math.max(1, frameMin * 0.0022 * cfg.thickness)}
+                  strokeLinejoin="round"
+                />
+              ))}
             </g>
           );
         }

@@ -19,16 +19,28 @@ export interface RenderSettings {
  *
  *  Colour deliberately lives on the owner, not here — a speaker's waveform is
  *  their outline colour, so the two cannot drift apart. */
+/** Every waveform style: the six originals, then the six chosen from the
+ *  waveform lab.
+ *
+ *  A LIST, not a bare union, because the union alone could be added to without
+ *  the style ever appearing in the picker — which is what happened: four lab
+ *  styles rendered correctly for a week and no one could select them. The
+ *  picker and the headless runner's validator both read this array, so a style
+ *  that exists is a style you can choose.
+ *
+ *  "ribbon", "boil", "particles", "sparks" and "bloomBars" are DERIVED FROM
+ *  TIME, not accumulated frame to frame — see src/lib/waveform/emitters.ts for
+ *  why that is not optional in a renderer that draws frames out of order. */
+export const WAVEFORM_STYLES = [
+  "bars", "lines", "wave", "mirror", "dots", "rings",
+  "ribbon", "particles", "sparks", "bloomBars", "boil",
+] as const;
+
+export type WaveformStyle = (typeof WAVEFORM_STYLES)[number];
+
 export interface TrackWaveform {
   enabled: boolean;
-  /** The six original styles, plus the five chosen from the waveform lab.
-   *
-   *  "boil", "particles", "sparks" and "bloomBars" are DERIVED FROM TIME, not
-   *  accumulated frame to frame — see src/lib/waveform/emitters.ts for why
-   *  that is not optional in a renderer that draws frames out of order. */
-  style:
-    | "bars" | "lines" | "wave" | "mirror" | "dots" | "rings"
-    | "boil" | "particles" | "sparks" | "bloomBars" | "ribbon";
+  style: WaveformStyle;
   /** "speaker" rings the owning speaker's own face rather than the frame —
    *  the halo look. Music has no face, so it falls back to "circular". */
   position: "circular" | "speaker" | "top" | "bottom" | "left" | "right";

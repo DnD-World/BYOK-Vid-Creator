@@ -32,7 +32,12 @@ import { planBackgrounds, pickBackgrounds } from "../llm/backgroundPlanner";
 import { downloadTo } from "../net/mediaSearch";
 import { renderVideo, type RenderJob, type RenderContext } from "../render/renderVideo";
 import type { ProjectPreset } from "../../src/store/templatesTypes";
-import type { SpeakerConfig } from "../../src/store/types";
+import {
+  WAVEFORM_STYLES,
+  type OutlineShape,
+  type SpeakerConfig,
+  type TrackWaveform,
+} from "../../src/store/types";
 
 /** One member of the cast, as a job file describes them.
  *
@@ -106,6 +111,19 @@ export interface BatchJob {
   /** A pane of glass over the background and waveform. Refracts those two
    *  only — the avatars and subtitles draw in front of it and stay sharp. */
   glass?: RenderJob["glass"];
+  /** Force every speaker's waveform to one style, whatever the preset says.
+   *
+   *  Here because comparing styles used to mean editing a preset in source
+   *  between renders. A replacement that quietly matched nothing produced four
+   *  "different" renders that were all the same style, and they looked
+   *  identical because they WERE identical. A job field cannot fail that way:
+   *  a bad value is rejected by name below. */
+  waveformStyle?: TrackWaveform["style"];
+  /** Force every speaker's frame shape. The ring styles take their shape from
+   *  it, so this is the only way to see a square waveform: no built-in preset
+   *  uses a square frame, and "it uses the same call the boil does" is an
+   *  argument, not a check. */
+  outlineShape?: OutlineShape;
 }
 
 export interface JobResult {
@@ -196,6 +214,35 @@ export async function runBatchJob(
       chatterboxVoiceRef: c.chatterboxVoiceRef,
     } as SpeakerConfig;
   });
+
+  // ONE STYLE FOR EVERY SPEAKER, when the job asks for it. Comparing looks is
+  // the reason this exists, and comparing looks means changing one thing.
+  //
+  // A bad name THROWS rather than being ignored. Silently keeping the preset's
+  // style would reproduce the original fault exactly: a render that succeeds,
+  // reports nothing, and shows the style you were trying to replace.
+  if (job.waveformStyle) {
+    if (!(WAVEFORM_STYLES as readonly string[]).includes(job.waveformStyle)) {
+      throw new Error(
+        `No waveform style "${job.waveformStyle}". Styles are: ${WAVEFORM_STYLES.join(", ")}`
+      );
+    }
+    for (const sp of speakers) {
+      sp.waveform = { ...sp.waveform, style: job.waveformStyle };
+    }
+    onProgress(2, `Waveform style forced to "${job.waveformStyle}" for all speakers`);
+  }
+
+  if (job.outlineShape) {
+    const shapes: readonly OutlineShape[] = ["circle", "rounded", "square", "none"];
+    if (!shapes.includes(job.outlineShape)) {
+      throw new Error(
+        `No outline shape "${job.outlineShape}". Shapes are: ${shapes.join(", ")}`
+      );
+    }
+    for (const sp of speakers) sp.outlineShape = job.outlineShape;
+    onProgress(2, `Frame shape forced to "${job.outlineShape}" for all speakers`);
+  }
 
   // A preset built for a different-sized cast is the exact mistake that put
   // one speaker at a three-speaker position. Say so rather than quietly using
