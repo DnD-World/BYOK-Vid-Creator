@@ -270,6 +270,28 @@ references up, WAVs and timings down. Everything after it stays local and
 unchanged. **Measure one lesson before trusting the table**: only the 2.5s is
 documented, and every number after it is inference from it.
 
+## The curriculum — 15 Aug 2026
+
+Dog training, for Tutor LMS, in five series. **23 lessons**, not the 100 the
+cost estimates were built on — 100 was Ak's planning figure across both courses
+and every promo cut, so it stands as a ceiling rather than a forecast.
+
+| Series | Subject | Lessons |
+|---|---|---|
+| 100 | How a dog thinks, learns, is socialised | 3 |
+| 200 | The toolkit — clicker, timing, luring, capturing, shaping | 5 |
+| 300 | Obedience, walking, manners, social life | 4 |
+| 400 | Problems — toilet, chewing, barking, humping, fear, alone-time | 6 |
+| 500 | Breed groups and why genes matter | 5 |
+
+At ~5 minutes each that is about **two hours of finished audio** for course one.
+On the measured L4 figure of 8.5s per generation, narrating the whole course is
+well under an hour of GPU time — roughly a dollar.
+
+Worth noticing about the shape: the 400 series is the largest, and it is the
+one people arrive with a problem to solve. That is the series most worth cutting
+promos from, and Τσίκα fronts those.
+
 ## The agreed order — 12 Aug 2026
 
 Set after watching `render-1786118738784.mp4` (7 Aug) end to end. Each item is
