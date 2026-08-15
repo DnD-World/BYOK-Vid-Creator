@@ -79,9 +79,19 @@ function smoothRing(c, cx, cy, radiusAt, steps) {
  *  by steps — which is what made the filled ring look like a cog rather than a
  *  waveform. Smoothing the curve could not fix it because the data itself was
  *  a staircase. Reading between the bands is the actual fix. */
-function bandAt(x) {
+function bandAt(x, smooth) {
+  const at = j => {
+    const k = ((j % N) + N) % N;
+    if (!smooth) return dev[k];
+    // NEIGHBOUR AVERAGE. Interpolating between 24 points still traces 24
+    // lobes, which is the "coggish" Ak keeps seeing — the curve is smooth but
+    // the SHAPE still has 24 corners' worth of information in it. Blending
+    // each band with the two beside it turns lobes into a flowing line, at the
+    // cost of a little per-band detail that a ribbon was never showing anyway.
+    return (dev[(k - 1 + N) % N] + dev[k] * 2 + dev[(k + 1) % N]) / 4;
+  };
   const f = ((x % N) + N) % N, i = Math.floor(f), frac = f - i;
-  const a = dev[i], b = dev[(i + 1) % N];
+  const a = at(i), b = at(i + 1);
   // Cosine rather than linear: no corner where two segments meet.
   return a + (b - a) * (1 - Math.cos(frac * Math.PI)) / 2;
 }
@@ -107,13 +117,13 @@ const STYLES = [
   },
   {
     name: "D · ribbon, rounded",
-    note: "smooth curve, no corners",
+    note: "neighbour-smoothed — a flowing line, not 24 lobes",
     draw(c,w,h,t){
       const cx=w/2, cy=h/2, r0=Math.min(w,h)*0.26, k=Math.min(w,h)*0.13;
       const spin = t/4000;
       for (const [side,colour] of [[1,ACCENT],[-1,COOL]]) {
         c.beginPath();
-        smoothRing(c, cx, cy, i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96)*k), 96);
+        smoothRing(c, cx, cy, i => r0 + side*(0.02*Math.min(w,h) + bandAt(i*N/96, true)*k), 96);
         c.strokeStyle = colour; c.lineWidth = Math.max(2.5,w/140);
         c.lineJoin = "round"; c.stroke();
       }
@@ -129,7 +139,8 @@ const STYLES = [
       g.addColorStop(.45,"rgba(255,154,60,.7)");
       g.addColorStop(1,"rgba(255,80,40,0)");
       c.beginPath();
-      smoothRing(c, cx, cy, i => r0 + bandAt(i*N/96)*k, 96);           // outer
+      // A floor of 18% so the ring never disappears in a quiet moment.
+      smoothRing(c, cx, cy, i => r0 + (0.18 + bandAt(i*N/96, true)*0.82)*k, 96);
       smoothRing(c, cx, cy, () => r0, 96);                              // inner hole
       c.fillStyle = g; c.fill("evenodd");                               // annulus
     },
