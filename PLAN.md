@@ -272,25 +272,41 @@ documented, and every number after it is inference from it.
 
 ## The curriculum — 15 Aug 2026
 
-Dog training, for Tutor LMS, in five series. **23 lessons**, not the 100 the
-cost estimates were built on — 100 was Ak's planning figure across both courses
-and every promo cut, so it stands as a ceiling rather than a forecast.
+Dog training, for Tutor LMS, in five series. The headline count is not 23.
 
-| Series | Subject | Lessons |
-|---|---|---|
-| 100 | How a dog thinks, learns, is socialised | 3 |
-| 200 | The toolkit — clicker, timing, luring, capturing, shaping | 5 |
-| 300 | Obedience, walking, manners, social life | 4 |
-| 400 | Problems — toilet, chewing, barking, humping, fear, alone-time | 6 |
-| 500 | Breed groups and why genes matter | 5 |
+**23 lessons, but 72 videos.** Each lesson breaks into sub-lessons — 101.1
+through 101.5 and so on — and it is the sub-lesson that becomes a video. Plus
+**18 handouts, worksheets and quizzes** (the δωράκια and τεστάκια), which are
+PDFs and forms and not this app's job at all.
 
-At ~5 minutes each that is about **two hours of finished audio** for course one.
-On the measured L4 figure of 8.5s per generation, narrating the whole course is
-well under an hour of GPU time — roughly a dollar.
+| Series | Subject | Lessons | Videos |
+|---|---|---|---|
+| 100 | How a dog thinks, learns, is socialised | 3 | 12 |
+| 200 | The toolkit — clicker, timing, luring, capturing, shaping | 5 | 16 |
+| 300 | Obedience, walking, manners, social life | 4 | 15 |
+| 400 | Problems — toilet, chewing, barking, humping, fear, alone-time | 6 | 18 |
+| 500 | Breed groups and why genes matter | 5 | 11 |
+| | | **23** | **72** |
 
-Worth noticing about the shape: the 400 series is the largest, and it is the
-one people arrive with a problem to solve. That is the series most worth cutting
-promos from, and Τσίκα fronts those.
+**The bottleneck is rendering, not narration, and it is not close.** At three
+minutes a video that is 3.6 hours of finished course:
+
+| | |
+|---|---|
+| Narration on a rented L4 | **~0.8 h**, about a dollar |
+| Rendering, on this machine | **~8.6 h** |
+
+Rendering is ten times the cost of the thing everyone worried about. It is also
+the part with no cloud plan — the measured 2.4x-realtime figure is a laptop
+RTX 3070 with everything else closed. Worth deciding whether renders move to a
+rented box too, or whether 8.6 hours of overnight local rendering is simply
+acceptable. It probably is, once, and probably is not every time a preset
+changes.
+
+**Sub-lessons are short, and short is a different problem.** A 2-3 minute video
+has proportionally more startup cost — bundle, browser, model load — than a nine
+minute one, and 72 of them pay it 72 times. Batch mode should render a whole
+series in one process rather than launching per video.
 
 ## The agreed order — 12 Aug 2026
 
