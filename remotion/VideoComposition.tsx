@@ -31,7 +31,7 @@ import { useWaitForImages } from "./useWaitForImages";
 import { useSpectrumFile } from "./useSpectrumFile";
 import { headMotion, motionTransform } from "../src/lib/motion/idleMotion";
 import {
-  blinkAt, browAt, buildSpeakerBrowTracks,
+  blinkAt, blinkBlendAt, browAt, buildSpeakerBrowTracks,
   buildSpeakerHeadTracks, headPoseAt,
 } from "../src/lib/motion/facePerformance";
 import { sampleAnalysis } from "../src/lib/waveform/audioAnalysis";
@@ -318,8 +318,18 @@ export function VideoComposition({
                 // Both eyes blink together. Per-eye lids exist for the wink,
                 // which is a directed choice rather than something an
                 // automatic track should ever produce on its own.
-                lidLeft={blinkAt(sp.id, timeMs, idleMotion)}
-                lidRight={blinkAt(sp.id, timeMs, idleMotion)}
+                // Crossfaded, not swapped. A blink is under four frames long,
+                // so three hard-swapped drawings stutter in a face that is
+                // otherwise moving on continuous curves — which is what Ak kept
+                // seeing as choppy. Computed once and spread, because calling
+                // it five times would be five binary searches per eye per frame.
+                {...(() => {
+                  const b = blinkBlendAt(sp.id, timeMs, idleMotion);
+                  return {
+                    lidLeft: b.from, lidRight: b.from,
+                    lidLeftTo: b.to, lidRightTo: b.to, lidMix: b.mix,
+                  };
+                })()}
                 browLeft={browAt(browTracks[sp.id], timeMs)}
                 browRight={browAt(browTracks[sp.id], timeMs)}
                 head={headPoseAt(sp.id, headTracks[sp.id], timeMs, idleMotion)}

@@ -78,6 +78,50 @@ function windowBlinks(seed: string, k: number): number[] {
  *   this face" control the head motion uses. A face that holds perfectly still
  *   but keeps blinking looks stranger than one that does neither.
  */
+/** A blink as a CROSSFADE between two lid images, the way the mouth already
+ *  works.
+ *
+ *  The stepped version returned one of three names, and a blink lasts 150ms —
+ *  under four frames at 24fps. So an eyelid snapped open → half → closed → half
+ *  → open in four hard swaps, in a face where everything else (sway, tilt,
+ *  breathing) is a continuous sine. That mismatch is what read as choppy: not
+ *  broken, just one element behaving discretely among smooth ones.
+ *
+ *  Same shape as visemeBlendAt on purpose. The mouth solved this problem long
+ *  ago with a fade between cells, and a second mechanism for the same job would
+ *  only drift from it. */
+export function blinkBlendAt(
+  seed: string,
+  timeMs: number,
+  amount = 1,
+  fadeMs = 45
+): { from: LidState; to: LidState; mix: number } {
+  const hard = blinkAt(seed, timeMs, amount);
+  if (fadeMs <= 0) return { from: hard, to: hard, mix: 1 };
+
+  // Look a fade ahead and behind. Where the two disagree there is an edge to
+  // smooth, and how far through the fade we are gives the mix.
+  const before = blinkAt(seed, timeMs - fadeMs, amount);
+  const after = blinkAt(seed, timeMs + fadeMs, amount);
+
+  if (before !== hard) {
+    // Just entered `hard` — find how long ago, to the resolution of a step.
+    let ago = fadeMs;
+    for (let d = 1; d <= fadeMs; d += 3) {
+      if (blinkAt(seed, timeMs - d, amount) !== hard) { ago = d; break; }
+    }
+    return { from: before, to: hard, mix: Math.min(1, ago / fadeMs) };
+  }
+  if (after !== hard) {
+    let until = fadeMs;
+    for (let d = 1; d <= fadeMs; d += 3) {
+      if (blinkAt(seed, timeMs + d, amount) !== hard) { until = d; break; }
+    }
+    return { from: hard, to: after, mix: 1 - Math.min(1, until / fadeMs) };
+  }
+  return { from: hard, to: hard, mix: 1 };
+}
+
 export function blinkAt(seed: string, timeMs: number, amount = 1): LidState {
   if (amount <= 0 || timeMs < 0) return "open";
 

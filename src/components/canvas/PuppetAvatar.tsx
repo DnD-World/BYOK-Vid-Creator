@@ -34,6 +34,12 @@ interface Props {
   /** Lid state per eye, from `puppet.eyes.lids`. Different values wink. */
   lidLeft?: string;
   lidRight?: string;
+  /** The lid image being faded TO, and how far through, so a blink is a
+   *  crossfade rather than a hard swap. Absent means no fade — the old
+   *  behaviour, kept so a caller that has not been updated still works. */
+  lidLeftTo?: string;
+  lidRightTo?: string;
+  lidMix?: number;
   /** Brow set per side, from `puppet.brows`. Different values raise one brow. */
   browLeft?: string;
   browRight?: string;
@@ -67,6 +73,7 @@ function filterFor(l: PuppetLayer): string | undefined {
 export function PuppetAvatar({
   puppet, urls, viseme, prevViseme, mix = 1,
   lidLeft = "open", lidRight = "open",
+  lidLeftTo, lidRightTo, lidMix = 1,
   // Defaulted, not optional-and-absent, for the reason in `browSet` below.
   browLeft = BROW_REST, browRight = BROW_REST, head: pose = HEAD_STILL, size,
   bgOpacity, borderOpacity,
@@ -173,6 +180,12 @@ export function PuppetAvatar({
   const lids = puppet.eyes.lids;
   const lidL = lids[lidLeft] ?? lids.open;
   const lidR = lids[lidRight] ?? lids.open;
+  // The image being faded to, and its share. A blink lasts under four frames,
+  // so without this the eyelid snaps between three drawings in a face where
+  // everything else moves continuously — which is what read as choppy.
+  const lidLNext = lidLeftTo ? lids[lidLeftTo] ?? lidL : undefined;
+  const lidRNext = lidRightTo ? lids[lidRightTo] ?? lidR : undefined;
+  const fade = Math.max(0, Math.min(1, lidMix));
   // A puppet asked for a brow set it doesn't have must not end up drawing NO
   // brows: a browless face reads as missing artwork, not as a neutral
   // expression, and it is the exact thing that shipped in the first render
@@ -276,8 +289,14 @@ export function PuppetAvatar({
         {draw(puppet.eyes.whites, "whites")}
         {draw(puppet.eyes.pupilLeft, "pupilL")}
         {draw(puppet.eyes.pupilRight, "pupilR")}
-        {draw({ ...lidL, split: "left" }, "lidL")}
-        {draw({ ...lidR, split: "right" }, "lidR")}
+        {/* Crossfaded exactly the way the mouth below is. Two lid images, the
+            outgoing one fading out under the incoming one — a blink is under
+            four frames long, so a hard swap between three drawings is visible
+            as a stutter in a face that is otherwise moving continuously. */}
+        {lidLNext && fade < 1 && draw({ ...lidL, split: "left" }, "lidLPrev", 1 - fade)}
+        {draw({ ...(lidLNext ?? lidL), split: "left" }, "lidL", lidLNext ? fade : undefined)}
+        {lidRNext && fade < 1 && draw({ ...lidR, split: "right" }, "lidRPrev", 1 - fade)}
+        {draw({ ...(lidRNext ?? lidR), split: "right" }, "lidR", lidRNext ? fade : undefined)}
         {draw(browL, "browL")}
         {draw(browR, "browR")}
         {puppet.extras?.map((l, i) => draw(l, `ex${i}`))}
