@@ -1,0 +1,31 @@
+{
+  "scriptPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/scripts/101.1.txt",
+  "language": "el",
+  "format": "9:16",
+  "preset": "Halo · duo",
+  "topic": "Dog training lesson 101.1 — how a dog thinks. Dogs at home, chewed shoes, dogs sniffing on walks, Greek homes and parks. Always dogs present.",
+  "backgrounds": "auto",
+  "cast": [
+    {
+      "label": "Καίτη",
+      "puppetPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/puppet/kaiti.puppet.json",
+      "engine": "piper",
+      "piperPythonPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-venv/Scripts/python.exe",
+      "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-rapunzelina-medium.onnx",
+      "borderColor": "#ff9a3c",
+      "openingPhrase": "A bright woman"
+    },
+    {
+      "label": "Σερίφης",
+      "puppetPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/puppet/serifis.puppet.json",
+      "engine": "piper",
+      "piperPythonPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-venv/Scripts/python.exe",
+      "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-joy-medium.onnx",
+      "borderColor": "#3cb4ff",
+      "openingPhrase": "A grave man"
+    }
+  ],
+  "backgroundDim": 0.45,
+  "dramaboxWavDir": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/voice-refs/work/out",
+  "backgroundsPerMinute": 3.5
+}
