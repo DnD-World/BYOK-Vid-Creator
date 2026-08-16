@@ -157,3 +157,51 @@ The course structure these will narrate:
 
 Twenty-three lessons, then a second course on professional soft skills using the
 same three voices.
+
+---
+
+## The clips, as delivered — 16 Aug 2026
+
+Four files, converted to mono 44.1kHz WAV in `voice-refs/` (gitignored).
+
+| Clip | Length | Peak | Noise floor |
+|---|---|---|---|
+| `kaiti.wav` | 74.7s | -0.2 dB | -66 dB |
+| `serifis.wav` | 63.9s | -1.7 dB | -58 dB |
+| `tsika.wav` | 67.0s | -0.5 dB | -80 dB |
+| `kaiti-babytalk.wav` | 13.1s | -1.2 dB | -76 dB |
+
+**Technically clean.** No clipping anywhere (flat factor 0), healthy levels, low
+noise. Nothing here needs re-recording for technical reasons.
+
+### The thing that matters and is easy to miss
+
+**`ref_duration` defaults to 10.0 seconds, and only that much is read.** These
+clips are 64–75 seconds, so about 85% of each is ignored, and whatever happens
+to be in the first ten seconds IS the character's voice for the whole course.
+
+Measured in that first ten seconds: `kaiti` has five quiet stretches of a third
+of a second or more, against two each for `serifis` and `tsika` — so Καίτη's
+usable window holds noticeably less actual voice than the others.
+
+Two ways to deal with it, and they can be combined:
+
+1. **Raise `ref_duration`** — the range is 3–30, so 20 would use three times as
+   much material.
+2. **Put the best ten seconds first**, by trimming the front of each clip.
+
+Neither needs re-recording. Both are worth doing before judging a clone.
+
+### The fourth clip
+
+`kaiti-babytalk` is a mood, not a timbre, which the rule at the top of this
+document says to keep out of a reference. It is still useful — as a SECOND
+reference used only for the lines where Καίτη talks to Τσίκα, rather than as
+her main voice. Worth auditioning both ways; do not make it her only clip.
+
+### Still lossy
+
+These arrived as MP3. Cloning reads timbre, and MP3 discards the high frequency
+detail timbre partly lives in. If uncompressed originals exist, they are
+strictly better. If not, these are usable — this is a "better if easy", not a
+blocker.
