@@ -77,3 +77,32 @@ The cheap experiment beats the opinion: write the same sub-lesson with both,
 render both, and **listen**. One evening settles it for all 72. Judge voices out
 loud, never on the page — this project's worst time sinks have all come from
 judging something in the wrong medium.
+
+## The script format survives, the assembly does not
+
+Ak asked why synthesis happens in the app rather than in DramaBox. It does not
+— the app never makes audio. It resolves which voice a line belongs to, calls
+the engine, and stitches what comes back.
+
+But it calls the engine **once per line**, and that is wrong for DramaBox. The
+repo's own working test prompt is a whole scene: two characters, the acting
+carried by prose around the quoted speech, one generation. Given one short line
+and a three-word direction, a drama model has nothing to act across.
+
+**The script format is unaffected.** A line's `[direction]` is exactly the prose
+DramaBox wants around the speech, and consecutive lines join into one prompt:
+
+```
+Kaiti [laughing as she says it]: Κυριολεκτικά.
+Serifis [flatly, already impatient]: Πόσο κυριολεκτικά;
+```
+
+becomes one prompt in which Kaiti laughs as she says her line and Serifis
+answers flatly — with the pause between them chosen by the model, which is what
+acting is, rather than by our fixed `pauseTurnMs`.
+
+What that costs is per-line timings, which visemes and subtitles need and
+line-by-line generation gives away for free. They have to be recovered by
+aligning the audio against the script. That was always the plan — whisperX is
+in the earliest handoff — and it upgrades subtitles from per-line to per-word
+on the way. Tracked as open item 2 in `docs/HANDOFF.md`.

@@ -143,6 +143,35 @@ definition, so a superellipse drawn with arcs stays round.
    it.
 2. **Remote narration step** — script and clips up to the L4, WAVs and timings
    back. `buildNarration` is the seam.
+
+   **It must not be line-by-line, and the current code is.** `buildNarration`
+   synthesises one segment per call and concatenates with fixed pauses. That is
+   right for Piper, which is a line reader with no context to lose, and it is
+   wrong for DramaBox. The repo's own working test prompt is a whole scene —
+   two characters, the acting carried by prose around the quoted speech, one
+   generation:
+
+   ```
+   A furious mother-in-law slams a wooden spoon onto the counter and shouts,
+   "Ίντα πράμα είναι δαύτο που μας έφκιαξες;"
+   Her daughter-in-law inhales shakily, fighting tears, and answers quietly,
+   "Έκανα ό,τι καλύτερο μπορούσα... Δεν είναι τόσο χάλια."
+   ```
+
+   Fed single lines it cannot build a performance across a turn, and the
+   timing between two characters becomes our fixed `pauseTurnMs` rather than
+   acting. Ak raised this; it is not a detail.
+
+   **What makes line-by-line tempting is that it hands us per-segment timings
+   for free**, and visemes, subtitles and the active-speaker gate all need
+   them. Generating a scene in one pass loses that — so the timings have to be
+   recovered by aligning the returned audio against the script we already
+   know. That was the original plan (whisperX, in `handoff 1.md`) and it buys
+   better subtitles too: word-level timing instead of per-line.
+
+   So the shape is: **scene in, one performance out, aligned back to lines.**
+   The script format does not change — a line's `[direction]` becomes the
+   prose around its quoted speech, and consecutive lines join into one prompt.
 3. **Rip out Chatterbox** — `chatterboxEngine.ts`, the engine enum, settings and
    test panels. Dead weight; remove before DramaBox lands so there are two
    engines, not three.
