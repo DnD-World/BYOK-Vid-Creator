@@ -64,6 +64,52 @@ So a speaker run must be capped near 85 words, and chunked at a sentence
 boundary above it. A five-minute lesson is dozens of generations however it is
 sliced — the question was only ever whether they are per line or per run.
 
+## 3b. The speaker description must be tiny — and ours are paragraphs
+
+From the [prompting guide](https://github.com/resemble-ai/DramaBox/blob/master/docs/PROMPTING_GUIDE.md),
+which is the document that actually governs this and which I should have read
+first:
+
+- **Generic nouns, one optional adjective.** "A man." "A weary woman."
+- **Never a role or profession** — "radio host", "drill sergeant" — because the
+  model **speaks them literally**.
+- Listed common mistakes: **stacking multiple adjectives**, using professions as
+  speaker descriptors, and relying on stage directions without phonetic content
+  to convey a sound.
+
+**This contradicts `docs/CHARACTER-VOICES.md` directly.** That document's whole
+premise is "a character is not a config object, it is a paragraph", and each of
+our three characters is a rich multi-adjective description. By this guide that
+is the single most common way to get a bad generation.
+
+Worse, and concretely: our own working test prompt begins
+
+> *A warm female teacher explains clearly and patiently, "…"*
+
+That is a profession with two stacked adjectives. **"Teacher" may well be read
+aloud in the file nobody has listened to.** Two separate reasons to listen to
+that WAV before trusting anything.
+
+What the characters need instead is a short generic noun — "A young woman", "A
+man", "A small girl" — with the personality carried by the **verb** attached to
+the speech, which is where the guide puts it.
+
+## 3c. The shape of a prompt is a two-segment beat
+
+> `A <speaker> <verb>, "<dialogue>" <pronoun> <verb>, "<dialogue>"`
+
+The guide recommends **two segments with a contrast between them** — calm setup,
+then the emotional turn — rather than one flat expression. That is a real gain
+for us: a speaker run of two lines with a direction on the second maps onto this
+exactly.
+
+And a hard rule for the assembler:
+
+> **End at the last closing quote. Trailing description gets ignored or read.**
+
+So nothing may be appended after the final line's closing quote — no summary, no
+trailing direction, no punctuation of our own.
+
 ## 4. Laughs go INSIDE the quotes; sighs go outside
 
 This is the one place our Gem instructions were actively wrong.
@@ -89,6 +135,12 @@ So there are **three** categories, not two:
 
 Our instructions said "no written-out laughs in the speech", which is exactly
 backwards for laughs. Fixed in `docs/SCRIPT-GEM.md`.
+
+The prompting guide sharpens this further: **a direction alone does not
+reliably produce a sound.** "Relying on stage directions without phonetic
+content to convey sounds" is one of its listed mistakes. So a direction shapes
+*delivery*; only phonetic content inside the quotes actually makes a *noise*.
+If a laugh must be heard, it has to be spelled.
 
 ---
 

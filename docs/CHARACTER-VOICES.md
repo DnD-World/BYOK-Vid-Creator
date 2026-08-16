@@ -1,5 +1,22 @@
 # The cast, as DramaBox hears them
 
+> **⚠ THESE PARAGRAPHS CONTRADICT THE OFFICIAL PROMPTING GUIDE. Do not use them
+> as written.** Read `docs/DRAMABOX.md` first.
+>
+> The guide requires a **generic noun with at most one adjective** — "A man",
+> "A weary woman" — and names two of the things below as its most common
+> mistakes: **stacking adjectives**, and **using a profession as the speaker
+> description**, because a profession is *spoken literally*. "The human
+> teacher" would be read out.
+>
+> The personality belongs in the **verb attached to the speech**, not in the
+> speaker noun. What survives below is the CHARACTERISATION — who these three
+> are, how they relate, what each is for. What must be rewritten is the shape
+> of the prompt itself.
+>
+> Rewriting these is the first job once the Greek audition passes, and it must
+> be done by ear against real generations, not on paper.
+
 DramaBox has no voice settings. There is no dial for "enthusiastic" and no
 dropdown of speakers — **the prompt is the whole interface.** Everything about
 who is speaking and how travels as prose, and none of that prose appears in the
