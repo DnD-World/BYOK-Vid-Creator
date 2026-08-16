@@ -162,3 +162,27 @@ Why it is written that way:
 - [ ] Every speaker has a voice assigned
 - [ ] Questions end in `;` (Greek) or `?` (English)
 - [ ] No blank lines used as spacing
+
+---
+
+## Stage directions, for one line
+
+A line can carry how it is delivered, in square brackets **before** the colon:
+
+```
+Καίτη: Το κόλπο είναι απλό.
+Καίτη [σιγανά, σαν μυστικό]: Μην το πεις σε κανέναν.
+Σερίφης [βιαστικά]: Δεν έχουμε χρόνο.
+```
+
+**Before the colon, never after.** Everything after the colon is spoken exactly
+as written, so a direction written there would be read out loud.
+
+The direction is not part of the speech and never appears in the audio. It is
+for DramaBox, whose entire interface is prose — the per-character paragraph in
+`docs/CHARACTER-VOICES.md` says who someone is, and this says how this one line
+goes. Engines without that control ignore it, and the line still says the right
+words in the right voice.
+
+Use it when the delivery is not obvious from the words. A script where every
+line has one is a script that does not trust its own writing.
