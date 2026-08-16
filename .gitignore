@@ -37,3 +37,4 @@ sfx/library/
 
 # generated audition audio — kept out of git, regenerate with tools/dramabox-ambiguity-test.py
 dramabox-audition/*.wav
+dramabox-audition/*.pcm

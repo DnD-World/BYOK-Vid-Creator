@@ -74,6 +74,111 @@ export interface TrimResult {
   tailMsRemoved: number;
 }
 
+export interface SqueezeOptions extends TrimOptions {
+  /** A gap has to be at least this long before it is touched, in ms. Below it,
+   *  a pause is punctuation and belongs to the performance. */
+  minPauseMs?: number;
+  /** What a long gap is shortened TO, in ms. Not to zero — running two
+   *  sentences together is worse than the gap was. */
+  keepMs?: number;
+}
+
+export interface SqueezeResult {
+  buffer: Buffer;
+  /** How many gaps were shortened, and by how much in total. */
+  gapsShortened: number;
+  msRemoved: number;
+}
+
+/**
+ * Shorten the long gaps INSIDE a synthesised line.
+ *
+ * WHY THIS EXISTS, AGAINST THE ADVICE DIRECTLY ABOVE. Trimming was written to
+ * touch only the ends, on the grounds that a pause a speaker took is
+ * performance. That holds when the pause was a choice. It is not what DramaBox
+ * produces: generation is given a duration ESTIMATED from the text and then
+ * multiplied by 1.1 for headroom, and the surplus has to go somewhere. Measured
+ * on the first audition: a 9.6s file whose speech does not begin until 3.2s,
+ * and an 8.0s file carrying 2.45s of dead air in three stretches — thirty per
+ * cent of it. Ak heard exactly that and called it unnatural, which it is.
+ *
+ * So this shortens rather than removes: gaps under `minPauseMs` are left
+ * completely alone, and anything longer is cut back to `keepMs` rather than to
+ * nothing. A real beat survives; a hole does not.
+ *
+ * The cure for the cause is `duration_multiplier`, which lives on the other
+ * side of a GPU. This is the local half, and it works whatever the engine does.
+ */
+export function squeezeSilence(buf: Buffer, opts: SqueezeOptions = {}): SqueezeResult {
+  const untouched = { buffer: buf, gapsShortened: 0, msRemoved: 0 };
+  const info = readWav(buf);
+  if (!info || info.bitsPerSample !== 16) return untouched;
+
+  const { numChannels, sampleRate, dataStart, dataSize } = info;
+  const bytesPerFrame = numChannels * 2;
+  const frames = Math.floor(dataSize / bytesPerFrame);
+  if (frames === 0) return untouched;
+
+  const threshold = 32768 * Math.pow(10, (opts.thresholdDb ?? -45) / 20);
+  const minPause = Math.round(((opts.minPauseMs ?? 350) / 1000) * sampleRate);
+  const keep = Math.round(((opts.keepMs ?? 180) / 1000) * sampleRate);
+  if (keep >= minPause) return untouched;
+
+  const peakAt = (frame: number): number => {
+    let peak = 0;
+    const base = dataStart + frame * bytesPerFrame;
+    for (let c = 0; c < numChannels; c++) {
+      const v = Math.abs(buf.readInt16LE(base + c * 2));
+      if (v > peak) peak = v;
+    }
+    return peak;
+  };
+
+  // Collect the quiet runs first, then rebuild once. Splicing as we go would
+  // invalidate every index we had not looked at yet.
+  const gaps: { from: number; to: number }[] = [];
+  let run = -1;
+  for (let f = 0; f < frames; f++) {
+    if (peakAt(f) < threshold) {
+      if (run < 0) run = f;
+    } else if (run >= 0) {
+      if (f - run >= minPause) gaps.push({ from: run, to: f - 1 });
+      run = -1;
+    }
+  }
+  // A trailing run is left to trimSilence — the ends are its job, and halving
+  // the tail here would leave 180ms of hiss that trimming would then remove
+  // anyway, twice as slowly.
+  if (gaps.length === 0) return untouched;
+
+  const pieces: Buffer[] = [];
+  let cursor = 0;
+  let removed = 0;
+  for (const gap of gaps) {
+    // Everything up to the gap, then the shortened gap itself. Keeping a slice
+    // OF THE GAP rather than inserting zeros preserves the room tone, so the
+    // join does not read as a digital dropout.
+    pieces.push(buf.subarray(
+      dataStart + cursor * bytesPerFrame,
+      dataStart + (gap.from + keep) * bytesPerFrame
+    ));
+    removed += gap.to - gap.from + 1 - keep;
+    cursor = gap.to + 1;
+  }
+  pieces.push(buf.subarray(dataStart + cursor * bytesPerFrame, dataStart + frames * bytesPerFrame));
+
+  const audio = Buffer.concat(pieces);
+  const header = Buffer.from(buf.subarray(0, dataStart));
+  header.writeUInt32LE(audio.length, dataStart - 4);
+  header.writeUInt32LE(header.length + audio.length - 8, 4);
+
+  return {
+    buffer: Buffer.concat([header, audio]),
+    gapsShortened: gaps.length,
+    msRemoved: Math.round((removed * 1000) / sampleRate),
+  };
+}
+
 /**
  * Trim leading and trailing silence from one 16-bit PCM WAV.
  *

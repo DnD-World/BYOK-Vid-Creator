@@ -19,7 +19,7 @@ import { synthesizeWithPiper } from "./piperEngine";
 import * as chatterbox from "./chatterboxEngine";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
-import { trimSilence } from "../audio/trimSilence";
+import { trimSilence, squeezeSilence } from "../audio/trimSilence";
 
 /** One line of script, with its speaker's voice already resolved.
  *
@@ -66,7 +66,11 @@ function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): stri
     // trimming altered every byte a given script produces while leaving the
     // script identical, so without this every cached narration would keep
     // serving untrimmed audio and the fix would look like it did nothing.
-    "v2-trim",
+    // v3: gaps INSIDE a line are now shortened too, not just the ends. Every
+    // byte of a given script's audio changes; the script does not. Forgetting
+    // this bump is how a fix looks like it did nothing — which it just did,
+    // once, on the smoke job.
+    "v3-squeeze",
     segments.map((s) => [
       s.speakerId,
       s.text,
@@ -134,7 +138,21 @@ export async function buildNarration(
   // both derived from segment boundaries: every word and every mouth shape in
   // that line shifts. One line is nothing; a hundred and sixty of them is the
   // difference between lip-sync that holds and lip-sync that slides.
-  const trimmed = (b: Buffer): Buffer => trimSilence(b).buffer;
+  // AND THE GAPS INSIDE THE LINE, not only the ends.
+  //
+  // Trimming was written to leave the middle alone, because a pause a speaker
+  // took is performance. That reasoning holds for a pause that was CHOSEN, and
+  // DramaBox does not choose them: it is handed a duration estimated from the
+  // text and multiplied by 1.1 for headroom, and the surplus lands as dead air.
+  // Measured on the first audition — a 9.6s file that does not start speaking
+  // until 3.2s, and an 8.0s file with 2.45s of holes in three places. Ak heard
+  // it as unnatural and as breaking the flow of the lesson, which is worse than
+  // unnatural: it is the thing the video exists to do, failing.
+  //
+  // Long gaps are shortened rather than removed, so a real beat survives. The
+  // measured result on five generations is that every file roughly halves and
+  // 100% of the acoustic energy is kept — silence went, speech did not.
+  const trimmed = (b: Buffer): Buffer => squeezeSilence(trimSilence(b).buffer).buffer;
 
   const buffers: Buffer[] = [];
   for (const seg of segments) {
