@@ -1,0 +1,90 @@
+The exact strings sent to DramaBox on 16 Aug 2026.
+Nothing else was sent. No square brackets were involved — these were
+hand-written straight in the engine's own format.
+
+01-greek
+    A young woman explains carefully, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+02-english-control
+    A young woman explains carefully, "The clicker is not magic. It is just a sound that means something."
+
+03-laugh-greek
+    A young woman laughs as she says it, "Χαχαχα! Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+04-laugh-latin
+    A young woman laughs as she says it, "Hahaha! Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+05-laugh-direction-only
+    A young woman laughs warmly, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+06-named-noise-greek
+    A young woman speaks, "Γελάει. Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+07-role-noun
+    A warm female teacher explains clearly and patiently, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+08-generic-noun
+    A warm woman explains clearly, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+09-stacked-adjectives
+    A bubbly, bright, delighted young woman who cannot contain her enthusiasm explains, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+10-two-segment-beat
+    A young woman explains carefully, "Το κλίκερ δεν είναι μαγικό." She leans in, suddenly serious, "Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+11-trailing-description
+    A young woman explains carefully, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι." She smiles and walks away.
+
+12-gabble-fast
+    A small woman gabbles it far too fast, all in one breath, "Μην τρώτε σοκολάτα! Μην τρώτε σταφύλια!"
+
+13-slow-deliberate
+    A small woman slows right down, sheepish, "Συγγνώμη. Μην τρώτε σοκολάτα. Μην τρώτε σταφύλια."
+
+14-bark-greek
+    A dog barks sharply, "Γαβ! Γαβ!"
+
+15-bark-latin
+    A dog barks sharply, "Woof! Woof!"
+
+16-bark-direction-only
+    A dog barks twice and then says, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+17-whine-phonetic
+    A small dog whines, "Ίιιιι... μμμμ..."
+
+18-whine-direction-only
+    A small dog whines pitifully, "Θέλω να βγω έξω."
+
+19-growl
+    A large dog growls low, "Γρρρρ."
+
+20-happy-pant
+    An excited dog pants happily, "Χα χα χα χα."
+
+21-doorbell
+    A doorbell rings twice.
+
+22-whistle
+    A man whistles sharply for his dog, "Φιουυυ!"
+
+23-bell-only
+    A small bell on a dog collar jingles.
+
+24-delighted
+    A bright woman bursts out, delighted, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+25-grave-urgent
+    A serious man speaks fast and low, pressed for time, "Δεν έχουμε χρόνο. Άκου με μια φορά και κάν' το σωστά."
+
+26-tiny-joy
+    A tiny woman squeaks with joy, "Ααααα! Το λατρεύω αυτό!"
+
+27-frustrated-flat
+    A tired man, out of patience, says flatly, "Το εξήγησα ήδη τρεις φορές. Δεν άλλαξε τίποτα."
+
+28-whisper
+    A woman drops to a whisper, "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+
+29-shout
+    A woman shouts across a field, "Έλα εδώ! Τώρα!"

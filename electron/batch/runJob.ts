@@ -24,6 +24,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { parseScript } from "../../src/lib/narration/parseScript";
+import { checkScript } from "../tts/checkScript";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
 import { builtinPresets } from "../../src/store/builtinPresets";
@@ -272,7 +273,25 @@ export async function runBatchJob(
         `Cast labels: ${speakers.map((s) => s.label).join(", ")}`
     );
   }
-  onProgress(2, `${segments.length} lines, ${speakers.length} speakers`);
+  // CHECKED BEFORE ANYTHING IS SPENT. Every rule in checkScript fails quietly:
+  // a job word in a direction is spoken aloud in the finished video, a stray
+  // double quote silently swallows the rest of a line, a direction naming its
+  // own subject produces a broken sentence. None of it throws on its own, and
+  // all of it survives into a render that reports success.
+  const problems = checkScript(
+    scriptText,
+    job.cast.flatMap((c) => [c.label, ...(c.aliases ?? [])])
+  );
+  if (problems.length) {
+    const detail = problems
+      .map((p) => `  line ${p.line}: ${p.problem}\n            ${p.fix}\n            > ${p.text}`)
+      .join("\n");
+    throw new Error(
+      `${problems.length} problem(s) in ${path.basename(job.scriptPath)}:\n${detail}`
+    );
+  }
+
+  onProgress(2, `${segments.length} lines, ${speakers.length} speakers, script checks out`);
 
   // ---- narration --------------------------------------------------------
   const language = job.language ?? defaultProject.language;
