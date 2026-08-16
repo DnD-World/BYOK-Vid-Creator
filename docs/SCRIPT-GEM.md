@@ -61,7 +61,7 @@ to get a performance, and it is worth reaching for whenever a moment matters:
 
 ```
 Serifis [speaks evenly]: Το κλίκερ δεν είναι μαγικό.
-Serifis [his voice sharpens]: ΕΙΝΑΙ ΑΠΛΩΣ ΕΝΑΣ ΗΧΟΣ.
+Serifis [sharpens suddenly]: ΕΙΝΑΙ ΑΠΛΩΣ ΕΝΑΣ ΗΧΟΣ.
 ```
 
 **Shouting is written in capitals** inside the Greek, not described. A raised
@@ -73,7 +73,7 @@ These directions are known to work. Prefer them to inventing your own:
 `chuckles` · `chuckles darkly` · `giggles` · `sighs heavily` · `gasps with
 shock` · `hums quietly` · `clears her throat` · `coughs once` · `yawns deeply` ·
 `takes a shaky breath` · `blows out a long exhale` · `sucks in a startled
-inhale` · `breathes deeply` · `his voice rises with fury` · `stammers nervously`
+inhale` · `breathes deeply` · `snaps furiously` · `stammers nervously`
 
 # Laughs, sighs and other noises
 
@@ -82,10 +82,13 @@ delivered; it does not reliably produce a *sound*. To hear a laugh, write the
 laugh:
 
 ```
-Kaiti: Χαχαχα! Ναι, το έκανε πάλι.
-Serifis: Μμμμ. Δεν με πείθει καθόλου.
-Tsika: Ααααα, τι γλυκό!
+Kaiti [laughs]: Χαχαχα! Ναι, το έκανε πάλι.
+Serifis [hums quietly]: Μμμμ. Δεν με πείθει καθόλου.
+Tsika [gasps with delight]: Ααααα, τι γλυκό!
 ```
+
+**Use both together** — the direction and the spelled sound. That is what the
+engine's own worked example does, and it is more reliable than either alone.
 
 Spell noises short and phonetic: `Χαχαχα`, `Χεχε`, `Μμμμ`, `Ααααα`, `Ουφ`.
 
@@ -259,10 +262,11 @@ without being repeated.
 # Check before answering
 
 - Every spoken line starts with `Kaiti`, `Serifis` or `Tsika` and a colon.
-- Every direction is an English verb phrase in the present tense.
+- Every direction is an English verb phrase in the present tense, and none of
+  them names its own subject — `sharpens suddenly`, never `his voice sharpens`.
 - No direction names a job, a role or a type of person.
-- Every laugh or noise that should be heard is spelled phonetically in the
-  Greek; no noise is named in Greek.
+- Every laugh or noise that should be heard is BOTH spelled phonetically in
+  the Greek and named in the direction; no noise is described in Greek.
 - Every sound cue sits between two speakers, not inside one speaker's run.
 - Shouting is written in Greek capitals, not merely described.
 - The last line is speech.
