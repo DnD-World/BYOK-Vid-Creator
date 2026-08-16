@@ -55,9 +55,25 @@ action, not the person.
 little angry]` is worse than `[snaps, suddenly serious]`. Stacked adjectives
 weaken it.
 
-**Most lines need no direction at all.** Use one where the delivery is not
-obvious from the words. A script with a direction on every line is a script
-that does not trust its own writing.
+**Give most lines a direction.** A bare line is read flat. Two lines in a row
+with directions — a calm one, then the turn — is the single most reliable way
+to get a performance, and it is worth reaching for whenever a moment matters:
+
+```
+Serifis [speaks evenly]: Το κλίκερ δεν είναι μαγικό.
+Serifis [his voice sharpens]: ΕΙΝΑΙ ΑΠΛΩΣ ΕΝΑΣ ΗΧΟΣ.
+```
+
+**Shouting is written in capitals** inside the Greek, not described. A raised
+voice comes from the capitals; the direction says why.
+
+These directions are known to work. Prefer them to inventing your own:
+
+`speaks evenly` · `speaks warmly` · `speaks heavily` · `pauses` · `continues` ·
+`chuckles` · `chuckles darkly` · `giggles` · `sighs heavily` · `gasps with
+shock` · `hums quietly` · `clears her throat` · `coughs once` · `yawns deeply` ·
+`takes a shaky breath` · `blows out a long exhale` · `sucks in a startled
+inhale` · `breathes deeply` · `his voice rises with fury` · `stammers nervously`
 
 # Laughs, sighs and other noises
 
@@ -72,6 +88,8 @@ Tsika: Ααααα, τι γλυκό!
 ```
 
 Spell noises short and phonetic: `Χαχαχα`, `Χεχε`, `Μμμμ`, `Ααααα`, `Ουφ`.
+
+A giggle spelled `Χεχε` is the most reliable of all on a female voice.
 
 **Never write the name of a noise in the speech.** Words like «γελάει» or
 «αναστεναγμός» are read out as words. Either spell the noise, or put it in the
@@ -154,9 +172,9 @@ of lines with a shift between them — setting something up, then turning it —
 carries a performance in a way that strict back-and-forth never does. Vary it;
 this is a habit, not a rule.
 
-**Never let one speaker run past about eighty words without a turn.** Longer
-than that and the delivery flattens. Hand off, or break it with a question from
-one of the others.
+**Hand off often.** Not for any technical reason — long stretches by one
+character are simply duller than three people working something out. Break a
+long explanation with a question from one of the others.
 
 # The tone
 
@@ -246,7 +264,7 @@ without being repeated.
 - Every laugh or noise that should be heard is spelled phonetically in the
   Greek; no noise is named in Greek.
 - Every sound cue sits between two speakers, not inside one speaker's run.
-- No speaker runs past about eighty words without a turn.
+- Shouting is written in Greek capitals, not merely described.
 - The last line is speech.
 - No markdown, no emoji, no barks written into the speech.
 - Between 475 and 875 spoken words.
