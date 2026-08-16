@@ -62,7 +62,11 @@ export interface TrimOptions {
    *  tone and well below a breath, so speech is never mistaken for silence. */
   thresholdDb?: number;
   /** Kept at each end, in ms. A plosive or a soft "s" ramps up from nothing,
-   *  and cutting to the exact first loud sample shaves its attack off. */
+   *  and cutting to the exact first loud sample shaves its attack off.
+   *
+   *  120, not 30. At 30 the line starts the instant the file does, and Ak
+   *  heard it as clipped — a voice needs a moment of air in front of it before
+   *  it sounds like a person rather than a button being pressed. */
   padMs?: number;
 }
 
@@ -76,10 +80,15 @@ export interface TrimResult {
 
 export interface SqueezeOptions extends TrimOptions {
   /** A gap has to be at least this long before it is touched, in ms. Below it,
-   *  a pause is punctuation and belongs to the performance. */
+   *  a pause is punctuation and belongs to the performance.
+   *
+   *  Raised from 350 after the first pass came out too tight. */
   minPauseMs?: number;
   /** What a long gap is shortened TO, in ms. Not to zero — running two
-   *  sentences together is worse than the gap was. */
+   *  sentences together is worse than the gap was.
+   *
+   *  Raised from 180 for the same reason. The first version left the speech
+   *  correct and the rhythm hurried. */
   keepMs?: number;
 }
 
@@ -120,8 +129,8 @@ export function squeezeSilence(buf: Buffer, opts: SqueezeOptions = {}): SqueezeR
   if (frames === 0) return untouched;
 
   const threshold = 32768 * Math.pow(10, (opts.thresholdDb ?? -45) / 20);
-  const minPause = Math.round(((opts.minPauseMs ?? 350) / 1000) * sampleRate);
-  const keep = Math.round(((opts.keepMs ?? 180) / 1000) * sampleRate);
+  const minPause = Math.round(((opts.minPauseMs ?? 450) / 1000) * sampleRate);
+  const keep = Math.round(((opts.keepMs ?? 280) / 1000) * sampleRate);
   if (keep >= minPause) return untouched;
 
   const peakAt = (frame: number): number => {
@@ -218,7 +227,7 @@ export function trimSilence(buf: Buffer, opts: TrimOptions = {}): TrimResult {
   let last = frames - 1;
   while (last > first && peakAt(last) < threshold) last--;
 
-  const pad = Math.round(((opts.padMs ?? 30) / 1000) * sampleRate);
+  const pad = Math.round(((opts.padMs ?? 120) / 1000) * sampleRate);
   const start = Math.max(0, first - pad);
   const end = Math.min(frames - 1, last + pad);
   const keptFrames = end - start + 1;
