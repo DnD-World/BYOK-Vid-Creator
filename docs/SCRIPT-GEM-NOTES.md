@@ -122,3 +122,50 @@ Test it in the same session that auditions Greek at all — one generation with
 `Χαχαχα` and one with `Hahaha` inside otherwise identical Greek lines. If the
 Latin spelling wins, the Gem's rule changes to Latin noise-spellings inside
 Greek speech, which is ugly on the page and invisible to the audience.
+
+## Two formats, and why the brackets are not in the prompting guide
+
+They are not supposed to be. There are **two different formats**, one layer
+apart, and confusing them is easy.
+
+**What the Gem writes** is our script file, which our parser reads:
+
+```
+Kaiti [laughs as she says it]: Χαχαχα! Ναι, το έκανε πάλι.
+Serifis [sighs heavily first]: Το περίμενα.
+```
+
+**What DramaBox receives** is built from that by the app, in the guide's own
+shape — speaker noun, verb, dialogue in double quotes, directions as plain
+prose outside them:
+
+```
+A young woman laughs as she says it, "Χαχαχα! Ναι, το έκανε πάλι."
+```
+
+The name before the colon never reaches DramaBox at all; it is how a line finds
+its voice. The bracket is stripped and becomes the verb phrase. Only the Greek
+inside the quotes is spoken.
+
+**The brackets exist because our file is line-based.** `Name: text` needs an
+unambiguous place to put a direction, and after the colon is impossible —
+everything there is spoken. That is a constraint of our format, not a claim
+about DramaBox.
+
+**This is also why directions must be present-tense verb phrases.** They are
+about to be pasted into an English sentence. `[laughs as she says it]` becomes
+a sentence; `[quietly, like a secret]` does not.
+
+### The one thing the format cannot express
+
+The guide's recommended beat puts a direction BETWEEN two pieces of speech:
+
+```
+"<dialogue>" <pronoun> <verb>, "<dialogue>"
+```
+
+A single bracket sits before one line and cannot go between two. **Two
+consecutive lines by the same speaker assemble into exactly that shape**, which
+is why `docs/SCRIPT-GEM.md` tells the Gem to let a speaker keep the floor for
+two lines more often than one. It is not a stylistic preference; it is how the
+recommended prompt gets built.
