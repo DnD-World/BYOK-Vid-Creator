@@ -220,14 +220,61 @@ export function trimSilence(buf: Buffer, opts: TrimOptions = {}): TrimResult {
     return peak;
   };
 
-  let first = 0;
-  while (first < frames && peakAt(first) < threshold) first++;
-  if (first === frames) return untouched; // silent throughout
+  // TWO THRESHOLDS, AND THIS IS THE WHOLE POINT.
+  //
+  // Cutting at the first sample louder than one threshold ate the first word.
+  // A word does not start at its loudest — it ramps up, and a soft opening
+  // consonant can sit under any threshold set high enough to ignore room tone.
+  // On a real generation that cost 590ms: the voice began at 3.20s, the level
+  // only crossed the threshold at 3.79s, and the cut landed in the middle of
+  // the word.
+  //
+  // So: find where the voice is UNAMBIGUOUSLY speaking, then walk backwards to
+  // where it came up out of the noise, and cut there. The loud threshold only
+  // decides where to start looking; the quiet one decides where to cut.
+  // 25dB below, not 18. Measured on a real line: room tone sits at -76dB and
+  // the first word ramps up through -68 and -49 before reaching full level. A
+  // floor of -63 started the cut halfway up that ramp; -70 catches the whole
+  // of it and still sits comfortably above the room tone.
+  const floor = 32768 * Math.pow(10, ((opts.thresholdDb ?? -45) - 25) / 20);
 
-  let last = frames - 1;
-  while (last > first && peakAt(last) < threshold) last--;
+  // MEASURED IN WINDOWS, NOT SAMPLES, and that distinction is the bug this
+  // had. Speech crosses zero constantly, so individual samples sit at silence
+  // all the way through a loud vowel. Walking back sample by sample therefore
+  // stopped at the first zero crossing — about a millisecond — and the backtrack
+  // did nothing at all. Over a 10ms window a vowel is never quiet.
+  const win = Math.max(1, Math.round(0.01 * sampleRate));
+  const windows = Math.ceil(frames / win);
+  const winPeak = (w: number): number => {
+    let p = 0;
+    const from = w * win;
+    const to = Math.min(frames, from + win);
+    for (let f = from; f < to; f++) {
+      const v = peakAt(f);
+      if (v > p) p = v;
+    }
+    return p;
+  };
 
-  const pad = Math.round(((opts.padMs ?? 120) / 1000) * sampleRate);
+  let loudWin = 0;
+  while (loudWin < windows && winPeak(loudWin) < threshold) loudWin++;
+  if (loudWin === windows) return untouched; // silent throughout
+
+  // Back to where the voice came up out of the noise. The loud threshold only
+  // says where to start looking; this decides where to cut, and it is why the
+  // first word survives.
+  let firstWin = loudWin;
+  while (firstWin > 0 && winPeak(firstWin - 1) >= floor) firstWin--;
+
+  let lastLoudWin = windows - 1;
+  while (lastLoudWin > loudWin && winPeak(lastLoudWin) < threshold) lastLoudWin--;
+  let lastWin = lastLoudWin;
+  while (lastWin < windows - 1 && winPeak(lastWin + 1) >= floor) lastWin++;
+
+  const first = firstWin * win;
+  const last = Math.min(frames - 1, (lastWin + 1) * win - 1);
+
+  const pad = Math.round(((opts.padMs ?? 200) / 1000) * sampleRate);
   const start = Math.max(0, first - pad);
   const end = Math.min(frames - 1, last + pad);
   const keptFrames = end - start + 1;

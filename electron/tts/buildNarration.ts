@@ -70,7 +70,7 @@ function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): stri
     // byte of a given script's audio changes; the script does not. Forgetting
     // this bump is how a fix looks like it did nothing — which it just did,
     // once, on the smoke job.
-    "v4-gentler",
+    "v5-onset-safe",
     segments.map((s) => [
       s.speakerId,
       s.text,
