@@ -1,119 +1,171 @@
 """Every unsettled question about DramaBox, in one run.
 
-Each pair below changes ONE thing and holds everything else fixed, so the
-difference in the output is the answer. Listening is the whole point — nothing
-here can be judged from the console, which prints only whether generation
-crashed.
+Each group changes ONE thing and holds the rest fixed, so the difference between
+two files IS the answer. Nothing here can be judged from the console — it prints
+only whether generation crashed. The point is to listen.
 
-Run on the L4 after tools/dramabox-vm-setup.sh, same as the Greek smoke test:
+WHY THESE. Every rule currently written into docs/SCRIPT-GEM.md was taken from
+the prompting guide and has never been heard. If a pair sounds the same, the
+rule it defends is not earning its place. If it sounds worse, the rule is wrong.
 
-    python3 tools/dramabox-ambiguity-test.py
+NO VOICE REFERENCE IS PASSED. The reference clips do not exist yet, so the model
+picks a voice from the description — which makes this a fair test of how much
+work the DESCRIPTION does, and an unfair test of what the finished characters
+will sound like. Timbre comes later, from the clips.
 
-Then pull the WAVs down and listen to them in pairs.
+Run on the L4 after tools/dramabox-vm-setup.sh:
 
-WHY THESE ELEVEN. Every one of them is a rule currently written into
-docs/SCRIPT-GEM.md that was taken from the prompting guide and has never been
-heard. If a pair comes out the same, the rule it defends is not earning its
-place. If it comes out worse, the rule is wrong.
+    python3 dramabox-ambiguity-test.py
 """
+import os, subprocess, sys, time
 
-import os
-import time
+APP = "/opt/dramabox/DramaBox"
+OUT = "/opt/dramabox/ambiguity"
 
-# --- the same bootstrap as tools/dramabox-greek-test.py --------------------
-from pathlib import Path
-import sys
 
-sys.path.insert(0, "/opt/dramabox")
-from dramabox_paths import get_model_path, get_gemma_path  # noqa: E402
+def require_empty_gpu(max_used_mib: int = 500) -> None:
+    """Refuse to start if something else still holds the card. See the same
+    guard in dramabox-greek-test.py for the day this cost."""
+    def smi(query: str) -> str:
+        return subprocess.run(
+            ["nvidia-smi", f"--query-{query}", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=30,
+        ).stdout.strip()
 
-dit = get_model_path("dit")
+    try:
+        used = int(smi("gpu=memory.used").splitlines()[0])
+    except Exception as e:
+        print(f"[gpu] could not read nvidia-smi ({e}) — continuing", flush=True)
+        return
+    if used <= max_used_mib:
+        print(f"[gpu] {used} MiB in use — clear", flush=True)
+        return
+    raise SystemExit(
+        f"[gpu] REFUSING TO START: {used} MiB already held. "
+        f"{smi('compute-apps=pid,used_memory')}  "
+        "This is NOT the model being too large. Kill it, or reboot — a wedged "
+        "CUDA context outlives the process that created it."
+    )
+
+
+require_empty_gpu()
+sys.path.insert(0, APP)
+
+from src.model_downloader import get_model_path, get_gemma_path
+
+print("[fetch] weights…", flush=True)
+t0 = time.time()
+dit = get_model_path("transformer")
 components = get_model_path("audio_components")
-os.environ["GEMMA_DIR"] = get_gemma_path()
+gemma = get_gemma_path()
+os.environ["GEMMA_DIR"] = gemma
+print(f"[fetch] {time.time()-t0:.0f}s", flush=True)
 
-from src.inference_server import TTSServer  # noqa: E402
+from src.inference_server import TTSServer
 
 t0 = time.time()
-server = TTSServer(
-    checkpoint=dit,
-    full_checkpoint=components,
-    gemma_root=get_gemma_path(),
-    device="cuda",
-)
+server = TTSServer(checkpoint=dit, full_checkpoint=components,
+                   gemma_root=gemma, device="cuda")
 print(f"[load] {time.time()-t0:.0f}s", flush=True)
 
-GREEK = "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
+G = "Το κλίκερ δεν είναι μαγικό. Είναι απλώς ένας ήχος που σημαίνει κάτι."
 
 TESTS = [
-    # 1-2. THE ONE THAT DECIDES EVERYTHING. Is Greek usable at all? The model
-    # is documented English-only. The control is the same sentence in English,
-    # so the Greek can be judged against what the voice sounds like at its best
-    # rather than against an idea of it.
-    ("01-greek-plain",
-     f'A young woman explains carefully, "{GREEK}"'),
+    # ---- 1. Is Greek usable at all -------------------------------------
+    # The documentation says English only. Everything else here is wasted if
+    # this fails. The control is the same sentence in English so the Greek is
+    # judged against this voice at its best, not against an idea of it.
+    ("01-greek", f'A young woman explains carefully, "{G}"'),
     ("02-english-control",
      'A young woman explains carefully, "The clicker is not magic. '
      'It is just a sound that means something."'),
 
-    # 3-4. THE LAUGH. docs/SCRIPT-GEM.md tells the Gem to spell noises in Greek
-    # letters. Every example in the prompting guide is Latin. If 04 laughs and
-    # 03 spells out letters, the instruction has to change.
-    ("03-laugh-greek-letters",
-     f'A young woman laughs as she says it, "Χαχαχα! {GREEK}"'),
-    ("04-laugh-latin-letters",
-     f'A young woman laughs as she says it, "Hahaha! {GREEK}"'),
+    # ---- 2. Laughter ----------------------------------------------------
+    # SCRIPT-GEM tells the Gem to spell noises in Greek letters. Every example
+    # in the guide is Latin. 05 asks whether spelling is needed at all.
+    ("03-laugh-greek", f'A young woman laughs as she says it, "Χαχαχα! {G}"'),
+    ("04-laugh-latin", f'A young woman laughs as she says it, "Hahaha! {G}"'),
+    ("05-laugh-direction-only", f'A young woman laughs warmly, "{G}"'),
+    # The guide warns the English word "Sigh" is read aloud. Is the Greek one?
+    ("06-named-noise-greek", f'A young woman speaks, "Γελάει. {G}"'),
 
-    # 5. A DIRECTION WITH NO PHONETIC CONTENT. The guide says a direction alone
-    # does not reliably make a sound. If this laughs anyway, the Gem can stop
-    # spelling laughs and the scripts get much cleaner.
-    ("05-laugh-direction-only",
-     f'A young woman laughs warmly, "{GREEK}"'),
-
-    # 6. THE NAMED NOISE. Ak's scripts are Greek, and the guide's warning that
-    # "Sigh" gets read aloud is about English. Does the GREEK word for laughing
-    # get read out too?
-    ("06-named-noise-greek",
-     f'A young woman speaks, "Γελάει. {GREEK}"'),
-
-    # 7-8. THE ROLE NOUN. The guide says a profession is spoken literally, and
-    # this repo's own working test prompt says "A warm female teacher". If 07
-    # says the word "teacher", that test was never as clean as it looked — and
-    # every character paragraph in docs/CHARACTER-VOICES.md has the same fault.
-    ("07-role-noun",
-     f'A warm female teacher explains clearly and patiently, "{GREEK}"'),
-    ("08-generic-noun",
-     f'A warm woman explains clearly, "{GREEK}"'),
-
-    # 9. STACKED ADJECTIVES, the guide's other named mistake, against 08.
+    # ---- 3. Who the speaker is -----------------------------------------
+    # 07 is THIS REPO'S OWN working test prompt. The guide says a profession is
+    # spoken literally. If "teacher" is audible, that smoke test was never as
+    # clean as it looked, and every brief in CHARACTER-VOICES.md shares the fault.
+    ("07-role-noun", f'A warm female teacher explains clearly and patiently, "{G}"'),
+    ("08-generic-noun", f'A warm woman explains clearly, "{G}"'),
     ("09-stacked-adjectives",
      'A bubbly, bright, delighted young woman who cannot contain her '
-     f'enthusiasm explains, "{GREEK}"'),
+     f'enthusiasm explains, "{G}"'),
 
-    # 10. THE TWO-SEGMENT BEAT the guide recommends, which is what a
-    # two-line speaker run assembles into. Judge whether the second segment
-    # actually turns, or whether both come out level.
+    # ---- 4. Shape of the prompt ----------------------------------------
+    # The beat the guide recommends, which is what two consecutive lines by one
+    # speaker assemble into. Does the second half actually turn?
     ("10-two-segment-beat",
      'A young woman explains carefully, "Το κλίκερ δεν είναι μαγικό." '
      'She leans in, suddenly serious, "Είναι απλώς ένας ήχος που σημαίνει κάτι."'),
+    # The guide says anything after the last quote is ignored or read. Which?
+    ("11-trailing-description", f'A young woman explains carefully, "{G}" She smiles and walks away.'),
 
-    # 11. TRAILING DESCRIPTION. The guide says anything after the last closing
-    # quote is ignored or read. Our assembler must never append — this is how
-    # we find out which of the two it does.
-    ("11-trailing-description",
-     f'A young woman explains carefully, "{GREEK}" She smiles and walks away.'),
+    # ---- 5. Speed, which is Tsika's whole trick ------------------------
+    ("12-gabble-fast",
+     'A small woman gabbles it far too fast, all in one breath, '
+     '"Μην τρώτε σοκολάτα! Μην τρώτε σταφύλια!"'),
+    ("13-slow-deliberate",
+     'A small woman slows right down, sheepish, '
+     '"Συγγνώμη. Μην τρώτε σοκολάτα. Μην τρώτε σταφύλια."'),
+
+    # ---- 6. Can it BARK? ------------------------------------------------
+    # This decides whether barks are voice or sound effect. If the model barks
+    # convincingly, the SFX library stops being needed for dog noises and the
+    # dogs can bark IN CHARACTER, which no recording can do.
+    ("14-bark-greek", 'A dog barks sharply, "Γαβ! Γαβ!"'),
+    ("15-bark-latin", 'A dog barks sharply, "Woof! Woof!"'),
+    ("16-bark-direction-only", f'A dog barks twice and then says, "{G}"'),
+    ("17-whine-phonetic", 'A small dog whines, "Ίιιιι... μμμμ..."'),
+    ("18-whine-direction-only", 'A small dog whines pitifully, "Θέλω να βγω έξω."'),
+    ("19-growl", 'A large dog growls low, "Γρρρρ."'),
+    ("20-happy-pant", 'An excited dog pants happily, "Χα χα χα χα."'),
+
+    # ---- 7. Things that are probably NOT voice -------------------------
+    # Expected to fail, and worth confirming rather than assuming: these are
+    # why sfx/library exists. If any of them works, that is a real saving.
+    ("21-doorbell", 'A doorbell rings twice.'),
+    ("22-whistle", 'A man whistles sharply for his dog, "Φιουυυ!"'),
+    ("23-bell-only", 'A small bell on a dog collar jingles.'),
+
+    # ---- 8. Emotional range, which is the whole reason for this engine --
+    ("24-delighted", f'A bright woman bursts out, delighted, "{G}"'),
+    ("25-grave-urgent",
+     'A serious man speaks fast and low, pressed for time, '
+     '"Δεν έχουμε χρόνο. Άκου με μια φορά και κάν\' το σωστά."'),
+    ("26-tiny-joy",
+     'A tiny woman squeaks with joy, "Ααααα! Το λατρεύω αυτό!"'),
+    # Exasperation — the hardest register to fake and the easiest to overdo,
+    # and today the most honestly motivated line in the file.
+    ("27-frustrated-flat",
+     'A tired man, out of patience, says flatly, '
+     '"Το εξήγησα ήδη τρεις φορές. Δεν άλλαξε τίποτα."'),
+    ("28-whisper", f'A woman drops to a whisper, "{G}"'),
+    ("29-shout", 'A woman shouts across a field, "Έλα εδώ! Τώρα!"'),
 ]
 
-out_dir = Path("/opt/dramabox/ambiguity")
-out_dir.mkdir(exist_ok=True)
+os.makedirs(OUT, exist_ok=True)
+ok = fail = 0
+t_all = time.time()
 
 for name, prompt in TESTS:
     t = time.time()
     try:
-        server.generate_to_file(prompt=prompt, output=str(out_dir / f"{name}.wav"))
+        server.generate_to_file(prompt=prompt, output=f"{OUT}/{name}.wav")
         print(f"[{name}] {time.time()-t:.1f}s OK", flush=True)
+        ok += 1
     except Exception as e:
         print(f"[{name}] FAILED after {time.time()-t:.1f}s: {type(e).__name__}: {e}",
               flush=True)
+        fail += 1
 
-print(f"\nWAVs in {out_dir}. OK means a file exists, nothing more.", flush=True)
-print("Listen to them in pairs: 01/02, 03/04/05, 07/08/09.", flush=True)
+print(f"\n{ok} generated, {fail} failed, {time.time()-t_all:.0f}s total.", flush=True)
+print(f"WAVs in {OUT}. OK means a file exists and nothing more.", flush=True)
+print("Listen in groups: 01/02, 03/04/05, 07/08/09, 14/15/16, 21/22/23.", flush=True)
