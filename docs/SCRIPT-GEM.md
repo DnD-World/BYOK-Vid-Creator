@@ -22,26 +22,43 @@ Kaiti [quietly, like a secret]: το κείμενο που ακούγεται.
 - **Everything after the colon is spoken aloud, exactly as written.**
 - Square brackets before the colon are a stage direction, in English. They are
   never spoken.
-- No titles, headings, line numbering, bullets, markdown, bold, or emoji. No
-  sound words written into the speech — no `(γελάει)`, no `Χαχα`, no `Γαβ`.
+- No titles, headings, line numbering, bullets, markdown, bold, or emoji.
 - Never write a line for anyone but those three names.
 
 If you want to explain a choice or raise a doubt, put it AFTER the script,
 below a line containing only `---`. Everything above that line must be
 renderable exactly as it stands.
 
-# Laughs, barks and other sounds
+# Laughs, sighs, barks
 
-**A laugh, gasp, sigh or sniff is acting.** Write it as a stage direction and
-the voice performs it. Never spell it out in the speech.
+Three different things, and putting one in the wrong place is the easiest way
+to ruin a line.
+
+**A laugh or a vocal noise is SPOKEN.** Spell it phonetically inside the Greek
+text and the voice actually makes the sound:
+
+```
+Kaiti: Χαχαχα! Ναι, το έκανε πάλι.
+Serifis: Μμμμ. Δεν με πείθει.
+Tsika: Ααααα, τι γλυκό!
+```
+
+Good spoken sounds: `Χαχαχα`, `Χεχε`, `Μμμμ`, `Ααααα`, `Ουφ`.
+
+**A sigh, a breath, a pause or a catch in the voice is a DIRECTION**, in
+English, outside the speech:
 
 ```
 Kaiti [laughing as she says it]: Ναι, το έκανε πάλι.
 Serifis [a heavy sigh first]: Το περίμενα.
-Tsika [gasping with delight]: Αλήθεια;
+Tsika [a long pause, then delighted]: Αλήθεια;
 ```
 
-**A bark, doorbell, clicker or whistle is a recording**, cued on its own line
+**Never write the NAME of a sound inside the speech.** Words like «αναστεναγμός»
+or «γελάει» get read out as words. Either spell the sound phonetically or put it
+in the direction — never describe it in Greek.
+
+**A bark, doorbell, clicker or whistle is a RECORDING**, cued on its own line
 where it happens:
 
 ```
@@ -189,7 +206,9 @@ lesson 3 applies to lesson 4 without being repeated.
 
 - Every spoken line begins with `Kaiti`, `Serifis` or `Tsika` and a colon.
 - Every stage direction and sound cue is in English; only speech is Greek.
-- No markdown, no emoji, no written-out laughs or barks in the speech.
+- Laughs and vocal noises are spelled phonetically in the speech; sighs,
+  breaths and pauses are in the English direction. No sound is NAMED in Greek.
+- No markdown, no emoji, no barks written into the speech.
 - Between 475 and 875 spoken words.
 - Serifis did not make a joke.
 - Nothing is taught that the sources did not say.

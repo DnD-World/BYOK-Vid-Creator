@@ -57,7 +57,10 @@ disagree, that is a bug, not a variant.
 - **Will not run locally** — ~24 GB VRAM against an 8 GB laptop 3070.
 - Runs on a **GCP L4** (24 GB, the cheapest card that clears it).
   Measured: **8.5 s per generation**, ~3.4× slower than the documented H100.
-- Greek works and costs the same as English. This was the load-bearing unknown.
+- **Greek is NOT a supported language.** The official docs say English only.
+  The Greek test here reported `OK`, which means a file was produced — nobody
+  has listened to it. **Audition it before writing 72 lessons**; see
+  `docs/DRAMABOX.md`. Piper is the fallback: correct and flat.
 
 ### The instance
 
@@ -169,9 +172,22 @@ definition, so a superellipse drawn with arcs stays round.
    know. That was the original plan (whisperX, in `handoff 1.md`) and it buys
    better subtitles too: word-level timing instead of per-line.
 
-   So the shape is: **scene in, one performance out, aligned back to lines.**
-   The script format does not change — a line's `[direction]` becomes the
-   prose around its quoted speech, and consecutive lines join into one prompt.
+   **But not a whole scene either — the official docs say one speaker per
+   prompt.** I proposed scene-level generation on the strength of that test
+   prompt, which has two characters in one string; the test only reports
+   whether it crashed. See `docs/DRAMABOX.md`.
+
+   So the unit is a **SPEAKER RUN**: consecutive lines by one character, joined
+   into one prompt, capped near **85 spoken words** (~37s, the model's own
+   chunk target; its hard ceiling is 45s and it was trained on 20s clips). The
+   turn-to-turn pause stays ours, because a turn boundary is now a boundary
+   between generations.
+
+   The script format does not change — a line's `[direction]` becomes the prose
+   around its quoted speech.
+
+   **Read `docs/DRAMABOX.md` before touching this.** It also carries the
+   biggest open risk in the project: DramaBox is documented as English only.
 3. **Rip out Chatterbox** — `chatterboxEngine.ts`, the engine enum, settings and
    test panels. Dead weight; remove before DramaBox lands so there are two
    engines, not three.
