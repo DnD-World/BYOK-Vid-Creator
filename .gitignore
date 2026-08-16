@@ -34,3 +34,6 @@ tools/windows-ca-bundle.pem
 # is the recipe and that IS committed. Losing the wavs costs a re-run; losing
 # the list costs the thinking.
 sfx/library/
+
+# generated audition audio — kept out of git, regenerate with tools/dramabox-ambiguity-test.py
+dramabox-audition/*.wav
