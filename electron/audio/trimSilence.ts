@@ -298,3 +298,53 @@ export function trimSilence(buf: Buffer, opts: TrimOptions = {}): TrimResult {
     tailMsRemoved: Math.round((frames - 1 - end) * msPerFrame),
   };
 }
+
+/** Where the quiet stretches are, in ms from the start of the buffer.
+ *
+ *  Used to find the joins between two pieces of speech inside one generation.
+ *  DramaBox is given a block as `<verb>, "line one" She <verb>, "line two"` and
+ *  it puts a real pause at that comma — so the pause is where the line actually
+ *  changes, and it is measurable. The alternative, dividing the block by how
+ *  many letters each line has, assumes everyone speaks at exactly the same rate
+ *  and was visibly wrong in the first lesson's subtitles. */
+export function findGaps(
+  buf: Buffer,
+  opts: { minMs?: number; thresholdDb?: number } = {}
+): { startMs: number; endMs: number }[] {
+  const info = readWav(buf);
+  if (!info || info.bitsPerSample !== 16) return [];
+  const { numChannels, sampleRate, dataStart, dataSize } = info;
+  const bytesPerFrame = numChannels * 2;
+  const frames = Math.floor(dataSize / bytesPerFrame);
+  const threshold = 32768 * Math.pow(10, (opts.thresholdDb ?? -42) / 20);
+  const minFrames = Math.round(((opts.minMs ?? 120) / 1000) * sampleRate);
+
+  // Windowed, for the same reason the trim is: speech crosses zero constantly,
+  // so a per-sample test finds a "gap" in the middle of every vowel.
+  const win = Math.max(1, Math.round(0.01 * sampleRate));
+  const quiet: boolean[] = [];
+  for (let w = 0; w * win < frames; w++) {
+    let peak = 0;
+    for (let f = w * win; f < Math.min(frames, (w + 1) * win); f++) {
+      for (let c = 0; c < numChannels; c++) {
+        const v = Math.abs(buf.readInt16LE(dataStart + f * bytesPerFrame + c * 2));
+        if (v > peak) peak = v;
+      }
+    }
+    quiet.push(peak < threshold);
+  }
+
+  const out: { startMs: number; endMs: number }[] = [];
+  const msPerWin = (win / sampleRate) * 1000;
+  let run = -1;
+  quiet.forEach((q, i) => {
+    if (q) { if (run < 0) run = i; return; }
+    if (run >= 0) {
+      if ((i - run) * win >= minFrames) {
+        out.push({ startMs: run * msPerWin, endMs: i * msPerWin });
+      }
+      run = -1;
+    }
+  });
+  return out;
+}

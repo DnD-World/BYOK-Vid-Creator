@@ -30,7 +30,10 @@ const ROLE_WORDS = [
 
 /** Naming a noise instead of making it. Read out as words, in either language. */
 const NAMED_NOISE_GREEK = ["γελάει", "αναστεναγμός", "αναστενάζει", "βήχας"];
-const NAMED_NOISE_ENGLISH = ["sigh", "gasp", "cough", "laugh", "chuckle"];
+const NAMED_NOISE_ENGLISH = ["sigh", "gasp", "cough", "chuckle"];
+// Latin laugh spellings are REQUIRED inside Greek speech — Greek ones make no
+// sound at all, proved on lesson 101.1 — so they must never be flagged.
+const ALLOWED_PHONETIC = /^(hahaha|hehehe|haha|hehe|mmmm|ahhh|ugh|woooo)$/i;
 
 const CUE_LINE = /^\[\s*(?:SFX|ΗΧΟΣ)\s*:\s*([^\]]+?)\s*\]$/iu;
 
@@ -131,6 +134,18 @@ export function checkScript(script: string, openingPhrases: string[]): ScriptPro
     }
 
     // --- the speech ------------------------------------------------------
+    // Greek noise spellings make NO SOUND — measured on lesson 101.1, where
+    // Χαχαχα and Χεχε produced nothing. They are worse than naming a noise:
+    // at least a named noise is audible, wrongly.
+    const deadPhonetic = /Χαχα|Χεχε|Μμμμ|Ααααα|Ουφ/u.exec(spoken);
+    if (deadPhonetic) {
+      problems.push({
+        line: n, text: short,
+        problem: `"${deadPhonetic[0]}" is a Greek spelling of a noise, and those make no sound at all.`,
+        fix: "Use the Latin spelling — Hahaha, Hehehe, Mmmm, Ahhh, Ugh.",
+      });
+    }
+
     const gnoise = NAMED_NOISE_GREEK.find((w) => new RegExp(w, "i").test(spoken));
     if (gnoise) {
       problems.push({

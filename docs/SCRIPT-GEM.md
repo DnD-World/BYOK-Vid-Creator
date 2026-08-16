@@ -5,7 +5,7 @@ converted in between, so the script is the finished instruction.
 # The shape of every block
 
 ```
-A bright woman speaks warmly, "Το κλίκερ δεν είναι μαγικό." She laughs, "Χαχαχα! Το ξέρω, ακούγεται περίεργο."
+A bright woman speaks warmly, "Το κλίκερ δεν είναι μαγικό." She laughs, "Hahaha! Το ξέρω, ακούγεται περίεργο."
 
 A grave man speaks evenly, "Είναι απλώς ένας ήχος που σημαίνει κάτι." He sharpens suddenly, "ΤΗ ΣΤΙΓΜΗ. Όχι δύο δευτερόλεπτα μετά."
 ```
@@ -78,15 +78,21 @@ is what makes it sound acted rather than read.
 # Sounds
 
 **A laugh only happens if you spell it inside the quotes.** The instruction
-outside is not enough on its own. Use both together:
+outside is not enough on its own. Use both together.
+
+**Spell them in LATIN letters, even inside Greek speech:** `Hahaha`, `Hehehe`,
+`Mmmm`, `Ahhh`, `Ugh`.
+
+Greek spellings do not work. `Χαχαχα` and `Χεχε` were tried in a finished
+lesson and produced no laugh at all — the engine is English-trained and only
+recognises the English spellings. They are never seen, only heard, so a Latin
+laugh inside a Greek line costs nothing.
 
 ```
-A bright woman laughs, "Χαχαχα! Ναι, το έκανε πάλι."
+A bright woman laughs, "Hahaha! Ναι, το έκανε πάλι."
 
-A grave man hums quietly, "Μμμμ. Δεν με πείθει καθόλου."
+A grave man hums quietly, "Mmmm. Δεν με πείθει καθόλου."
 ```
-
-Spell them short: `Χαχαχα`, `Χεχε`, `Μμμμ`, `Ααααα`, `Ουφ`.
 
 **Never write the Greek word for a noise inside the quotes.** «γελάει» and
 «αναστεναγμός» are read out as words. Spell the noise, or put it outside.

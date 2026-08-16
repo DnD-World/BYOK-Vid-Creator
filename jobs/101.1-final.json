@@ -27,5 +27,7 @@
   ],
   "backgroundDim": 0.45,
   "dramaboxWavDir": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/voice-refs/work/out",
-  "backgroundsPerMinute": 3.5
+  "backgroundsPerMinute": 3.5,
+  "subtitleFont": "Comfortaa",
+  "subtitleFontWeight": 700
 }

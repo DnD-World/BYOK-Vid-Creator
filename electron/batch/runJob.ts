@@ -145,6 +145,14 @@ export interface BatchJob {
    *  the laptop has 8. Narration is made on a rented L4 by
    *  tools/dramabox-render-blocks.py and the audio comes back as files. */
   dramaboxWavDir?: string;
+  /** Subtitle typeface, by Google Fonts name — "Comfortaa".
+   *
+   *  A job used to inherit the app's default of `null`, which falls back to the
+   *  system stack, so a headless render silently used a different typeface from
+   *  the one chosen in the app. Nothing reported it because nothing was wrong
+   *  as far as the code was concerned. */
+  subtitleFont?: string;
+  subtitleFontWeight?: number;
 }
 
 export interface JobResult {
@@ -537,7 +545,12 @@ export async function runBatchJob(
     // when the whole object is missing, so a preset that set six subtitle
     // fields was silently handing the renderer `enabled: undefined` and no
     // colours at all. The nine built-ins all do exactly that.
-    subtitles: { ...defaultProject.subtitles, ...preset.subtitles },
+    subtitles: {
+      ...defaultProject.subtitles,
+      ...preset.subtitles,
+      ...(job.subtitleFont ? { fontFamily: job.subtitleFont } : {}),
+      ...(job.subtitleFontWeight ? { fontWeight: job.subtitleFontWeight } : {}),
+    },
     musicWaveform: { ...defaultProject.musicWaveform, ...preset.musicWaveform },
     visemeFadeMs: defaultProject.visemeFadeMs,
     idleMotion: defaultProject.idleMotion,

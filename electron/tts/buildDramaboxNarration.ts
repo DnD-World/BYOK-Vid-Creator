@@ -25,7 +25,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
-import { trimSilence, squeezeSilence } from "../audio/trimSilence";
+import { trimSilence, squeezeSilence, findGaps } from "../audio/trimSilence";
 import { wavDurationMs } from "./wavUtils";
 import type { BuiltNarration, NarrationPauses } from "./buildNarration";
 import type { ScriptSegment } from "../../src/lib/narration/parseScript";
@@ -50,6 +50,8 @@ export async function buildDramaboxNarration(
 ): Promise<BuiltNarration> {
   const buffers: Buffer[] = [];
   const perBlockMs: number[] = [];
+  /** Where the speech actually breaks inside each block. */
+  const blockGaps: { startMs: number; endMs: number }[][] = [];
 
   for (let i = 0; i < blocks.length; i++) {
     const file = path.join(wavDir, `${String(i).padStart(3, "0")}.wav`);
@@ -59,6 +61,7 @@ export async function buildDramaboxNarration(
     const clean = squeezeSilence(trimSilence(raw).buffer).buffer;
     buffers.push(clean);
     perBlockMs.push(wavDurationMs(clean));
+    blockGaps.push(findGaps(clean, { minMs: 120 }));
   }
 
   // A gap between blocks is always a turn change, because a block IS a turn.
@@ -72,12 +75,33 @@ export async function buildDramaboxNarration(
     const span = blockTiming[i].endMs - from;
     const lines = block.segmentIndices.map((n) => segments[n]);
     const total = lines.reduce((s, l) => s + Math.max(1, l.text.length), 0);
+
+    // SPLIT WHERE THE VOICE ACTUALLY STOPS. A block of two lines is spoken with
+    // a real pause between them, so the join is measurable rather than
+    // estimated. Take the longest gaps, one fewer than there are lines, and cut
+    // at the middle of each. Falling back to letter-count only when the audio
+    // does not show enough gaps to go round — which happens when two lines run
+    // together with no breath, and there is nothing to measure.
+    const needed = lines.length - 1;
+    const splits = blockGaps[i]
+      .slice()
+      .sort((a, b) => (b.endMs - b.startMs) - (a.endMs - a.startMs))
+      .slice(0, needed)
+      .map((g) => from + (g.startMs + g.endMs) / 2)
+      .sort((a, b) => a - b);
+    const measured = splits.length === needed;
+
     let cursor = from;
     lines.forEach((line, k) => {
       const share = Math.max(1, line.text.length) / total;
       // The last line takes whatever is left, so rounding cannot leave a gap
       // or overrun the block it belongs to.
-      const end = k === lines.length - 1 ? blockTiming[i].endMs : cursor + span * share;
+      const end =
+        k === lines.length - 1
+          ? blockTiming[i].endMs
+          : measured
+            ? splits[k]
+            : cursor + span * share;
       resolved.push({
         speakerId: line.speakerId,
         speakerLabel: line.speakerLabel,
