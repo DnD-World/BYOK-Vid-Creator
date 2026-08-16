@@ -106,3 +106,19 @@ line-by-line generation gives away for free. They have to be recovered by
 aligning the audio against the script. That was always the plan — whisperX is
 in the earliest handoff — and it upgrades subtitles from per-line to per-word
 on the way. Tracked as open item 2 in `docs/HANDOFF.md`.
+
+## Untested: laughs spelled in Greek letters
+
+The Gem is told to spell noises phonetically inside the Greek speech —
+`Χαχαχα`, `Μμμμ` — because the prompting guide is explicit that only phonetic
+content inside the quotes produces an actual sound, and that a direction alone
+does not.
+
+**The guide's examples are all Latin** (`"Hahaha"`, `"Mmmmm"`), and DramaBox is
+documented as English only. Whether `Χαχαχα` triggers a laugh, or gets read as
+letters, is unknown and cannot be settled on paper.
+
+Test it in the same session that auditions Greek at all — one generation with
+`Χαχαχα` and one with `Hahaha` inside otherwise identical Greek lines. If the
+Latin spelling wins, the Gem's rule changes to Latin noise-spellings inside
+Greek speech, which is ugly on the page and invisible to the audience.
