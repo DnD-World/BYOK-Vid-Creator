@@ -170,9 +170,9 @@ Why it is written that way:
 A line can carry how it is delivered, in square brackets **before** the colon:
 
 ```
-Καίτη: Το κόλπο είναι απλό.
-Καίτη [σιγανά, σαν μυστικό]: Μην το πεις σε κανέναν.
-Σερίφης [βιαστικά]: Δεν έχουμε χρόνο.
+Kaiti: Το κόλπο είναι απλό.
+Kaiti [quietly, like a secret]: Μην το πεις σε κανέναν.
+Serifis [in a hurry]: Δεν έχουμε χρόνο.
 ```
 
 **Before the colon, never after.** Everything after the colon is spoken exactly
@@ -193,9 +193,9 @@ A bark is not speech. Writing `Γαβ!` as a line makes a synthetic human say th
 word, so sounds are recordings, cued on a line of their own:
 
 ```
-Καίτη: Πατάς το κλίκερ τη στιγμή ακριβώς που κάθεται.
-[ΗΧΟΣ: clicker-training]
-Σερίφης: Τη στιγμή. Όχι δύο δευτερόλεπτα μετά.
+Kaiti: Πατάς το κλίκερ τη στιγμή ακριβώς που κάθεται.
+[SFX: clicker-training]
+Serifis: Τη στιγμή. Όχι δύο δευτερόλεπτα μετά.
 ```
 
 The name is a file stem in `sfx/library` — `dog-bark-small`, `clicker-training`,
@@ -209,3 +209,22 @@ how long a line will take to say.
 
 **A laugh is not a sound effect** — it is acting, and it belongs in a stage
 direction (`Καίτη [γελάει]: ...`), where the voice performs it.
+
+## English for machines, Greek for ears
+
+**Only the spoken text is Greek.** The name before the colon, the stage
+direction and the sound cue are all English, because all three are read by
+machines and none of them reaches the audience.
+
+```
+Kaiti [quietly, like a secret]: Μην το πεις σε κανέναν.
+[SFX: doorbell]
+```
+
+The name is never spoken and never drawn on screen — it is only how a line
+finds its voice. A speaker can therefore be called `Καίτη` in the app and
+`Kaiti` in the script; put the script's spelling in the cast member's
+`aliases` and both match.
+
+The direction goes to DramaBox, whose prompt is English prose. Nothing Greek is
+sent to it except the words to be said.

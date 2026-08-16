@@ -43,12 +43,23 @@ export interface SoundCue {
  */
 export function parseScript(
   script: string,
-  speakers: { id: string; label: string }[]
+  speakers: { id: string; label: string; aliases?: string[] }[]
 ): { segments: ScriptSegment[]; unmatchedLines: string[]; cues: SoundCue[] } {
   const segments: ScriptSegment[] = [];
   const unmatchedLines: string[] = [];
   const cues: SoundCue[] = [];
-  const byLabel = new Map(speakers.map((s) => [s.label.trim().toLowerCase(), s]));
+  // ALIASES, so a script can call a speaker `Kaiti` while the app calls her
+  // `Καίτη`. Everything a machine reads in a script is written in Latin — the
+  // name before the colon, the stage directions, the sound cues — and only the
+  // spoken text is Greek. The label is never drawn on screen, so this costs
+  // nothing visible, and scripts already written with Greek names keep working.
+  const byLabel = new Map<string, { id: string; label: string }>();
+  for (const s of speakers) {
+    for (const name of [s.label, ...(s.aliases ?? [])]) {
+      const key = name.trim().toLowerCase();
+      if (key) byLabel.set(key, s);
+    }
+  }
 
   for (const rawLine of script.split("\n")) {
     const line = rawLine.trim();

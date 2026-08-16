@@ -46,6 +46,12 @@ import {
  *  the same data the Cast panel collects. */
 export interface JobSpeaker {
   label: string;
+  /** Other names a script may call this speaker — `["Kaiti"]` for `Καίτη`.
+   *
+   *  Scripts are written with everything a machine reads in Latin: the name
+   *  before the colon, the stage directions, the sound cues. Only the spoken
+   *  text is Greek. The label is never drawn on screen, so this is free. */
+  aliases?: string[];
   /** A flattened viseme sheet, or a layered puppet. The puppet wins if both
    *  are given — the same precedence the preview and the render already use. */
   sheetPath?: string;
@@ -256,7 +262,10 @@ export async function runBatchJob(
 
   // ---- script -----------------------------------------------------------
   const scriptText = await fsp.readFile(job.scriptPath, "utf8");
-  const { segments, unmatchedLines, cues } = parseScript(scriptText, speakers);
+  const { segments, unmatchedLines, cues } = parseScript(
+    scriptText,
+    speakers.map((s, i) => ({ ...s, aliases: job.cast[i]?.aliases }))
+  );
   if (segments.length === 0) {
     throw new Error(
       `No line in ${path.basename(job.scriptPath)} matched a cast member. ` +
@@ -303,18 +312,28 @@ export async function runBatchJob(
   // nobody knows how long a line will take to say. Narration has just told us,
   // so this is the first moment they can be placed.
   //
-  // An unknown name THROWS. A cue is three words in a script and a silent skip
-  // would mean noticing the missing bark by watching ten minutes of video.
+  // A SOUND THAT DOES NOT EXIST YET IS A REQUEST, NOT AN ERROR IN THE SCRIPT.
+  //
+  // The library is small and the writing should not be limited to it — asking
+  // for a doorbell in lesson 4 is a reasonable thing for a script to do. So an
+  // unknown name is written into sfx/wanted.csv, which is already the queue
+  // that tools/make-sfx.py generates from.
+  //
+  // It still STOPS THE RENDER rather than carrying on without the sound. A cue
+  // is three words in a script, and a render that skipped it quietly would mean
+  // finding the missing doorbell by watching ten minutes of video. Generating
+  // the sound is a GPU run and deliberately not started from here.
   const sfxDir = path.join(path.dirname(job.scriptPath), "..", "sfx", "library");
+  const wantedPath = path.join(path.dirname(job.scriptPath), "..", "sfx", "wanted.csv");
   const sfxClips: NonNullable<RenderJob["sfx"]> = [];
+  const missing: string[] = [];
   for (const cue of cues) {
     const filePath = path.join(sfxDir, `${cue.name}.wav`);
     try {
       await fsp.access(filePath);
     } catch {
-      throw new Error(
-        `No sound effect named "${cue.name}". Look in sfx/library for the names that exist.`
-      );
+      if (!missing.includes(cue.name)) missing.push(cue.name);
+      continue;
     }
     // At the start of the line it precedes, or at the very end when it is the
     // last thing in the script.
@@ -323,6 +342,22 @@ export async function runBatchJob(
         ? narration.segments[cue.beforeSegment].startMs
         : endMs;
     sfxClips.push({ filePath, atMs: at, volume: 0.8, label: cue.name });
+  }
+  if (missing.length) {
+    const existing = await fsp.readFile(wantedPath, "utf8").catch(() => "name,prompt,seconds,notes\n");
+    const already = new Set(existing.split("\n").map((l) => l.split(",")[0].trim()));
+    const rows = missing
+      .filter((n) => !already.has(n))
+      // The prompt column is left for a person: a good one is the difference
+      // between a doorbell and a doorbell that sounds like a microwave, and
+      // guessing it from a file stem would fill the queue with bad prompts.
+      .map((n) => `${n},"TODO: describe this sound",3,Requested by a script\n`)
+      .join("");
+    if (rows) await fsp.appendFile(wantedPath, rows);
+    throw new Error(
+      `Sound effect(s) not in sfx/library: ${missing.join(", ")}. ` +
+        `Added to sfx/wanted.csv — write the prompt column, then generate them.`
+    );
   }
   if (sfxClips.length) onProgress(12, `${sfxClips.length} sound effect(s) placed`);
 
