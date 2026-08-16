@@ -23,7 +23,7 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { parseScript } from "../../src/lib/narration/parseScript";
+import { parseDramaboxScript } from "../../src/lib/narration/parseDramaboxScript";
 import { checkScript } from "../tts/checkScript";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
@@ -53,6 +53,12 @@ export interface JobSpeaker {
    *  before the colon, the stage directions, the sound cues. Only the spoken
    *  text is Greek. The label is never drawn on screen, so this is free. */
   aliases?: string[];
+  /** The exact phrase this character's blocks open with — "A grave man".
+   *
+   *  This is how a block finds its voice now that the script IS the engine's
+   *  prompt: the phrase is already in the text for DramaBox's benefit, so
+   *  using it for ours adds no syntax anyone has to remember. */
+  openingPhrase?: string;
   /** A flattened viseme sheet, or a layered puppet. The puppet wins if both
    *  are given — the same precedence the preview and the render already use. */
   sheetPath?: string;
@@ -263,10 +269,18 @@ export async function runBatchJob(
 
   // ---- script -----------------------------------------------------------
   const scriptText = await fsp.readFile(job.scriptPath, "utf8");
-  const { segments, unmatchedLines, cues } = parseScript(
-    scriptText,
-    speakers.map((s, i) => ({ ...s, aliases: job.cast[i]?.aliases }))
+  const castPhrases = job.cast.map(
+    (c, i) => c.openingPhrase ?? `Speaker ${i + 1}`
   );
+  const { segments, unmatchedLines, cues, blocks } = parseDramaboxScript(
+    scriptText,
+    speakers.map((s, i) => ({
+      id: s.id,
+      label: s.label,
+      openingPhrase: castPhrases[i],
+    }))
+  );
+  void blocks;
   if (segments.length === 0) {
     throw new Error(
       `No line in ${path.basename(job.scriptPath)} matched a cast member. ` +
@@ -278,10 +292,7 @@ export async function runBatchJob(
   // double quote silently swallows the rest of a line, a direction naming its
   // own subject produces a broken sentence. None of it throws on its own, and
   // all of it survives into a render that reports success.
-  const problems = checkScript(
-    scriptText,
-    job.cast.flatMap((c) => [c.label, ...(c.aliases ?? [])])
-  );
+  const problems = checkScript(scriptText, castPhrases);
   if (problems.length) {
     const detail = problems
       .map((p) => `  line ${p.line}: ${p.problem}\n            ${p.fix}\n            > ${p.text}`)
