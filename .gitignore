@@ -39,3 +39,4 @@ sfx/library/
 dramabox-audition/*.wav
 dramabox-audition/*.pcm
 voice-refs/*.wav
+voice-refs/work/

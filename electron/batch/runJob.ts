@@ -29,6 +29,7 @@ import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
 import { builtinPresets } from "../../src/store/builtinPresets";
 import { buildNarration, type NarrationInput } from "../tts/buildNarration";
+import { buildDramaboxNarration } from "../tts/buildDramaboxNarration";
 import { planBackgrounds, pickBackgrounds } from "../llm/backgroundPlanner";
 import { downloadTo } from "../net/mediaSearch";
 import { renderVideo, type RenderJob, type RenderContext } from "../render/renderVideo";
@@ -137,6 +138,13 @@ export interface BatchJob {
    *  uses a square frame, and "it uses the same call the boil does" is an
    *  argument, not a check. */
   outlineShape?: OutlineShape;
+  /** A folder of block WAVs already generated on the GPU box — 000.wav, 001.wav
+   *  and so on, one per block in script order.
+   *
+   *  Present because DramaBox does not run on this machine: it needs 24GB and
+   *  the laptop has 8. Narration is made on a rented L4 by
+   *  tools/dramabox-render-blocks.py and the audio comes back as files. */
+  dramaboxWavDir?: string;
 }
 
 export interface JobResult {
@@ -280,7 +288,6 @@ export async function runBatchJob(
       openingPhrase: castPhrases[i],
     }))
   );
-  void blocks;
   if (segments.length === 0) {
     throw new Error(
       `No line in ${path.basename(job.scriptPath)} matched a cast member. ` +
@@ -326,7 +333,16 @@ export async function runBatchJob(
   });
 
   onProgress(4, `Synthesising ${segments.length} lines…`);
-  const narration = await buildNarration(
+  const narration = job.dramaboxWavDir
+    ? await buildDramaboxNarration(
+        blocks,
+        segments,
+        job.dramaboxWavDir,
+        speakers.map((s) => s.id),
+        { sameMs: defaultProject.pauseSameMs, turnMs: defaultProject.pauseTurnMs },
+        ctx.outputDir
+      )
+    : await buildNarration(
     narrationInput,
     speakers.map((s) => s.id),
     { sameMs: defaultProject.pauseSameMs, turnMs: defaultProject.pauseTurnMs },
