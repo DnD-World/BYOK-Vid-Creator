@@ -17,6 +17,23 @@ export interface ScriptSegment {
   direction?: string;
 }
 
+/** A sound effect, cued on its own line: `[ΗΧΟΣ: dog-bark-small]`.
+ *
+ *  A bark is not speech and must not go through a voice — writing "Γαβ!" as a
+ *  line of dialogue makes a synthetic human say the word "bark" in Greek. So
+ *  sounds are recordings from `sfx/library`, placed on their own track.
+ *
+ *  Position is given as a SEGMENT INDEX rather than a time, because when a
+ *  script is written nobody knows how long any line will take to say. The
+ *  runner turns it into a timestamp once narration exists. */
+export interface SoundCue {
+  /** File stem in `sfx/library`, without the extension. */
+  name: string;
+  /** Plays at the start of this segment. Equal to the number of segments when
+   *  the cue is the last line, meaning "after everything". */
+  beforeSegment: number;
+}
+
 /**
  * Parses a simple "Label: text" per line script format, matching each
  * line's label against a known speaker (case-insensitive, trimmed). Lines
@@ -27,14 +44,24 @@ export interface ScriptSegment {
 export function parseScript(
   script: string,
   speakers: { id: string; label: string }[]
-): { segments: ScriptSegment[]; unmatchedLines: string[] } {
+): { segments: ScriptSegment[]; unmatchedLines: string[]; cues: SoundCue[] } {
   const segments: ScriptSegment[] = [];
   const unmatchedLines: string[] = [];
+  const cues: SoundCue[] = [];
   const byLabel = new Map(speakers.map((s) => [s.label.trim().toLowerCase(), s]));
 
   for (const rawLine of script.split("\n")) {
     const line = rawLine.trim();
     if (!line) continue;
+
+    // A sound cue is a whole line of its own and has no speaker, so it is
+    // matched before the "Label: text" shape — `[ΗΧΟΣ: γάβγισμα]` does contain
+    // a colon, and read as a name it would be a speaker nobody has.
+    const cue = line.match(/^\[\s*(?:ΗΧΟΣ|HXOΣ|SFX)\s*:\s*([^\]]+?)\s*\]$/iu);
+    if (cue) {
+      cues.push({ name: cue[1], beforeSegment: segments.length });
+      continue;
+    }
 
     const idx = line.indexOf(":");
     if (idx === -1) {
@@ -59,5 +86,5 @@ export function parseScript(
     segments.push({ speakerId: speaker.id, speakerLabel: speaker.label, text, direction });
   }
 
-  return { segments, unmatchedLines };
+  return { segments, unmatchedLines, cues };
 }

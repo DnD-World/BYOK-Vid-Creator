@@ -186,3 +186,26 @@ words in the right voice.
 
 Use it when the delivery is not obvious from the words. A script where every
 line has one is a script that does not trust its own writing.
+
+## Sounds
+
+A bark is not speech. Writing `Γαβ!` as a line makes a synthetic human say the
+word, so sounds are recordings, cued on a line of their own:
+
+```
+Καίτη: Πατάς το κλίκερ τη στιγμή ακριβώς που κάθεται.
+[ΗΧΟΣ: clicker-training]
+Σερίφης: Τη στιγμή. Όχι δύο δευτερόλεπτα μετά.
+```
+
+The name is a file stem in `sfx/library` — `dog-bark-small`, `clicker-training`,
+`collar-jingle` and so on. **An unknown name stops the render** rather than
+being skipped: a cue is three words, and a silent skip means finding the missing
+bark by watching ten minutes of video.
+
+The sound plays at the start of the line it sits above. It is placed by segment
+position rather than by timestamp, because when a script is written nobody knows
+how long a line will take to say.
+
+**A laugh is not a sound effect** — it is acting, and it belongs in a stage
+direction (`Καίτη [γελάει]: ...`), where the voice performs it.

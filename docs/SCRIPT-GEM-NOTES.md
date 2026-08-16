@@ -1,0 +1,79 @@
+# Notes on the script Gem
+
+`docs/SCRIPT-GEM.md` is the Gem's instructions and nothing else — it is meant to
+be pasted whole. This is everything around it.
+
+---
+
+## Where the facts come from
+
+Each sub-lesson row in the sheet names its own sources. The Gem is told to use
+those and only those, and to write a gap below the `---` line rather than fill
+it from general knowledge.
+
+**No brief is written by hand.** If the Gem can read the notebook directly, that
+is the whole mechanism. Worth checking in the product whether a Gem can be
+pointed at a NotebookLM notebook — if it cannot, the fallback is to ask the
+notebook for the facts on one sub-lesson and paste its answer, and that is a
+step worth avoiding if the direct link exists.
+
+The reason the rule is written so hard: **a confident wrong instruction about a
+dog is the worst thing this project can produce.** It goes to owners with real
+dogs. A thin lesson is recoverable; a wrong one is not.
+
+## Length, from measured scripts
+
+Two real scripts in this repo, timed against their own renders:
+
+| Script | Words | Finished | Rate |
+|---|---|---|---|
+| `smoke.txt` | 61 | 26 s | 141 wpm |
+| `swedish-vallhund.txt` | 1194 | 8 m 50 s | 135 wpm |
+
+**135 words per minute**, pauses included. The Gem is given a word count rather
+than a running time, because it cannot judge minutes and it can count words.
+
+## Sound
+
+Two different problems that are easy to confuse:
+
+- **Laughs, gasps, sighs, sniffs are ACTING.** DramaBox performs them from a
+  stage direction. No asset, no timing, nothing to place.
+- **Barks, whistles, clickers are RECORDINGS.** They cannot come out of a voice
+  — a line reading "Γαβ!" makes a synthetic human say the word.
+
+So sounds are cued on their own line, `[ΗΧΟΣ: dog-bark-small]`, and the names
+are the file stems in `sfx/library`. The cue carries a segment position rather
+than a timestamp, because when a script is written nobody knows how long a line
+will take to say; `runJob` turns it into a time once narration exists.
+
+An unknown sound name **throws**. A cue is three words in a script and a silent
+skip means finding the missing bark by watching ten minutes of video.
+
+## What is still missing
+
+The repo knows the shape of the course and not its content:
+
+| Known | Not known |
+|---|---|
+| 5 series, 23 lessons, 72 videos | The 23 lesson titles |
+| Series subjects | The 72 sub-lesson titles |
+| 18 handouts exist and are not video | Which sub-lesson teaches what |
+
+**The sub-lesson list is the input to all of this.**
+
+## Which model
+
+Not testable from inside this repo, so this is the durable rule rather than a
+benchmark:
+
+- **Pro-tier for the voices.** Character consistency and comic timing across
+  hundreds of lines is what the larger model is for, and the cast paragraphs are
+  the highest-leverage text in the project.
+- **Flash-tier for volume**, if 72 scripts through a Pro model proves slow or
+  costly.
+
+The cheap experiment beats the opinion: write the same sub-lesson with both,
+render both, and **listen**. One evening settles it for all 72. Judge voices out
+loud, never on the page — this project's worst time sinks have all come from
+judging something in the wrong medium.

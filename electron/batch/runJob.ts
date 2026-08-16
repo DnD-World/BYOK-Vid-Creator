@@ -256,7 +256,7 @@ export async function runBatchJob(
 
   // ---- script -----------------------------------------------------------
   const scriptText = await fsp.readFile(job.scriptPath, "utf8");
-  const { segments, unmatchedLines } = parseScript(scriptText, speakers);
+  const { segments, unmatchedLines, cues } = parseScript(scriptText, speakers);
   if (segments.length === 0) {
     throw new Error(
       `No line in ${path.basename(job.scriptPath)} matched a cast member. ` +
@@ -297,6 +297,34 @@ export async function runBatchJob(
   const endMs = Math.max(...narration.segments.map((s) => s.endMs));
   const durationSec = Math.max(1, Math.ceil(endMs / 1000));
   onProgress(12, `Narration ${Math.floor(durationSec / 60)}m${durationSec % 60}s`);
+
+  // ---- sound effects ----------------------------------------------------
+  // Cues carry a segment index, not a time, because when a script is written
+  // nobody knows how long a line will take to say. Narration has just told us,
+  // so this is the first moment they can be placed.
+  //
+  // An unknown name THROWS. A cue is three words in a script and a silent skip
+  // would mean noticing the missing bark by watching ten minutes of video.
+  const sfxDir = path.join(path.dirname(job.scriptPath), "..", "sfx", "library");
+  const sfxClips: NonNullable<RenderJob["sfx"]> = [];
+  for (const cue of cues) {
+    const filePath = path.join(sfxDir, `${cue.name}.wav`);
+    try {
+      await fsp.access(filePath);
+    } catch {
+      throw new Error(
+        `No sound effect named "${cue.name}". Look in sfx/library for the names that exist.`
+      );
+    }
+    // At the start of the line it precedes, or at the very end when it is the
+    // last thing in the script.
+    const at =
+      cue.beforeSegment < narration.segments.length
+        ? narration.segments[cue.beforeSegment].startMs
+        : endMs;
+    sfxClips.push({ filePath, atMs: at, volume: 0.8, label: cue.name });
+  }
+  if (sfxClips.length) onProgress(12, `${sfxClips.length} sound effect(s) placed`);
 
   // ---- backgrounds ------------------------------------------------------
   const format = job.format ?? preset.render?.format ?? defaultProject.render.format;
@@ -417,7 +445,7 @@ export async function runBatchJob(
     musicAnalysis: null,
     musicVolume: defaultProject.musicVolume,
     musicDuck: defaultProject.musicDuck,
-    sfx: [],
+    sfx: sfxClips,
     backgrounds,
     backgroundDim: job.backgroundDim ?? preset.backgroundDim ?? defaultProject.backgroundDim,
     backgroundBlur: job.backgroundBlur ?? preset.backgroundBlur ?? defaultProject.backgroundBlur,
