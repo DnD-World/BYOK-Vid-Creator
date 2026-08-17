@@ -47,6 +47,8 @@ export interface BuiltNarration {
     text: string;
     startMs: number;
     endMs: number;
+    /** When each word was really said, when forced alignment has run. */
+    words?: { text: string; startMs: number; endMs: number }[];
   }[];
   analysis: ReturnType<typeof analyzeNarration>;
   /** Moments the voice measurably stopped. Empty for engines whose output is

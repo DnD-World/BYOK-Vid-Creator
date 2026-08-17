@@ -300,6 +300,14 @@ export interface NarrationSegment {
   text: string;
   startMs: number;   // offset within the combined file
   endMs: number;
+  /** When each word was ACTUALLY said, from forced alignment.
+   *
+   *  Present only when the narration went through tools/dramabox-align.py.
+   *  Everything that needs word timing — subtitles, the mouth, the highlight —
+   *  estimates it from letter counts when this is absent, and an estimate
+   *  drifts: by the end of a long line the subtitle runs a phrase ahead of the
+   *  voice. This is the measurement that replaces the guess. */
+  words?: { text: string; startMs: number; endMs: number }[];
 }
 
 /** The last successfully generated narration. Held in the project store

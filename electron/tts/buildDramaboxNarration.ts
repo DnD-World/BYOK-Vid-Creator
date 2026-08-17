@@ -35,6 +35,10 @@ export interface DramaboxBlock {
   segmentIndices: number[];
 }
 
+/** Word times from tools/dramabox-align.py, keyed by block id ("000"), in
+ *  seconds from the start of that block's own WAV. */
+export type AlignedWords = Record<string, { w: string; start: number; end: number }[]>;
+
 /**
  * Assemble block WAVs into one narration track with per-line timings.
  *
@@ -46,7 +50,8 @@ export async function buildDramaboxNarration(
   wavDir: string,
   speakerOrder: string[],
   pauses: NarrationPauses,
-  outputDir: string
+  outputDir: string,
+  aligned?: AlignedWords
 ): Promise<BuiltNarration> {
   const buffers: Buffer[] = [];
   const perBlockMs: number[] = [];
@@ -76,23 +81,55 @@ export async function buildDramaboxNarration(
     const lines = block.segmentIndices.map((n) => segments[n]);
     const total = lines.reduce((s, l) => s + Math.max(1, l.text.length), 0);
 
-    // SPLIT AT THE GAP NEAREST WHERE THE LINE SHOULD END — not at the longest.
-    //
-    // Taking the longest silence was wrong and measurably so. A block opening
-    // "Ugh, ..." pauses hard after the interjection, and that gap is longer
-    // than the one between the two spoken lines, so the split landed 1.2s in
-    // and gave the first line 1.2s and the second 15.7s. One line came out with
-    // 190 MILLISECONDS for a whole sentence. That is worse than the letter-count
-    // guess it replaced.
-    //
-    // Letter count is a decent PRIOR — it knows roughly where a line ends — and
-    // the measured gaps are the only FACTS about where the voice stopped. So
-    // estimate first, then snap to the nearest real gap, and only if one is
-    // close enough to be plausibly the same boundary.
+    // MEASURED WORDS FIRST. When forced alignment has run, every line's start
+    // and end is the first and last word actually spoken in it — no estimate,
+    // no drift, nothing to tune. Everything below this is the fallback for
+    // narration that never went through the aligner.
+    const alignedWords = aligned?.[String(i).padStart(3, "0")];
+    if (alignedWords && alignedWords.length > 0) {
+      // The aligner was given the block's lines joined in order, so its words
+      // come back in that order and can be handed back out line by line.
+      let w = 0;
+      let ok = true;
+      const perLine: { text: string; startMs: number; endMs: number }[][] = [];
+      for (const line of lines) {
+        const count = line.text.trim().split(/\s+/).filter(Boolean).length;
+        if (w + count > alignedWords.length) { ok = false; break; }
+        perLine.push(
+          alignedWords.slice(w, w + count).map((x) => ({
+            text: x.w,
+            // Block-local seconds become timeline milliseconds. `trimSilence`
+            // ran before alignment, so both refer to the same audio.
+            startMs: Math.round(from + x.start * 1000),
+            endMs: Math.round(from + x.end * 1000),
+          }))
+        );
+        w += count;
+      }
+      if (ok && perLine.length === lines.length) {
+        lines.forEach((line, k) => {
+          const ws = perLine[k];
+          resolved.push({
+            speakerId: line.speakerId,
+            speakerLabel: line.speakerLabel,
+            text: line.text,
+            startMs: ws[0].startMs,
+            endMs: ws[ws.length - 1].endMs,
+            words: ws,
+          });
+        });
+        return;
+      }
+    }
+
+    // NO ALIGNMENT: estimate where the line ends from letter count, then snap
+    // to the nearest measured gap if one is close enough to plausibly be that
+    // boundary. Taking the LONGEST gap instead once gave a whole sentence 190
+    // milliseconds, because a block opening "Ugh," pauses harder after the
+    // interjection than it does between its two lines.
     const needed = lines.length - 1;
     const gapMids = blockGaps[i].map((g) => from + (g.startMs + g.endMs) / 2);
     const tolerance = Math.max(700, span * 0.22);
-
     const splits: number[] = [];
     let running = 0;
     for (let k = 0; k < needed; k++) {
@@ -101,7 +138,6 @@ export async function buildDramaboxNarration(
       let best = estimate;
       let bestDist = tolerance;
       for (const g of gapMids) {
-        // Must stay after the previous split, or two lines would overlap.
         if (g <= (splits[k - 1] ?? from)) continue;
         const d = Math.abs(g - estimate);
         if (d < bestDist) { bestDist = d; best = g; }

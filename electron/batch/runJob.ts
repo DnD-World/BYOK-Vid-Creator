@@ -145,6 +145,9 @@ export interface BatchJob {
    *  the laptop has 8. Narration is made on a rented L4 by
    *  tools/dramabox-render-blocks.py and the audio comes back as files. */
   dramaboxWavDir?: string;
+  /** words.json from tools/dramabox-align.py — when each word was actually
+   *  said. Without it every word time is estimated from letter counts. */
+  dramaboxWordsPath?: string;
   /** Subtitle typeface, by Google Fonts name — "Comfortaa".
    *
    *  A job used to inherit the app's default of `null`, which falls back to the
@@ -351,7 +354,10 @@ export async function runBatchJob(
         job.dramaboxWavDir,
         speakers.map((s) => s.id),
         { sameMs: defaultProject.pauseSameMs, turnMs: defaultProject.pauseTurnMs },
-        ctx.outputDir
+        ctx.outputDir,
+        job.dramaboxWordsPath
+          ? JSON.parse(await fsp.readFile(job.dramaboxWordsPath, "utf8"))
+          : undefined
       )
     : await buildNarration(
     narrationInput,

@@ -51,6 +51,18 @@ function cuesForSegment(
   const words = seg.text.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
 
+  // MEASURED BEATS ESTIMATED, ALWAYS. When forced alignment has told us when
+  // each word was really said, every guess below is skipped — there is nothing
+  // left to drift.
+  if (seg.words && seg.words.length === words.length) {
+    const timed: TimedWord[] = seg.words.map((w) => ({
+      text: w.text,
+      startMs: w.startMs,
+      endMs: w.endMs,
+    }));
+    return groupIntoCues(seg, timed, maxChars);
+  }
+
   const totalMs = Math.max(1, seg.endMs - seg.startMs);
   const weights = words.map(weightOf);
   const weightSum = weights.reduce((a, b) => a + b, 0);
@@ -124,7 +136,16 @@ function cuesForSegment(
     }
   }
 
-  // Group into display-sized chunks.
+  return groupIntoCues(seg, timed, maxChars);
+}
+
+/** Words with times in, display-sized cues out. Shared so that measured and
+ *  estimated timings cannot be grouped by two different rules. */
+function groupIntoCues(
+  seg: NarrationSegment,
+  timed: TimedWord[],
+  maxChars: number
+): SubtitleCue[] {
   const cues: SubtitleCue[] = [];
   let group: TimedWord[] = [];
   let groupChars = 0;
