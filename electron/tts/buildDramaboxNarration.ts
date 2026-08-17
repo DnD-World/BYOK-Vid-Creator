@@ -25,7 +25,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
-import { trimSilence, squeezeSilence, findGaps } from "../audio/trimSilence";
+import { trimSilence, squeezeSilence, findGaps, remapTime } from "../audio/trimSilence";
 import { wavDurationMs } from "./wavUtils";
 import type { BuiltNarration, NarrationPauses } from "./buildNarration";
 import type { ScriptSegment } from "../../src/lib/narration/parseScript";
@@ -57,16 +57,22 @@ export async function buildDramaboxNarration(
   const perBlockMs: number[] = [];
   /** Where the speech actually breaks inside each block. */
   const blockGaps: { startMs: number; endMs: number }[][] = [];
+  /** What the cleaning removed from each block, so times measured against the
+   *  ORIGINAL take can be moved onto the audio the video actually plays. */
+  const blockEdits: { leadMs: number; edits: { atMs: number; removedMs: number }[] }[] = [];
 
   for (let i = 0; i < blocks.length; i++) {
     const file = path.join(wavDir, `${String(i).padStart(3, "0")}.wav`);
     const raw = await fsp.readFile(file);
     // Same treatment every other engine's output gets: dead air off the ends,
     // long holes inside shortened. See trimSilence.ts for what DramaBox leaves.
-    const clean = squeezeSilence(trimSilence(raw).buffer).buffer;
+    const trimmed = trimSilence(raw);
+    const squeezed = squeezeSilence(trimmed.buffer);
+    const clean = squeezed.buffer;
     buffers.push(clean);
     perBlockMs.push(wavDurationMs(clean));
     blockGaps.push(findGaps(clean, { minMs: 120 }));
+    blockEdits.push({ leadMs: trimmed.leadMsRemoved, edits: squeezed.edits });
   }
 
   // A gap between blocks is always a turn change, because a block IS a turn.
@@ -98,13 +104,35 @@ export async function buildDramaboxNarration(
         perLine.push(
           alignedWords.slice(w, w + count).map((x) => ({
             text: x.w,
-            // Block-local seconds become timeline milliseconds. `trimSilence`
-            // ran before alignment, so both refer to the same audio.
-            startMs: Math.round(from + x.start * 1000),
-            endMs: Math.round(from + x.end * 1000),
+            // ALIGNMENT MEASURED THE RAW TAKE; THE VIDEO PLAYS THE TRIMMED
+            // ONE. Up to 3.7 seconds comes off the front of a block and more
+            // out of its middle, so a raw timestamp is between one and two
+            // seconds late by the time it reaches the screen. remapTime moves
+            // it through exactly the cuts that were made.
+            //
+            // A comment here once claimed both referred to the same audio.
+            // They never did, and everything downstream inherited the error.
+            startMs: Math.round(
+              from + remapTime(x.start * 1000, blockEdits[i].leadMs, blockEdits[i].edits)
+            ),
+            endMs: Math.round(
+              from + remapTime(x.end * 1000, blockEdits[i].leadMs, blockEdits[i].edits)
+            ),
           }))
         );
         w += count;
+      }
+      // A WORD CANNOT LAST NO TIME. Remapping collapses anything that sat
+      // inside a removed gap onto a single instant, and sixteen words in this
+      // lesson landed there — enough to crash the render outright, because a
+      // cue whose span is zero has nothing to interpolate its entrance over.
+      // Each is given a millisecond and pushed clear of its neighbour, which is
+      // inaudible and keeps the sequence strictly increasing.
+      for (const ws of perLine) {
+        for (let n = 0; n < ws.length; n++) {
+          if (n > 0 && ws[n].startMs < ws[n - 1].endMs) ws[n].startMs = ws[n - 1].endMs;
+          if (ws[n].endMs <= ws[n].startMs) ws[n].endMs = ws[n].startMs + 1;
+        }
       }
       if (ok && perLine.length === lines.length) {
         lines.forEach((line, k) => {

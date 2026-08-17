@@ -97,6 +97,37 @@ export interface SqueezeResult {
   /** How many gaps were shortened, and by how much in total. */
   gapsShortened: number;
   msRemoved: number;
+  /** Every cut, in the INPUT buffer's own timeline: `atMs` is where audio
+   *  started being discarded, `removedMs` how much went.
+   *
+   *  Returned because anything measured against the ORIGINAL audio — word
+   *  times from forced alignment, above all — is wrong by exactly these
+   *  amounts once the audio is shortened. Alignment was run on the untrimmed
+   *  takes and the video played the trimmed ones, so every subtitle sat
+   *  between one and two seconds late. There is no way to notice that by
+   *  reading the code; the only defence is for the edit to be reported and
+   *  applied. */
+  edits: { atMs: number; removedMs: number }[];
+}
+
+/** Move a timestamp from the original audio onto the shortened audio.
+ *
+ *  `leadMs` is what trimSilence took off the front; `edits` is what
+ *  squeezeSilence took out of the middle. Apply in that order, because that is
+ *  the order the audio was cut in. */
+export function remapTime(
+  ms: number,
+  leadMs: number,
+  edits: { atMs: number; removedMs: number }[]
+): number {
+  let t = ms - leadMs;
+  for (const e of edits) {
+    if (t <= e.atMs) break;                 // before this cut: unaffected
+    // Inside the removed stretch collapses onto its start, which is where that
+    // moment now is. Past it, shift by the whole amount.
+    t -= Math.min(e.removedMs, t - e.atMs);
+  }
+  return t;
 }
 
 /**
@@ -119,7 +150,7 @@ export interface SqueezeResult {
  * side of a GPU. This is the local half, and it works whatever the engine does.
  */
 export function squeezeSilence(buf: Buffer, opts: SqueezeOptions = {}): SqueezeResult {
-  const untouched = { buffer: buf, gapsShortened: 0, msRemoved: 0 };
+  const untouched = { buffer: buf, gapsShortened: 0, msRemoved: 0, edits: [] };
   const info = readWav(buf);
   if (!info || info.bitsPerSample !== 16) return untouched;
 
@@ -161,6 +192,7 @@ export function squeezeSilence(buf: Buffer, opts: SqueezeOptions = {}): SqueezeR
   if (gaps.length === 0) return untouched;
 
   const pieces: Buffer[] = [];
+  const edits: { atMs: number; removedMs: number }[] = [];
   let cursor = 0;
   let removed = 0;
   for (const gap of gaps) {
@@ -171,7 +203,12 @@ export function squeezeSilence(buf: Buffer, opts: SqueezeOptions = {}): SqueezeR
       dataStart + cursor * bytesPerFrame,
       dataStart + (gap.from + keep) * bytesPerFrame
     ));
-    removed += gap.to - gap.from + 1 - keep;
+    const cut = gap.to - gap.from + 1 - keep;
+    edits.push({
+      atMs: ((gap.from + keep) * 1000) / sampleRate,
+      removedMs: (cut * 1000) / sampleRate,
+    });
+    removed += cut;
     cursor = gap.to + 1;
   }
   pieces.push(buf.subarray(dataStart + cursor * bytesPerFrame, dataStart + frames * bytesPerFrame));
@@ -185,6 +222,7 @@ export function squeezeSilence(buf: Buffer, opts: SqueezeOptions = {}): SqueezeR
     buffer: Buffer.concat([header, audio]),
     gapsShortened: gaps.length,
     msRemoved: Math.round((removed * 1000) / sampleRate),
+    edits,
   };
 }
 
