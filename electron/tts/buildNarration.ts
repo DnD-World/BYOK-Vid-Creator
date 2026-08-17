@@ -49,6 +49,9 @@ export interface BuiltNarration {
     endMs: number;
   }[];
   analysis: ReturnType<typeof analyzeNarration>;
+  /** Moments the voice measurably stopped. Empty for engines whose output is
+   *  already one file per line, where the line boundaries ARE the measurement. */
+  pauses?: number[];
 }
 
 /** What the audio depends on, and nothing else.

@@ -173,6 +173,14 @@ export type RenderProps = {
   /** Narration lines with timing, from which subtitle cues are derived.
    *  Empty means nothing to show. */
   narrationSegments: NarrationSegment[];
+  /** Moments, in ms, where the narration audio measurably went quiet.
+   *
+   *  Subtitle and viseme timing is otherwise estimated from letter counts, and
+   *  an estimate DRIFTS — by the end of a long line the highlight runs a phrase
+   *  ahead of the voice. These are the only facts available about when the
+   *  speaker actually stopped, so they anchor the estimate. Empty is valid and
+   *  means the old behaviour. */
+  narrationPauses?: number[];
 };
 
 export const COMPOSITION_ID = "byok-video";

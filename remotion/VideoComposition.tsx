@@ -77,6 +77,7 @@ export function VideoComposition({
   visemeFadeMs,
   idleMotion,
   narrationSegments,
+  narrationPauses = [],
 }: RenderProps) {
   const frame = useCurrentFrame();
   const { width, height, fps, durationInFrames } = useVideoConfig();
@@ -95,13 +96,13 @@ export function VideoComposition({
   // Cue layout depends only on the script and the wrap width, so it's computed
   // once per worker rather than on every one of thousands of frames.
   const cues = useMemo(
-    () => buildCues(narrationSegments, subtitles.maxChars),
-    [narrationSegments, subtitles.maxChars]
+    () => buildCues(narrationSegments, subtitles.maxChars, narrationPauses),
+    [narrationSegments, subtitles.maxChars, narrationPauses]
   );
 
   // Also once per worker, not per frame — the tracks are thousands of keyframes.
   const visemeTracks = useMemo(
-    () => buildSpeakerVisemeTracks(narrationSegments, fps),
+    () => buildSpeakerVisemeTracks(narrationSegments, fps, narrationPauses),
     [narrationSegments, fps]
   );
 

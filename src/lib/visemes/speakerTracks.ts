@@ -19,7 +19,11 @@ export type SpeakerVisemeTracks = Record<string, VisemeFrame[]>;
 
 export function buildSpeakerVisemeTracks(
   segments: NarrationSegment[],
-  fps: number
+  fps: number,
+  /** Measured pauses in the narration, so the mouth is anchored to the audio
+   *  rather than to letter counts. Same list buildCues gets — the mouth and the
+   *  highlighted word must never be driven by different numbers. */
+  pauses: number[] = []
 ): SpeakerVisemeTracks {
   const tracks: SpeakerVisemeTracks = {};
   if (segments.length === 0 || fps <= 0) return tracks;
@@ -28,7 +32,7 @@ export function buildSpeakerVisemeTracks(
   // driven by exactly the same numbers — if they diverged, the mismatch would
   // be visible and maddening to debug.
   for (const seg of segments) {
-    const cues = buildCues([seg], Number.MAX_SAFE_INTEGER);
+    const cues = buildCues([seg], Number.MAX_SAFE_INTEGER, pauses);
     const words: WordTiming[] = cues.flatMap((c) =>
       c.words.map((w) => ({ word: w.text, start: w.startMs / 1000, end: w.endMs / 1000 }))
     );

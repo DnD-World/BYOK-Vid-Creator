@@ -29,5 +29,6 @@
   "dramaboxWavDir": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/voice-refs/work/out",
   "backgroundsPerMinute": 3.5,
   "subtitleFont": "Comfortaa",
-  "subtitleFontWeight": 700
+  "subtitleFontWeight": 700,
+  "dumpNarrationMeta": "C:/Users/strav/AppData/Local/Temp/claude/C--Users-strav-Documents-CLAUDE-SPACE-BYOK-Vid-Creator/845c00be-fa0e-4807-8a66-567001463d9a/scratchpad"
 }

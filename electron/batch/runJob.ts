@@ -151,6 +151,9 @@ export interface BatchJob {
    *  system stack, so a headless render silently used a different typeface from
    *  the one chosen in the app. Nothing reported it because nothing was wrong
    *  as far as the code was concerned. */
+  /** Debug: write narration segments and measured pauses here, so subtitle
+   *  drift can be measured against the real audio instead of argued about. */
+  dumpNarrationMeta?: string;
   subtitleFont?: string;
   subtitleFontWeight?: number;
 }
@@ -357,6 +360,17 @@ export async function runBatchJob(
     ctx.outputDir
   );
 
+  if (job.dumpNarrationMeta) {
+    await fsp.writeFile(
+      path.join(job.dumpNarrationMeta, "segments.json"),
+      JSON.stringify(narration.segments)
+    );
+    await fsp.writeFile(
+      path.join(job.dumpNarrationMeta, "pauses.json"),
+      JSON.stringify(narration.pauses ?? [])
+    );
+  }
+
   const endMs = Math.max(...narration.segments.map((s) => s.endMs));
   const durationSec = Math.max(1, Math.ceil(endMs / 1000));
   onProgress(12, `Narration ${Math.floor(durationSec / 60)}m${durationSec % 60}s`);
@@ -555,6 +569,7 @@ export async function runBatchJob(
     visemeFadeMs: defaultProject.visemeFadeMs,
     idleMotion: defaultProject.idleMotion,
     narrationSegments: narration.segments,
+    narrationPauses: narration.pauses ?? [],
     crf: job.crf,
     glass: job.glass ?? null,
   } as RenderJob;

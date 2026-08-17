@@ -34,6 +34,7 @@ const previewDefaults: RenderProps = {
   visemeFadeMs: defaultProject.visemeFadeMs,
   idleMotion: defaultProject.idleMotion,
   narrationSegments: [],
+  narrationPauses: [],
 };
 
 export function RemotionRoot() {

@@ -43,7 +43,11 @@ function weightOf(word: string): number {
  * Splits one segment into cues of at most `maxChars` printable characters, so
  * a long line becomes several sequential cues instead of overflowing the frame.
  */
-function cuesForSegment(seg: NarrationSegment, maxChars: number): SubtitleCue[] {
+function cuesForSegment(
+  seg: NarrationSegment,
+  maxChars: number,
+  pauses: number[]
+): SubtitleCue[] {
   const words = seg.text.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
 
@@ -60,6 +64,64 @@ function cuesForSegment(seg: NarrationSegment, maxChars: number): SubtitleCue[] 
     acc += weights[i];
     const endMs = seg.startMs + Math.round((acc / weightSum) * totalMs);
     timed.push({ text: words[i], startMs, endMs });
+  }
+
+  // ANCHOR THE ESTIMATE TO THE AUDIO.
+  //
+  // Everything above is a guess from letter counts, and a guess DRIFTS: one
+  // slow word early on pushes every later word out, and by the end of a long
+  // line the highlight is a phrase ahead of the voice. Ak saw exactly that and
+  // I twice fixed a different layer of it.
+  //
+  // `pauses` are moments where the voice measurably stopped. A speaker pauses
+  // at punctuation, so a pause is almost always a sentence or clause boundary —
+  // which means it can be matched to a word boundary that follows punctuation,
+  // and the words between two anchors re-spread over the time actually taken.
+  //
+  // That is forced alignment at the phrase level. It is not per-word truth, but
+  // the error can no longer accumulate past the next pause, which is what makes
+  // drift visible.
+  const inside = pauses.filter((ms) => ms > seg.startMs + 150 && ms < seg.endMs - 150);
+  if (inside.length > 0 && words.length > 2) {
+    const anchors: { index: number; ms: number }[] = [];
+    for (const ms of inside) {
+      let best = -1;
+      let bestCost = Infinity;
+      for (let i = 1; i < words.length; i++) {
+        const punctuated = /[,.;:!?…·]$/.test(words[i - 1]);
+        // A boundary after punctuation is where a voice really stops, so it is
+        // preferred strongly over a boundary in the middle of a phrase.
+        const cost = Math.abs(timed[i].startMs - ms) + (punctuated ? 0 : 700);
+        if (cost < bestCost) { bestCost = cost; best = i; }
+      }
+      // Too far from any plausible boundary means this pause belongs to
+      // something else — a breath mid-phrase — and forcing it would be worse
+      // than leaving the estimate alone.
+      if (best > 0 && bestCost < 1600 && !anchors.some((a) => a.index === best)) {
+        anchors.push({ index: best, ms });
+      }
+    }
+    anchors.sort((a, b) => a.index - b.index);
+
+    // Monotonic only. An anchor that would move a boundary backwards past its
+    // predecessor is dropped rather than reordering the line.
+    const kept = anchors.filter((a, i) => i === 0 || a.ms > anchors[i - 1].ms);
+
+    let fromIdx = 0;
+    let fromMs = seg.startMs;
+    for (const a of [...kept, { index: words.length, ms: seg.endMs }]) {
+      const span = a.ms - fromMs;
+      const sub = weights.slice(fromIdx, a.index);
+      const subSum = sub.reduce((x, y) => x + y, 0) || 1;
+      let run = 0;
+      for (let i = fromIdx; i < a.index; i++) {
+        timed[i].startMs = Math.round(fromMs + (run / subSum) * span);
+        run += weights[i];
+        timed[i].endMs = Math.round(fromMs + (run / subSum) * span);
+      }
+      fromIdx = a.index;
+      fromMs = a.ms;
+    }
   }
 
   // Group into display-sized chunks.
@@ -92,9 +154,13 @@ function cuesForSegment(seg: NarrationSegment, maxChars: number): SubtitleCue[] 
 
 export function buildCues(
   segments: NarrationSegment[],
-  maxChars = 42
+  maxChars = 42,
+  /** Moments, in ms, where the narration audio measurably went quiet. Supplied
+   *  by whoever built the narration, because only they have the audio. Without
+   *  them every timing here is an estimate from letter counts. */
+  pauses: number[] = []
 ): SubtitleCue[] {
-  return segments.flatMap((seg) => cuesForSegment(seg, maxChars));
+  return segments.flatMap((seg) => cuesForSegment(seg, maxChars, pauses));
 }
 
 /** The cue on screen at `timeMs`, or null between cues. */

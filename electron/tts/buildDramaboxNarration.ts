@@ -76,32 +76,44 @@ export async function buildDramaboxNarration(
     const lines = block.segmentIndices.map((n) => segments[n]);
     const total = lines.reduce((s, l) => s + Math.max(1, l.text.length), 0);
 
-    // SPLIT WHERE THE VOICE ACTUALLY STOPS. A block of two lines is spoken with
-    // a real pause between them, so the join is measurable rather than
-    // estimated. Take the longest gaps, one fewer than there are lines, and cut
-    // at the middle of each. Falling back to letter-count only when the audio
-    // does not show enough gaps to go round — which happens when two lines run
-    // together with no breath, and there is nothing to measure.
+    // SPLIT AT THE GAP NEAREST WHERE THE LINE SHOULD END — not at the longest.
+    //
+    // Taking the longest silence was wrong and measurably so. A block opening
+    // "Ugh, ..." pauses hard after the interjection, and that gap is longer
+    // than the one between the two spoken lines, so the split landed 1.2s in
+    // and gave the first line 1.2s and the second 15.7s. One line came out with
+    // 190 MILLISECONDS for a whole sentence. That is worse than the letter-count
+    // guess it replaced.
+    //
+    // Letter count is a decent PRIOR — it knows roughly where a line ends — and
+    // the measured gaps are the only FACTS about where the voice stopped. So
+    // estimate first, then snap to the nearest real gap, and only if one is
+    // close enough to be plausibly the same boundary.
     const needed = lines.length - 1;
-    const splits = blockGaps[i]
-      .slice()
-      .sort((a, b) => (b.endMs - b.startMs) - (a.endMs - a.startMs))
-      .slice(0, needed)
-      .map((g) => from + (g.startMs + g.endMs) / 2)
-      .sort((a, b) => a - b);
-    const measured = splits.length === needed;
+    const gapMids = blockGaps[i].map((g) => from + (g.startMs + g.endMs) / 2);
+    const tolerance = Math.max(700, span * 0.22);
+
+    const splits: number[] = [];
+    let running = 0;
+    for (let k = 0; k < needed; k++) {
+      running += Math.max(1, lines[k].text.length);
+      const estimate = from + span * (running / total);
+      let best = estimate;
+      let bestDist = tolerance;
+      for (const g of gapMids) {
+        // Must stay after the previous split, or two lines would overlap.
+        if (g <= (splits[k - 1] ?? from)) continue;
+        const d = Math.abs(g - estimate);
+        if (d < bestDist) { bestDist = d; best = g; }
+      }
+      splits.push(best);
+    }
 
     let cursor = from;
     lines.forEach((line, k) => {
-      const share = Math.max(1, line.text.length) / total;
       // The last line takes whatever is left, so rounding cannot leave a gap
       // or overrun the block it belongs to.
-      const end =
-        k === lines.length - 1
-          ? blockTiming[i].endMs
-          : measured
-            ? splits[k]
-            : cursor + span * share;
+      const end = k === lines.length - 1 ? blockTiming[i].endMs : splits[k];
       resolved.push({
         speakerId: line.speakerId,
         speakerLabel: line.speakerLabel,
@@ -121,5 +133,8 @@ export async function buildDramaboxNarration(
     filePath: outPath,
     segments: resolved,
     analysis: analyzeNarration(buffer, resolved, speakerOrder),
+    // Measured on the FINISHED track, so the positions are the ones the video
+    // will actually play. Subtitles and mouths are anchored to these.
+    pauses: findGaps(buffer, { minMs: 180 }).map((g) => (g.startMs + g.endMs) / 2),
   };
 }

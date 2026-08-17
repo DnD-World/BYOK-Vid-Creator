@@ -77,6 +77,7 @@ export interface RenderJob {
   visemeFadeMs?: number;
   idleMotion?: number;
   narrationSegments?: RenderProps["narrationSegments"];
+  narrationPauses?: number[];
   /** x264 quality, 0–51: lower is better and bigger. Absent means 23, which is
    *  x264's own default and the usual "visually transparent" mark. Exposed so
    *  a batch can trade size against quality per row — a social cut and an LMS
@@ -429,6 +430,7 @@ export async function renderVideo(
       visemeFadeMs: job.visemeFadeMs ?? 0,
       idleMotion: job.idleMotion ?? 0,
       narrationSegments: job.narrationSegments ?? [],
+      narrationPauses: job.narrationPauses ?? [],
     };
 
     const composition = await selectComposition({
