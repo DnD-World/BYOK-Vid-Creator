@@ -33,10 +33,7 @@ const INITIAL_DEFAULTS: BackendDefaults = {
   // updating until its python was killed by hand.
   piperPythonPath: "./piper-venv/Scripts/python.exe",
   piperVoicesDir: "./piper-voices",
-  chatterboxInstallPath: "",
-  chatterboxPort: 8004,
-  chatterboxExaggeration: 0.5,
-  chatterboxCfgWeight: 0.5,
+  voiceRefsDir: "./voice-refs",
 };
 
 export const useSettingsStore = create<SettingsState>()(

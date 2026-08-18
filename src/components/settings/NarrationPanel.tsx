@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
-import { useChatterboxVoicesStore } from "../../store/useChatterboxVoicesStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
 import { parseScript } from "../../lib/narration/parseScript";
 import { Slider } from "../ui/Slider";
@@ -19,10 +18,11 @@ interface NarrationResult {
 
 /**
  * The actual Phase 2 goal: turn a script into ONE combined narration audio
- * file using each speaker's assigned Chatterbox voice — not just a
- * standalone test-panel preview. Requires the Chatterbox server already
- * running (start it from Backend Settings first) and each speaker to have
- * a voice assigned below.
+ * file using each speaker's assigned Piper voice.
+ *
+ * THIS IS THE PIPER PATH. DramaBox does not synthesise here — it runs on a
+ * rented GPU, so the app's side of it is "Write DramaBox files…" below, which
+ * saves what that box reads.
  */
 export default function NarrationPanel() {
   const speakers = useProjectStore((s) => s.speakers);
@@ -35,17 +35,13 @@ export default function NarrationPanel() {
   const pauseSameMs = useProjectStore((s) => s.pauseSameMs);
   const pauseTurnMs = useProjectStore((s) => s.pauseTurnMs);
   const setPauses = useProjectStore((s) => s.setPauses);
-  const exaggeration = useSettingsStore((s) => s.defaults.chatterboxExaggeration);
-  const cfgWeight = useSettingsStore((s) => s.defaults.chatterboxCfgWeight);
   const piperPythonPath = useSettingsStore((s) => s.defaults.piperPythonPath);
   const piperVoices = useVoicesStore((s) => s.voices);
 
-  const predefinedVoices = useChatterboxVoicesStore((s) => s.predefinedVoices);
-  const referenceFiles = useChatterboxVoicesStore((s) => s.referenceFiles);
-  const serverRunning = useChatterboxVoicesStore((s) => s.serverRunning);
-
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  /** What the last "write DramaBox files" run did, said in full. */
+  const [blocksNote, setBlocksNote] = useState<string | null>(null);
   const [unmatchedLines, setUnmatchedLines] = useState<string[]>([]);
   const [result, setResult] = useState<NarrationResult | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -97,6 +93,39 @@ export default function NarrationPanel() {
     }
   };
 
+  /** Write the GPU box's two files for the current script and cast.
+   *
+   *  Everything a speaker carries goes with them — opening phrase, reference
+   *  clip, engine settings, whether the app may add expression. What it changed
+   *  is printed rather than left to be discovered in the audio. */
+  const writeBlocks = async () => {
+    setBlocksNote(null);
+    const dir = await window.byok.dialog.saveFile("blocks.json", [
+      { name: "JSON", extensions: ["json"] },
+    ]);
+    if (!dir) return;
+    const outDir = dir.replace(/[/\\][^/\\]*$/, "");
+
+    const res = await window.byok.dramabox.writeBlocks(
+      script,
+      speakers.map((s) => ({
+        id: s.id,
+        label: s.label,
+        openingPhrase: s.openingPhrase ?? s.label,
+        voiceRef: s.voiceRef,
+        dramabox: s.dramabox,
+        expression: s.expression,
+      })),
+      outDir
+    );
+
+    setBlocksNote(
+      res.ok
+        ? [`${res.count} blocks written to ${outDir}`, ...res.summary].join("\n")
+        : res.errors.join("\n")
+    );
+  };
+
   const generate = async () => {
     setGenerating(true);
     setGenError(null);
@@ -116,22 +145,13 @@ export default function NarrationPanel() {
     const missingVoice = segments.find((seg) => {
       const sp = speakerById.get(seg.speakerId);
       if (!sp) return true;
-      return (sp.ttsEngine ?? "chatterbox") === "piper"
-        ? !sp.voiceId
-        : !sp.chatterboxVoiceRef;
+      return !sp.voiceId;
     });
     if (missingVoice) {
-      const sp = speakerById.get(missingVoice.speakerId);
-      const engine = (sp?.ttsEngine ?? "chatterbox") === "piper" ? "Piper" : "Chatterbox";
-      setGenError(`Speaker "${missingVoice.speakerLabel}" has no ${engine} voice assigned below.`);
-      setGenerating(false);
-      return;
-    }
-
-    // Chatterbox needs its server up; Piper starts its own on demand, so a
-    // Piper-only script must not be blocked by a stopped Chatterbox.
-    if (!serverRunning && segments.some((seg) => (speakerById.get(seg.speakerId)?.ttsEngine ?? "chatterbox") === "chatterbox")) {
-      setGenError("Chatterbox server isn't running — start it in Backend Settings, or switch those speakers to Piper.");
+      setGenError(
+        `Speaker "${missingVoice.speakerLabel}" has no Piper voice assigned below. ` +
+          `This button is the Piper path — DramaBox voices are generated on the GPU box.`
+      );
       setGenerating(false);
       return;
     }
@@ -139,20 +159,14 @@ export default function NarrationPanel() {
     try {
       const resolvedSegments = segments.map((seg) => {
         const sp = speakerById.get(seg.speakerId)!;
-        const usePiper = (sp.ttsEngine ?? "chatterbox") === "piper";
         return {
           speakerId: seg.speakerId,
           speakerLabel: seg.speakerLabel,
           text: seg.text,
           language,
-          engine: usePiper ? ("piper" as const) : ("chatterbox" as const),
-          piperPythonPath: usePiper ? piperPythonPath : undefined,
-          piperOnnxPath: usePiper ? sp.voiceId : undefined,
-          voiceMode: sp.chatterboxVoiceMode ?? "predefined",
-          predefinedVoiceId: sp.chatterboxVoiceMode === "clone" ? undefined : sp.chatterboxVoiceRef,
-          referenceAudioFilename: sp.chatterboxVoiceMode === "clone" ? sp.chatterboxVoiceRef : undefined,
-          exaggeration,
-          cfgWeight,
+          engine: "piper" as const,
+          piperPythonPath,
+          piperOnnxPath: sp.voiceId,
         };
       });
 
@@ -189,13 +203,6 @@ export default function NarrationPanel() {
         segment's timing preserved for later subtitle/lip-sync work.
       </p>
 
-      {!serverRunning && speakers.some((sp) => (sp.ttsEngine ?? "chatterbox") === "chatterbox") && (
-        <p className="text-sm text-accent-bright border border-accent-deep/40 bg-accent-deep/10 px-3 py-2">
-          Chatterbox server isn't running — start it from Backend Settings, or set those
-          speakers to Piper, which needs no server of its own.
-        </p>
-      )}
-
       <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">
         <h3 className="label-lit text-sm">Speaker Voices</h3>
         {speakers.length === 0 && <p className="text-sm text-neutral-500">No speakers yet — add some from the left rail.</p>}
@@ -206,15 +213,15 @@ export default function NarrationPanel() {
             <Picker
               aria-label={`Voice engine for ${sp.label}`}
               className="min-w-[170px]"
-              value={sp.ttsEngine ?? "chatterbox"}
+              value={sp.ttsEngine ?? "dramabox"}
               options={[
+                { value: "dramabox", label: "DramaBox (acts)" },
                 { value: "piper", label: "Piper (fast)" },
-                { value: "chatterbox", label: "Chatterbox (quality)" },
               ]}
-              onChange={(v) => updateSpeaker(sp.id, { ttsEngine: v as "chatterbox" | "piper" })}
+              onChange={(v) => updateSpeaker(sp.id, { ttsEngine: v as "dramabox" | "piper" })}
             />
 
-            {(sp.ttsEngine ?? "chatterbox") === "piper" ? (
+            {(sp.ttsEngine ?? "dramabox") === "piper" ? (
               <Picker
                 aria-label={`Piper voice for ${sp.label}`}
                 className="flex-1 min-w-[160px]"
@@ -237,35 +244,11 @@ export default function NarrationPanel() {
                 onChange={(v) => updateSpeaker(sp.id, { voiceId: v || undefined })}
               />
             ) : (
-              <>
-                <Picker
-                  aria-label={`Chatterbox voice mode for ${sp.label}`}
-                  className="min-w-[140px]"
-                  value={sp.chatterboxVoiceMode ?? "predefined"}
-                  options={[
-                    { value: "predefined", label: "Predefined" },
-                    { value: "clone", label: "Clone" },
-                  ]}
-                  onChange={(v) =>
-                    updateSpeaker(sp.id, {
-                      chatterboxVoiceMode: v as "predefined" | "clone",
-                      chatterboxVoiceRef: undefined,
-                    })
-                  }
-                />
-                <Picker
-                  aria-label={`Chatterbox voice for ${sp.label}`}
-                  className="flex-1 min-w-[160px]"
-                  value={sp.chatterboxVoiceRef ?? ""}
-                  options={[
-                    { value: "", label: "No voice assigned" },
-                    ...(sp.chatterboxVoiceMode === "clone" ? referenceFiles : predefinedVoices).map(
-                      (v) => ({ value: v.id, label: v.label })
-                    ),
-                  ]}
-                  onChange={(v) => updateSpeaker(sp.id, { chatterboxVoiceRef: v || undefined })}
-                />
-              </>
+              <span className="flex-1 min-w-[160px] text-sm text-neutral-500">
+                {sp.voiceRef
+                  ? `Reference clip: ${sp.voiceRef}`
+                  : "No reference clip — set one in the Cast panel."}
+              </span>
             )}
           </div>
         ))}
@@ -365,6 +348,28 @@ export default function NarrationPanel() {
         {generating ? "Generating…" : "Generate Narration"}
       </button>
       {genError && <p className="text-sm text-red-400 whitespace-pre-wrap">{genError}</p>}
+
+      {/* DramaBox runs on a rented GPU, not here, so the app's job is to write
+          the two files that box reads — carrying each speaker's voice settings
+          with them. Until this existed those settings could not leave the app. */}
+      <div className="border-t border-accent/15 pt-4 space-y-2">
+        <button
+          onClick={writeBlocks}
+          disabled={!script.trim()}
+          className="btn cut-sm px-4 py-2 text-sm font-display font-semibold uppercase tracking-[0.1em] text-accent-bright disabled:opacity-40"
+        >
+          Write DramaBox files…
+        </button>
+        <p className="text-sm text-neutral-500">
+          Saves blocks.json and align.json for the GPU box, with each speaker's
+          voice settings and reference clip. Say what it changed before you send it.
+        </p>
+        {blocksNote && (
+          <pre className="text-sm text-neutral-400 whitespace-pre-wrap font-mono">
+            {blocksNote}
+          </pre>
+        )}
+      </div>
 
       {audioUrl && result && (
         <div className="border border-accent/25 bg-metal-800/60 p-4 space-y-3">

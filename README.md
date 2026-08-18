@@ -26,11 +26,17 @@ machine** via a bundled Remotion + FFmpeg pipeline.
 
 ## ✨ Features
 
-- 🎙️ **Multi-provider TTS** (BYOK): Azure Speech, Google Chirp 3 HD, Edge TTS
-- 👄 **Viseme lip-sync** — 9-shape mouth animation driven directly from TTS timing
+- 🎙️ **Two voice engines.** **DramaBox** acts — stage directions in the script
+  control the performance and never appear in the audio — and runs on a rented
+  GPU. **Piper** runs locally: correct, flat, and fast enough to check timing.
+- 🎚️ **Every voice knob, per character and per line.** Acting, pace, obedience
+  and ten more, on sliders. A `[VOICE: acting=2.4]` line in the script overrides
+  them for one block.
+- 👄 **Viseme lip-sync** — 9-shape mouth animation, driven by forced alignment
+  against the script rather than an estimate
 - 🧑‍🤝‍🧑 **Two-speaker avatars** — round disks, transparent backgrounds, drag/resize/snap
-- 📝 **Subtitle engine** — active-word glow + crisp stroke, full styling, SRT export
-- 🌊 **5 waveform styles** × 5 positions × 6 behavior modes (only active speakers animate)
+- 📝 **Subtitle engine** — word-level timing, active-word glow, SRT export
+- 🌊 **6 waveform styles** × 5 positions × 6 behavior modes (only active speakers animate)
 - 🎼 **Smart audio** — auto-ducking, Freesound/Pixabay library, pinned custom uploads
 - 🎞️ **AI background automation** — contextual stock clips with a Relevancy↔Frequency dial
 - 🖥️ **Local rendering** — Remotion + FFmpeg, up to 10-min videos, 9:16 & 16:9
@@ -49,10 +55,14 @@ npm run dev
 > Recommended specs: NVIDIA 8GB GPU · 32GB RAM · ~1 hr render / 10 min video.
 
 ## 🗺️ Roadmap
-- Google Drive export
-- ElevenLabs voices
-- Local neural voices (Piper / Coqui XTTS-v2, incl. voice cloning)
+- Batch production from a spreadsheet — one row per lesson
+- Rendering a series in one process, instead of paying browser startup per video
 - Expanded transition library
+
+**Not on the roadmap, decided:** Azure Speech, Edge TTS, ElevenLabs and
+Chatterbox. Every extra engine multiplies what can break, and DramaBox plus
+Piper cover expressive and fast. Chatterbox shipped and was removed in
+August 2026.
 
 ## 🤖 Built With AI
 This project was designed and engineered in collaboration with AI systems:

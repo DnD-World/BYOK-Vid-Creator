@@ -433,6 +433,46 @@ export async function renderVideo(
       narrationPauses: job.narrationPauses ?? [],
     };
 
+    // ASKED FOR, AND NEVER FORWARDED.
+    //
+    // This project's failure is not the crash. It is the render that reports
+    // success while quietly leaving something out, and it has happened four
+    // times: the spectrum 404, `backgroundBlur`, subtitle surfaces, and
+    // transitions. Every one was the same shape — a setting arrived on the job,
+    // nothing carried it into `inputProps`, and the composition drew a video
+    // that was subtly not the one that was asked for.
+    //
+    // A console message inside the composition cannot catch that class, because
+    // the composition never hears about the setting at all. So the check is
+    // here, where both sides are in scope: anything set on the job that is not
+    // in `inputProps` and is not consumed by this file is named out loud.
+    //
+    // Keeping this list current is the price. A new job field either reaches
+    // the composition or it is listed below as deliberately handled here —
+    // there is no third option that passes quietly.
+    const HANDLED_HERE = new Set([
+      "audioFilePath",      // copied in, forwarded as audioFileName
+      "musicFilePath",      // same
+      "speakers",           // sheets and puppets are copied in and rewritten
+      "sfx",                // copied in, rewritten to file names
+      "backgrounds",        // clips copied in, rewritten to file names
+      "subtitleFont",       // fetched and forwarded as files
+      "crf",                // encoder setting, never reaches the composition
+      "projectRoot",
+      "outputDir",
+      "outputName",
+      "jobId",
+    ]);
+    for (const [key, value] of Object.entries(job)) {
+      if (value === undefined || value === null) continue;
+      if (key in inputProps) continue;
+      if (HANDLED_HERE.has(key)) continue;
+      warnings.push(
+        `[byok] the render was given "${key}" and nothing carried it into the ` +
+          `composition — it had NO EFFECT on this video.`
+      );
+    }
+
     const composition = await selectComposition({
       serveUrl,
       id: COMPOSITION_ID,

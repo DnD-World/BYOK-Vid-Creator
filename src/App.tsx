@@ -19,7 +19,6 @@ import { buildTracks } from "./lib/waveform/buildTracks";
 import BackendPanel from "./components/settings/BackendPanel";
 import NarrationPanel from "./components/settings/NarrationPanel";
 import { useProjectStore } from "./store/useProjectStore";
-import { useChatterboxVoicesStore } from "./store/useChatterboxVoicesStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { deriveAccentShades, rgbTripleToHex } from "./lib/color/deriveShades";
 import { headMotion, motionTransform } from "./lib/motion/idleMotion";
@@ -293,32 +292,6 @@ export default function App() {
     });
   }, []);
 
-  // Keep the Chatterbox status honest.
-  //
-  // It was reported once, when Start Server succeeded, and then believed
-  // forever. The server does not last forever: in dev every main-process edit
-  // restarts Electron and kills the child it spawned, and in a packaged build
-  // a crash or an out-of-memory does the same. The panel went on showing
-  // "running ✓" over a server that had been gone for an hour, and everything
-  // failed with "failed to fetch" against a green tick — which sends you
-  // looking at the network, the port, the install, anywhere except the one
-  // true cause.
-  //
-  // Twelve seconds is one localhost ping; the voice lists are only re-fetched
-  // when the answer actually changes. Also on window focus, because coming
-  // back to the app after leaving it running is exactly when it will have died
-  // without anyone watching.
-  const refreshChatterbox = useChatterboxVoicesStore((s) => s.refresh);
-  useEffect(() => {
-    void refreshChatterbox();
-    const id = window.setInterval(() => void refreshChatterbox(), 12000);
-    const onFocus = () => void refreshChatterbox();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [refreshChatterbox]);
 
   // The grain is ambient motion, so it answers to the app's own motion toggle
   // as well as to prefers-reduced-motion.

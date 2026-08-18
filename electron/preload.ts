@@ -73,6 +73,21 @@ const api = {
       ipcRenderer.invoke("storage:writeFile", filePath, data),
   },
 
+  dramabox: {
+    /** Write blocks.json and align.json for the current script and cast.
+     *  The settings on each speaker travel with them. */
+    writeBlocks: (
+      scriptText: string,
+      speakers: unknown[],
+      outDir: string
+    ): Promise<{
+      ok: boolean;
+      errors: string[];
+      count?: number;
+      summary: string[];
+    }> => ipcRenderer.invoke("dramabox:writeBlocks", scriptText, speakers, outDir),
+  },
+
   render: {
     start: (
       job: unknown
@@ -98,39 +113,13 @@ const api = {
     ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
       ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text),
 
-    chatterbox: {
-      ensureRunning: (cfg: { installPath: string; port: number }): Promise<boolean> =>
-        ipcRenderer.invoke("tts:chatterboxEnsureRunning", cfg),
-      isRunning: (): Promise<boolean> => ipcRenderer.invoke("tts:chatterboxIsRunning"),
-      listPredefinedVoices: (): Promise<{ id: string; label: string }[]> =>
-        ipcRenderer.invoke("tts:chatterboxListPredefinedVoices"),
-      listReferenceAudio: (): Promise<{ id: string; label: string }[]> =>
-        ipcRenderer.invoke("tts:chatterboxListReferenceAudio"),
-      synthesize: (opts: {
-        text: string;
-        language: string;
-        voiceMode: "predefined" | "clone";
-        predefinedVoiceId?: string;
-        referenceAudioFilename?: string;
-        seed?: number;
-        exaggeration?: number;
-        cfgWeight?: number;
-      }): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
-        ipcRenderer.invoke("tts:chatterboxSynthesize", opts),
-    },
-
     generateNarration: (
       segments: {
         speakerId: string;
         speakerLabel: string;
         text: string;
         language: string;
-        voiceMode: "predefined" | "clone";
-        predefinedVoiceId?: string;
-        referenceAudioFilename?: string;
-        exaggeration?: number;
-        cfgWeight?: number;
-        engine?: "chatterbox" | "piper";
+        engine?: "piper";
         piperPythonPath?: string;
         piperOnnxPath?: string;
       }[],

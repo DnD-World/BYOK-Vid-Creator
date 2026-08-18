@@ -27,6 +27,7 @@ import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
 import { trimSilence, squeezeSilence, findGaps, remapTime } from "../audio/trimSilence";
 import { wavDurationMs } from "./wavUtils";
+import { displayLine, displayWord } from "../../src/lib/narration/displayText";
 import type { BuiltNarration, NarrationPauses } from "./buildNarration";
 import type { ScriptSegment } from "../../src/lib/narration/parseScript";
 
@@ -103,7 +104,11 @@ export async function buildDramaboxNarration(
         if (w + count > alignedWords.length) { ok = false; break; }
         perLine.push(
           alignedWords.slice(w, w + count).map((x) => ({
-            text: x.w,
+            // SAID IN ENGLISH, SHOWN IN GREEK. The aligner measured the word
+            // the audio actually pronounced — "Ugh" — because that is the only
+            // spelling that makes the sound. The subtitle shows «Ουφ». One
+            // word for one word, after the times are known, so nothing shifts.
+            text: displayWord(x.w),
             // ALIGNMENT MEASURED THE RAW TAKE; THE VIDEO PLAYS THE TRIMMED
             // ONE. Up to 3.7 seconds comes off the front of a block and more
             // out of its middle, so a raw timestamp is between one and two
@@ -140,7 +145,7 @@ export async function buildDramaboxNarration(
           resolved.push({
             speakerId: line.speakerId,
             speakerLabel: line.speakerLabel,
-            text: line.text,
+            text: displayLine(line.text),
             startMs: ws[0].startMs,
             endMs: ws[ws.length - 1].endMs,
             words: ws,
@@ -181,7 +186,7 @@ export async function buildDramaboxNarration(
       resolved.push({
         speakerId: line.speakerId,
         speakerLabel: line.speakerLabel,
-        text: line.text,
+        text: displayLine(line.text),
         startMs: Math.round(cursor),
         endMs: Math.round(end),
       });

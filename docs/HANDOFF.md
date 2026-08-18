@@ -1,4 +1,4 @@
-# Handoff — 15 Aug 2026
+# Handoff — 18 Aug 2026
 
 Everything a fresh session needs. `PLAN.md` holds the long history; this is the
 working state.
@@ -50,17 +50,19 @@ disagree, that is a bug, not a variant.
 
 ## Voices — DramaBox
 
-**Decided and proven.** Chatterbox was tried, rejected, and uninstalled.
+**Decided and proven.** Chatterbox was tried, rejected, and removed from the
+code on 18 Aug 2026 — two engines, not three.
 
 - Open weights, Resemble AI. **Prompt-driven**: stage directions control the
   acting and never appear in the audio.
 - **Will not run locally** — ~24 GB VRAM against an 8 GB laptop 3070.
 - Runs on a **GCP L4** (24 GB, the cheapest card that clears it).
   Measured: **8.5 s per generation**, ~3.4× slower than the documented H100.
-- **Greek is NOT a supported language.** The official docs say English only.
-  The Greek test here reported `OK`, which means a file was produced — nobody
-  has listened to it. **Audition it before writing 72 lessons**; see
-  `docs/DRAMABOX.md`. Piper is the fallback: correct and flat.
+- **Greek is not a documented language** — the official docs say English only —
+  **and it works.** Auditioned by ear, then used for the whole of lesson 101.1.
+  Piper remains the fallback: correct and flat.
+- **Noises must be spelled the English way.** `Χαχαχα` produced no laugh at all
+  in a finished lesson; `Hahaha` does. The subtitle shows the Greek.
 
 ### The instance
 
@@ -86,13 +88,40 @@ full_checkpoint → dramabox-audio-components.safetensors
 gemma_root      → unsloth/gemma-3-12b-it-bnb-4bit, read from $GEMMA_DIR
 ```
 
-### Blocked on
+### The clips exist — unblocked 17 Aug 2026
 
-**Three reference clips** — `kaiti.wav`, `serifis.wav`, `tsika.wav`. Ak is making
-them in Voicemod. Spec in `docs/HANDOFF-VOICE-CLIPS.md`. Rule: **record the
-voice, not the mood** — timbre comes from the clip, acting from the prompt.
+`voice-refs/` holds `kaiti.wav`, `serifis.wav`, `tsika.wav` and a fourth,
+`kaiti-babytalk.wav`, for the voice she uses on Τσίκα. Spec in
+`docs/HANDOFF-VOICE-CLIPS.md`. Rule: **record the voice, not the mood** — timbre
+comes from the clip, acting from the prompt.
 
-Nothing DramaBox-related can be finished until those exist.
+Lesson 101.1 was narrated with them end to end: 24 blocks generated, forced
+aligned, word times remapped through the silence cuts, rendered.
+
+### Every knob is reachable — 18 Aug 2026
+
+The engine's settings used to be literals inside `tools/dramabox-render-blocks.py`,
+which meant one setting for the whole cast. They are now **per character and per
+block**:
+
+| Where | How |
+|---|---|
+| `src/lib/narration/dramaboxParams.ts` | The one list. The Cast panel builds its controls from it, so a knob added here appears in the app. |
+| Cast panel → "DramaBox — this voice" | Thirteen controls, plus the reference clip and opening phrase. |
+| `[VOICE: acting=2.4 pace=0.9]` in a script | That block only. Beats the character's setting. |
+| Narration panel → "Write DramaBox files…" | Writes `blocks.json` and `align.json` from the current project. |
+| `tools/make-blocks.mjs job.json` | The same, from a job file. Shares `buildBlocks.ts` with the button. |
+
+**Watermark is OFF** (18 Aug 2026). Resemble Perth is inaudible and carries no
+custom payload — it cannot say the audio is ours, so it has nothing to do for us.
+
+**Said in English, shown in Greek.** Laughs only fire from English spellings
+(`Hahaha`), so the script carries those and the subtitle shows «Χαχαχα».
+`src/lib/narration/displayText.ts`; the aligner is given the spoken form.
+
+**The app may add expression a script was written without** — a flat "speaks"
+lifted, a promised laugh spelled so it is actually heard. Off unless asked for,
+and every change is printed before anything is generated.
 
 ---
 
@@ -137,70 +166,29 @@ definition, so a superellipse drawn with arcs stays round.
 
 ## Open, in the order I would take them
 
-1. **Make the render say what it could not apply.** The failure mode here is
-   never a crash — it is a render reporting success while quietly leaving
-   something out. It has happened four times (the spectrum 404,
-   `backgroundBlur`, subtitle surfaces, transitions) and a fifth would put a
-   subtly wrong video in front of a student. `onBrowserLog` carries exactly one
-   message today. Ak raised this as his stability worry and it is the answer to
-   it.
-2. **Remote narration step** — script and clips up to the L4, WAVs and timings
-   back. `buildNarration` is the seam.
-
-   **It must not be line-by-line, and the current code is.** `buildNarration`
-   synthesises one segment per call and concatenates with fixed pauses. That is
-   right for Piper, which is a line reader with no context to lose, and it is
-   wrong for DramaBox. The repo's own working test prompt is a whole scene —
-   two characters, the acting carried by prose around the quoted speech, one
-   generation:
-
-   ```
-   A furious mother-in-law slams a wooden spoon onto the counter and shouts,
-   "Ίντα πράμα είναι δαύτο που μας έφκιαξες;"
-   Her daughter-in-law inhales shakily, fighting tears, and answers quietly,
-   "Έκανα ό,τι καλύτερο μπορούσα... Δεν είναι τόσο χάλια."
-   ```
-
-   Fed single lines it cannot build a performance across a turn, and the
-   timing between two characters becomes our fixed `pauseTurnMs` rather than
-   acting. Ak raised this; it is not a detail.
-
-   **What makes line-by-line tempting is that it hands us per-segment timings
-   for free**, and visemes, subtitles and the active-speaker gate all need
-   them. Generating a scene in one pass loses that — so the timings have to be
-   recovered by aligning the returned audio against the script we already
-   know. That was the original plan (whisperX, in `handoff 1.md`) and it buys
-   better subtitles too: word-level timing instead of per-line.
-
-   **But not a whole scene either — the official docs say one speaker per
-   prompt.** I proposed scene-level generation on the strength of that test
-   prompt, which has two characters in one string; the test only reports
-   whether it crashed. See `docs/DRAMABOX.md`.
-
-   So the unit is a **SPEAKER RUN**: consecutive lines by one character, joined
-   into one prompt, capped near **85 spoken words** (~37s, the model's own
-   chunk target; its hard ceiling is 45s and it was trained on 20s clips). The
-   turn-to-turn pause stays ours, because a turn boundary is now a boundary
-   between generations.
-
-   The script format does not change — a line's `[direction]` becomes the prose
-   around its quoted speech.
-
-   **Read `docs/DRAMABOX.md` before touching this.** It also carries the
-   biggest open risk in the project: DramaBox is documented as English only.
-3. **Rip out Chatterbox** — `chatterboxEngine.ts`, the engine enum, settings and
-   test panels. Dead weight; remove before DramaBox lands so there are two
-   engines, not three.
-4. **Batch spreadsheet** — CSV → queue on the existing runner. One row per
+1. **Audition the voice settings by ear.** The presets — "Bigger performance",
+   "Fast and bright" — are plausible numbers nobody has listened to. One GPU
+   session settles all three characters. **Ak only; I cannot judge audio.**
+2. **Re-run four blocks of lesson 101.1.** Blocks 000, 003, 008 and 022 still
+   say `Ουφ`, `Χεχε`, `Χαχαχα` and `Μμμμ` in Greek letters, which make no sound.
+   The script is fixed; the audio is one revision behind it.
+3. **Batch spreadsheet** — CSV → queue on the existing runner. One row per
    lesson; a row carries a finished script, a topic, or a URL.
-5. **Render a series in one process.** 72 short videos pay bundle+browser startup
+4. **Render a series in one process.** 72 short videos pay bundle+browser startup
    72 times — about 50 minutes of pure setup.
+5. **The GPU round trip is still by hand** — files up, run the script, WAVs
+   back, run the aligner. The app writes the files now; nothing drives the box.
 6. Narration-cache eviction; preview has no audio at all.
 
-**Done since this list was written:** the blink is a crossfade (it was a
-three-state step function inside 3½ frames, which is what "a bit choppy"
-was); the `ribbon` style; and the four lab styles that had no way to be
-selected.
+**Done 18 Aug 2026:** every engine knob reachable per character and per block;
+the app writes `blocks.json` and `align.json` itself; English spellings shown as
+Greek in subtitles; Chatterbox removed; and the render now names any setting it
+was given but could not apply.
+
+**Done before that:** the blink is a crossfade (it was a three-state step
+function inside 3½ frames, which is what "a bit choppy" was); the `ribbon`
+style; the four lab styles that had no way to be selected; generation per
+speaker turn rather than per line; and forced alignment for word-level timing.
 
 ---
 

@@ -1,3 +1,6 @@
+import type { DramaboxParams } from "../lib/narration/dramaboxParams";
+import type { ExpressionOptions } from "../lib/narration/expression";
+
 export type AspectRatio = "9:16" | "16:9";
 export type Engine = "remotion" | "ffmpeg";
 export type Fps = 10 | 24 | 30;
@@ -209,6 +212,18 @@ export interface SubtitleConfig {
 export interface SpeakerConfig {
   id: string;
   label: string;         // "Male Dog" / "Female"
+  /** The phrase this character's script blocks open with — "A grave man".
+   *  How a block finds its voice; see parseDramaboxScript. */
+  openingPhrase?: string;
+  /** File name of their DramaBox reference clip — "tsika.wav". */
+  voiceRef?: string;
+  /** Engine settings for this voice, and ONLY what has been changed from the
+   *  defaults. Storing the whole set would freeze today's defaults into every
+   *  project saved today. See src/lib/narration/dramaboxParams.ts. */
+  dramabox?: Partial<DramaboxParams>;
+  /** Whether the app may add expression this character's lines were written
+   *  without — a flat verb lifted, a laugh spelled so it is actually heard. */
+  expression?: ExpressionOptions;
   /** Absolute path on disk to the 3072x3072 viseme sheet — the source of truth,
    *  and what templates save. Deliberately NOT directly loadable by either
    *  renderer: the preview turns it into a blob URL over IPC, and the render
@@ -253,12 +268,16 @@ export interface SpeakerConfig {
   // resolution-independent: preview and render each multiply by their own
   // width and agree by construction.
   size: number;
-  /** Which engine speaks this speaker's lines. Per-speaker, not global, so a
-   *  fast Piper voice and a cloned Chatterbox voice can share one script. */
-  ttsEngine?: "chatterbox" | "piper";
-  voiceId?: string;      // assigned Piper voice's onnxPath, if any (test-tier engine)
-  chatterboxVoiceMode?: "predefined" | "clone"; // production-tier engine voice assignment
-  chatterboxVoiceRef?: string; // predefined_voice_id or reference_audio_filename, depending on mode above
+  /** Which engine speaks this speaker's lines.
+   *
+   *  Two engines, not three. Chatterbox was tried, rejected and removed on
+   *  18 Aug 2026 — every extra engine multiplies what can break, and it was
+   *  doing nothing DramaBox or Piper does not do better.
+   *
+   *  `dramabox` generates on a rented GPU rather than here, so the app writes
+   *  its two files and the audio comes back as WAVs; `piper` runs locally. */
+  ttsEngine?: "dramabox" | "piper";
+  voiceId?: string;      // assigned Piper voice's onnxPath, if any
 }
 
 /** Per-band spectrum for every analysis frame — the data that lets bars move

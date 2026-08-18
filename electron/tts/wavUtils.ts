@@ -2,8 +2,9 @@
  * Minimal PCM WAV header parser — enough to get exact playback duration
  * without depending on ffprobe or any external binary. Walks RIFF chunks
  * rather than assuming a fixed 44-byte header, since not every encoder
- * places "data" immediately after "fmt ". Shared by every TTS engine
- * (Piper, Chatterbox) so there's one implementation to maintain.
+ * places "data" immediately after "fmt ". Shared by every source of audio —
+ * Piper here, DramaBox's WAVs coming back from the GPU box — so there is one
+ * implementation to maintain.
  */
 export function wavDurationMs(buf: Buffer): number {
   const numChannels = buf.readUInt16LE(22);

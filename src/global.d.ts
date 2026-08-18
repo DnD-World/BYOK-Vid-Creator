@@ -139,6 +139,20 @@ declare global {
         readFile: (filePath: string) => Promise<ArrayBuffer>;
         writeFile: (filePath: string, data: ArrayBuffer) => Promise<boolean>;
       };
+      dramabox: {
+        /** Write blocks.json and align.json for a script and cast, carrying
+         *  each speaker's voice settings with them. */
+        writeBlocks: (
+          scriptText: string,
+          speakers: unknown[],
+          outDir: string
+        ) => Promise<{
+          ok: boolean;
+          errors: string[];
+          count?: number;
+          summary: string[];
+        }>;
+      };
       render: {
         start: (
           job: unknown
@@ -163,34 +177,13 @@ declare global {
           onnxPath: string,
           text: string
         ) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
-        chatterbox: {
-          ensureRunning: (cfg: { installPath: string; port: number }) => Promise<boolean>;
-          isRunning: () => Promise<boolean>;
-          listPredefinedVoices: () => Promise<{ id: string; label: string }[]>;
-          listReferenceAudio: () => Promise<{ id: string; label: string }[]>;
-          synthesize: (opts: {
-            text: string;
-            language: string;
-            voiceMode: "predefined" | "clone";
-            predefinedVoiceId?: string;
-            referenceAudioFilename?: string;
-            seed?: number;
-            exaggeration?: number;
-            cfgWeight?: number;
-          }) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
-        };
         generateNarration: (
           segments: {
             speakerId: string;
             speakerLabel: string;
             text: string;
             language: string;
-            voiceMode: "predefined" | "clone";
-            predefinedVoiceId?: string;
-            referenceAudioFilename?: string;
-            exaggeration?: number;
-            cfgWeight?: number;
-            engine?: "chatterbox" | "piper";
+            engine?: "piper";
             piperPythonPath?: string;
             piperOnnxPath?: string;
           }[],

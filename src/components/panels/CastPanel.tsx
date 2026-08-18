@@ -17,6 +17,7 @@ import { HudButton } from "../ui/HudButton";
 import { Slider } from "../ui/Slider";
 import { Tabs } from "../ui/Tabs";
 import { WaveformControls } from "./WaveformControls";
+import { VoiceControls } from "./VoiceControls";
 import { SfxPanel } from "./SfxPanel";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useVoicesStore } from "../../store/useVoicesStore";
@@ -525,16 +526,16 @@ export function CastPanel() {
               <Picker
                 aria-label="Voice engine"
                 className="w-full"
-                value={speaker.ttsEngine ?? "chatterbox"}
+                value={speaker.ttsEngine ?? "dramabox"}
                 options={[
-                  { value: "piper", label: "Piper — fast, local" },
-                  { value: "chatterbox", label: "Chatterbox — higher quality" },
+                  { value: "dramabox", label: "DramaBox — acts, runs on the GPU box" },
+                  { value: "piper", label: "Piper — fast, local, flat" },
                 ]}
                 onChange={(v) =>
-                  updateSpeaker(speaker.id, { ttsEngine: v as "chatterbox" | "piper" })
+                  updateSpeaker(speaker.id, { ttsEngine: v as "dramabox" | "piper" })
                 }
               />
-              {(speaker.ttsEngine ?? "chatterbox") === "piper" && (
+              {(speaker.ttsEngine ?? "dramabox") === "piper" && (
                 <Picker
                   aria-label="Piper voice"
                   className="w-full"
@@ -558,8 +559,49 @@ export function CastPanel() {
                 />
               )}
               <p className="text-sm text-neutral-500">
-                Chatterbox voices are assigned in the Narration tab.
+                DramaBox voices come from the reference clip below, and the
+                audio is generated on the GPU box — write its files from the
+                Narration tab.
               </p>
+            </section>
+
+            {/* Every DramaBox knob, per character. These used to be literals in
+                a Python file on the GPU box, which meant one setting for the
+                whole cast and no way to see what it was. */}
+            <section className="space-y-3">
+              <div className="label-etched">DramaBox — this voice</div>
+              <label className="block">
+                <span className="label-etched text-sm">Opens their blocks with</span>
+                <input
+                  type="text"
+                  className="w-full mt-1 bg-black/30 border border-accent/20 rounded px-2 py-1 text-sm"
+                  placeholder="A grave man"
+                  value={speaker.openingPhrase ?? ""}
+                  onChange={(e) =>
+                    updateSpeaker(speaker.id, { openingPhrase: e.target.value || undefined })
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="label-etched text-sm">Reference clip</span>
+                <input
+                  type="text"
+                  className="w-full mt-1 bg-black/30 border border-accent/20 rounded px-2 py-1 text-sm"
+                  placeholder="kaiti.wav"
+                  value={speaker.voiceRef ?? ""}
+                  onChange={(e) =>
+                    updateSpeaker(speaker.id, { voiceRef: e.target.value || undefined })
+                  }
+                />
+              </label>
+              <VoiceControls
+                value={speaker.dramabox ?? {}}
+                onChange={(dramabox) => updateSpeaker(speaker.id, { dramabox })}
+                expression={speaker.expression ?? {}}
+                onExpressionChange={(expression) =>
+                  updateSpeaker(speaker.id, { expression })
+                }
+              />
             </section>
 
           </>

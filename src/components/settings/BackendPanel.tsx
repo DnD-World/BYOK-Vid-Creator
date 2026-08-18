@@ -3,7 +3,6 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { Toggle } from "../ui/Toggle";
 import { HudButton } from "../ui/HudButton";
 import TtsTestPanel from "./TtsTestPanel";
-import ChatterboxTestPanel from "./ChatterboxTestPanel";
 
 // Every provider carries its own plain-English explanation and a direct link
 // to the page that issues the key. The `access` field is the important one:
@@ -303,15 +302,16 @@ export default function BackendPanel() {
       <div className="border border-accent/25 bg-metal-800/60 p-4">
         <h3 className="label-lit text-sm mb-2">Voice Engines — no API key needed</h3>
         <p className="text-sm">
-          Chatterbox and Piper run entirely on your own machine, so there's
-          nothing to sign up for and nothing to paste. What they ask for below
-          are <em>folder paths</em> on this computer — where you installed them —
-          not keys. Chatterbox is the quality voice; Piper is the fast one for
-          quick tests.
+          Piper runs entirely on your own machine, so there's nothing to sign up
+          for and nothing to paste. What it asks for below are{" "}
+          <em>folder paths</em> on this computer — where you installed it — not
+          keys. Piper is the fast local voice, correct and flat, and it is right
+          for checking timing. DramaBox is the one that acts, and it generates on
+          a rented GPU rather than here — the app writes its files from the
+          Narration tab.
         </p>
       </div>
 
-      <ChatterboxTestPanel />
 
       <TtsTestPanel />
     </div>

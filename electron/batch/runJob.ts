@@ -24,6 +24,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { parseDramaboxScript } from "../../src/lib/narration/parseDramaboxScript";
+import type { DramaboxParams } from "../../src/lib/narration/dramaboxParams";
+import type { ExpressionOptions } from "../../src/lib/narration/expression";
 import { checkScript } from "../tts/checkScript";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
@@ -64,11 +66,23 @@ export interface JobSpeaker {
    *  are given — the same precedence the preview and the render already use. */
   sheetPath?: string;
   puppetPath?: string;
-  engine: "piper" | "chatterbox";
+  engine: "piper" | "dramabox";
   piperPythonPath?: string;
   piperOnnxPath?: string;
-  chatterboxVoiceMode?: "predefined" | "clone";
-  chatterboxVoiceRef?: string;
+  /** File name of this character's DramaBox reference clip — "tsika.wav".
+   *  Read by tools/make-blocks.mjs; the clip itself lives in voice-refs/. */
+  voiceRef?: string;
+  /** Engine settings for THIS character. Everything omitted falls back to
+   *  DRAMABOX_DEFAULTS. A `[VOICE: …]` line in the script overrides these for
+   *  one block.
+   *
+   *  These exist because a cast is not one voice: Τσίκα wants more
+   *  expressiveness and less time per word than Σερίφης, and until this field
+   *  existed there was nowhere to say so. */
+  dramabox?: Partial<DramaboxParams>;
+  /** Whether the app may add expression this character's lines were written
+   *  without. Off unless asked for, and every change it makes is reported. */
+  expression?: ExpressionOptions;
   /** Outline and waveform colour — they are the same value by construction. */
   borderColor?: string;
 }
@@ -245,8 +259,6 @@ export async function runBatchJob(
       size: s?.size ?? fromPreset?.size ?? 0.34,
       ttsEngine: c.engine,
       voiceId: c.piperOnnxPath,
-      chatterboxVoiceMode: c.chatterboxVoiceMode,
-      chatterboxVoiceRef: c.chatterboxVoiceRef,
     } as SpeakerConfig;
   });
 
@@ -335,14 +347,9 @@ export async function runBatchJob(
       speakerLabel: seg.speakerLabel,
       text: seg.text,
       language,
-      engine: c.engine,
+      engine: "piper" as const,
       piperPythonPath: c.piperPythonPath,
       piperOnnxPath: c.piperOnnxPath,
-      voiceMode: c.chatterboxVoiceMode,
-      predefinedVoiceId:
-        c.chatterboxVoiceMode === "predefined" ? c.chatterboxVoiceRef : undefined,
-      referenceAudioFilename:
-        c.chatterboxVoiceMode === "clone" ? c.chatterboxVoiceRef : undefined,
     } as NarrationInput;
   });
 

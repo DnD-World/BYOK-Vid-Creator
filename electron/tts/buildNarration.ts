@@ -16,21 +16,27 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { synthesizeWithPiper } from "./piperEngine";
-import * as chatterbox from "./chatterboxEngine";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
 import { trimSilence, squeezeSilence } from "../audio/trimSilence";
+import { displayLine } from "../../src/lib/narration/displayText";
 
 /** One line of script, with its speaker's voice already resolved.
  *
- *  Piper and Chatterbox can be mixed within one script — the engine is a
- *  per-speaker choice, so a fast Piper voice and a cloned Chatterbox voice can
- *  appear in the same narration. */
-export type NarrationInput = chatterbox.NarrationSegmentInput & {
-  engine?: "chatterbox" | "piper";
+ *  THIS IS THE PIPER PATH ONLY. DramaBox does not synthesise here — it runs on
+ *  a rented GPU, and the app's side of it is writing the two files that box
+ *  reads (`buildBlocks.ts`) and assembling the WAVs that come back
+ *  (`buildDramaboxNarration.ts`). Chatterbox, the third engine, was removed on
+ *  18 Aug 2026. */
+export interface NarrationInput {
+  speakerId: string;
+  speakerLabel: string;
+  text: string;
+  language: string;
+  engine?: "piper";
   piperPythonPath?: string;
   piperOnnxPath?: string;
-};
+}
 
 export interface NarrationPauses {
   /** Between two lines by the same speaker — a breath. */
@@ -82,11 +88,6 @@ function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): stri
       s.engine,
       s.piperOnnxPath,
       s.language,
-      s.voiceMode,
-      s.predefinedVoiceId,
-      s.referenceAudioFilename,
-      s.exaggeration,
-      s.cfgWeight,
     ]),
     pauses.sameMs,
     pauses.turnMs,
@@ -161,30 +162,17 @@ export async function buildNarration(
 
   const buffers: Buffer[] = [];
   for (const seg of segments) {
-    if (seg.engine === "piper") {
-      if (!seg.piperPythonPath || !seg.piperOnnxPath) {
-        throw new Error(
-          `Speaker "${seg.speakerLabel}" is set to Piper but has no voice selected — pick one in the left rail.`
-        );
-      }
-      const { audioBuffer } = await synthesizeWithPiper(
-        seg.piperPythonPath,
-        seg.piperOnnxPath,
-        seg.text
+    if (!seg.piperPythonPath || !seg.piperOnnxPath) {
+      throw new Error(
+        `Speaker "${seg.speakerLabel}" has no Piper voice selected — pick one in the left rail. ` +
+          `DramaBox voices are not synthesised here: write its files from the Narration tab.`
       );
-      buffers.push(trimmed(Buffer.from(audioBuffer)));
-      continue;
     }
-
-    const { audioBuffer } = await chatterbox.synthesize({
-      text: seg.text,
-      language: seg.language,
-      voiceMode: seg.voiceMode,
-      predefinedVoiceId: seg.predefinedVoiceId,
-      referenceAudioFilename: seg.referenceAudioFilename,
-      exaggeration: seg.exaggeration,
-      cfgWeight: seg.cfgWeight,
-    });
+    const { audioBuffer } = await synthesizeWithPiper(
+      seg.piperPythonPath,
+      seg.piperOnnxPath,
+      seg.text
+    );
     buffers.push(trimmed(Buffer.from(audioBuffer)));
   }
 
@@ -203,7 +191,12 @@ export async function buildNarration(
   const resolved = segments.map((seg, i) => ({
     speakerId: seg.speakerId,
     speakerLabel: seg.speakerLabel,
-    text: seg.text,
+    // SAID ONE WAY, SHOWN ANOTHER — the same rule the DramaBox path follows.
+    // These engines are handed the text above and say it literally, so a script
+    // written with "Hahaha" is spoken as written whichever engine reads it. The
+    // subtitle should still say «Χαχαχα». Applied here, after synthesis, so it
+    // can never change what was spoken.
+    text: displayLine(seg.text),
     startMs: timing[i].startMs,
     endMs: timing[i].endMs,
   }));

@@ -128,7 +128,7 @@ export function spawnTracked(
  * Kill everything this session started. Safe to call more than once, and safe
  * to call when nothing is running.
  *
- * `onBeforeKill` is where a graceful goodbye goes — Chatterbox releasing the
+ * `onBeforeKill` is where a graceful goodbye goes — a server releasing the
  * card's memory, for instance. It is given a time limit because a hung server
  * must not be the reason the app cannot close; if it does not answer we take
  * the tree down anyway, which frees the memory the slower way.
