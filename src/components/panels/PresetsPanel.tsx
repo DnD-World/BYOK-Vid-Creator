@@ -17,6 +17,7 @@ import { useProjectStore } from "../../store/useProjectStore";
 import { useTemplatesStore } from "../../store/useTemplatesStore";
 import type { ProjectPreset } from "../../store/templatesTypes";
 import { builtinPresets } from "../../store/builtinPresets";
+import { migrateSurface } from "../../store/types";
 
 
 export function PresetsPanel() {
@@ -90,9 +91,23 @@ export function PresetsPanel() {
     );
   };
 
+  /** The look as it stands, ready to save.
+   *
+   *  SLOTS, NOT SPEAKERS. Saving whole speakers put each character's face and
+   *  voice inside the preset, so loading it swapped your cast for the one that
+   *  happened to be on screen when the look was saved. A look is where people
+   *  stand and how they are dressed; who they are is the project's business. */
   const currentPreset = (): Omit<ProjectPreset, "savedAt"> => ({
-    render, fps, speakers, musicWaveform, musicColor, subtitles,
+    render, fps, musicWaveform, musicColor, subtitles,
     backgroundDim, backgroundCrossfadeMs,
+    slots: speakers.map((sp) => ({
+      x: sp.x,
+      y: sp.y,
+      size: sp.size,
+      outlineShape: sp.outlineShape,
+      surface: migrateSurface(sp),
+      waveform: sp.waveform,
+    })),
   });
 
   const exportPreset = async () => {

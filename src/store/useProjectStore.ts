@@ -11,7 +11,7 @@ import {
   BackgroundScene,
   SfxClip,
 } from "./types";
-import type { ProjectPreset } from "./templatesTypes";
+import type { ProjectPreset, SpeakerSlot } from "./templatesTypes";
 import { defaultProject } from "./defaults";
 import { defaultTrackWaveform } from "../lib/waveform/buildTracks";
 
@@ -27,6 +27,34 @@ const LEGACY_AUTHORED_WIDTH = 560;
 /** Brings a speaker from any older preset up to the current shape: pixel sizes
  *  become fractions, and speakers saved before waveforms moved onto them get a
  *  default one rather than crashing the renderer with an undefined config. */
+/** Put a preset's layout onto the speakers that already exist.
+ *
+ *  Order is position: the first slot dresses the first speaker. A preset for
+ *  fewer speakers than the cast leaves the extras alone rather than piling them
+ *  on top of each other. */
+function applySlots(
+  current: SpeakerConfig[],
+  snap: { slots?: SpeakerSlot[]; speakers?: SpeakerConfig[] }
+): SpeakerConfig[] {
+  if (snap.slots?.length) {
+    return current.map((sp, i) => {
+      const slot = snap.slots![i];
+      if (!slot) return sp;
+      return {
+        ...sp,
+        x: slot.x,
+        y: slot.y,
+        size: slot.size,
+        outlineShape: slot.outlineShape,
+        surface: slot.surface,
+        waveform: slot.waveform,
+      };
+    });
+  }
+  // Written before slots existed: the whole speaker, faces and voices included.
+  return snap.speakers ?? current;
+}
+
 function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
   const size = sp.size > 1 ? Math.min(1, sp.size / LEGACY_AUTHORED_WIDTH) : sp.size;
   const lane = i === 0 ? 0 : i % 2 === 1 ? 1 : -1;
@@ -258,7 +286,17 @@ export const useProjectStore = create<ProjectState & Actions>()(
       backgroundDim: snap.backgroundDim ?? s.backgroundDim,
       backgroundBlur: snap.backgroundBlur ?? s.backgroundBlur,
       backgroundCrossfadeMs: snap.backgroundCrossfadeMs ?? s.backgroundCrossfadeMs,
-      speakers: (snap.speakers ?? s.speakers).map(migrateSpeaker),
+
+      // A PRESET'S LAYOUT LIVES IN `slots`, AND THIS USED TO IGNORE THEM.
+      //
+      // Loading a preset therefore changed the captions and the music bar and
+      // left every speaker exactly where they were — which is what "presets
+      // don't load" was. Only presets exported before slots existed carry
+      // whole `speakers`, and those are still honoured below.
+      //
+      // A slot dresses a speaker; it never replaces one. Faces and voices are
+      // not part of a look, so applying one must not touch them.
+      speakers: applySlots(s.speakers, snap).map(migrateSpeaker),
     })),
 
   loadProject: (p) =>
