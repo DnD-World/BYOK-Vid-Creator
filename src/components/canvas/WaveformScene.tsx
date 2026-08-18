@@ -737,7 +737,6 @@ export function WaveformScene({
                 })}
               </g>
             );
-          case "lines":
           case "wave":
           default: {
             const outline = points.map((p, i) => extend(p, amps[i] * maxLen));

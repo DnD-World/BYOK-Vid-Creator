@@ -43,8 +43,19 @@ function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
     // and the waveform silently renders NOTHING — no error, no clue, just a
     // missing waveform on a project that used to have one. Confirmed against a
     // real pre-branch autosave shape.
-    waveform: { ...defaultTrackWaveform(lane), ...(sp.waveform ?? {}) },
+    waveform: migrateTrack({ ...defaultTrackWaveform(lane), ...(sp.waveform ?? {}) }),
   };
+}
+
+/** A saved waveform, read in today's terms.
+ *
+ *  "lines" was retired on 18 Aug 2026: it and "wave" ran the same drawing code
+ *  and differed by whether the points were joined straight or smoothed. A file
+ *  saved with it names a style that is no longer in the list, which would leave
+ *  the picker showing nothing selected on a project that looks fine. It becomes
+ *  "wave", which is the same shape drawn properly. */
+export function migrateTrack<T extends { style: string }>(t: T): T {
+  return t.style === "lines" ? { ...t, style: "wave" } : t;
 }
 
 interface Actions {
@@ -241,7 +252,7 @@ export const useProjectStore = create<ProjectState & Actions>()(
     set((s) => ({
       render: snap.render ?? s.render,
       fps: snap.fps ?? s.fps,
-      musicWaveform: { ...defaultProject.musicWaveform, ...snap.musicWaveform },
+      musicWaveform: migrateTrack({ ...defaultProject.musicWaveform, ...snap.musicWaveform }),
       musicColor: snap.musicColor ?? defaultProject.musicColor,
       subtitles: { ...s.subtitles, ...snap.subtitles },
       backgroundDim: snap.backgroundDim ?? s.backgroundDim,
@@ -260,7 +271,7 @@ export const useProjectStore = create<ProjectState & Actions>()(
       // "Scan for Voices" un-clickable; it is not getting a second outing.
       render: { ...defaultProject.render, ...(p.render ?? {}) },
       subtitles: { ...defaultProject.subtitles, ...(p.subtitles ?? {}) },
-      musicWaveform: { ...defaultProject.musicWaveform, ...(p.musicWaveform ?? {}) },
+      musicWaveform: migrateTrack({ ...defaultProject.musicWaveform, ...(p.musicWaveform ?? {}) }),
       speakers: (p.speakers ?? []).map(migrateSpeaker),
     })),
 

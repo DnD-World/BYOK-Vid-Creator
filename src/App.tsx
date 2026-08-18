@@ -543,6 +543,7 @@ export default function App() {
                     <PuppetAvatar
                       puppet={loaded.puppet}
                       urls={loaded.urls}
+                      urlsReady={loaded.ready}
                       viseme={blend.to}
                       prevViseme={blend.from}
                       mix={blend.mix}

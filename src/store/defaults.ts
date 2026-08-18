@@ -11,7 +11,7 @@ export const defaultProject: ProjectState = {
   },
   // Music defaults to off: most projects start with narration only, and an
   // always-animating track with no music behind it looks broken.
-  musicWaveform: { ...defaultTrackWaveform(0), enabled: false, style: "lines", position: "bottom" },
+  musicWaveform: { ...defaultTrackWaveform(0), enabled: false, style: "wave", position: "bottom" },
   musicColor: "#8a8a8a",
   subtitles: {
     enabled: true,
@@ -25,8 +25,11 @@ export const defaultProject: ProjectState = {
     activeFromSpeaker: true,
     uppercase: false,
     maxChars: 42,
-    fontFamily: null,
-    fontWeight: 800,
+    // Comfortaa, not "whatever the system picks". A default of null meant
+    // every new project started in a different face from every finished one,
+    // and the lessons that shipped were all set to this by hand.
+    fontFamily: "Comfortaa",
+    fontWeight: 700,
   },
   pauseSameMs: 120,
   pauseTurnMs: 340,

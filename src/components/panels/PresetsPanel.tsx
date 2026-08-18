@@ -15,48 +15,9 @@ import { useState } from "react";
 import { HudButton } from "../ui/HudButton";
 import { useProjectStore } from "../../store/useProjectStore";
 import { useTemplatesStore } from "../../store/useTemplatesStore";
-import type { OutlineShape, SubtitleConfig, TrackWaveform } from "../../store/types";
 import type { ProjectPreset } from "../../store/templatesTypes";
+import { builtinPresets } from "../../store/builtinPresets";
 
-interface BuiltIn {
-  name: string;
-  description: string;
-  outlineShape: OutlineShape;
-  speakerWaveform: Partial<TrackWaveform>;
-  musicWaveform: Partial<TrackWaveform>;
-  musicColor: string;
-  subtitles: Partial<SubtitleConfig>;
-}
-
-const BUILT_INS: BuiltIn[] = [
-  {
-    name: "Halo",
-    description: "Circular bars ringing each speaker. Calm, symmetrical, the house look.",
-    outlineShape: "circle",
-    speakerWaveform: { enabled: true, style: "bars", position: "circular", scale: 1.1, density: 64, thickness: 1, smoothing: 0.2 },
-    musicWaveform: { enabled: false },
-    musicColor: "#8a8a8a",
-    subtitles: { position: "bottom", fontSize: 0.052, strokeWidth: 0.14, activeGlow: 0.6, uppercase: false },
-  },
-  {
-    name: "Broadcast",
-    description: "Flat bars along the bottom with bold uppercase captions. Reads as news/explainer.",
-    outlineShape: "rounded",
-    speakerWaveform: { enabled: true, style: "bars", position: "bottom", scale: 0.8, density: 96, thickness: 0.7, smoothing: 0.2, edgeFlush: true },
-    musicWaveform: { enabled: true, style: "lines", position: "top", scale: 0.5, density: 120, thickness: 0.6, smoothing: 0.6 },
-    musicColor: "#5a5a68",
-    subtitles: { position: "bottom", fontSize: 0.058, strokeWidth: 0.18, activeGlow: 0.35, uppercase: true, maxChars: 34 },
-  },
-  {
-    name: "Orbit",
-    description: "Glowing chaotic rings behind frameless avatars. The most cinematic of the three.",
-    outlineShape: "none",
-    speakerWaveform: { enabled: true, style: "rings", position: "circular", scale: 1.4, density: 48, thickness: 1.4, smoothing: 0.5, ringInnerRadius: 0.28, ringSize: 1.1 },
-    musicWaveform: { enabled: true, style: "wave", position: "bottom", scale: 0.7, density: 80, thickness: 1, smoothing: 0.8 },
-    musicColor: "#3cb4ff",
-    subtitles: { position: "bottom", fontSize: 0.05, strokeWidth: 0.1, activeGlow: 1.0, uppercase: false },
-  },
-];
 
 export function PresetsPanel() {
   const speakers = useProjectStore((s) => s.speakers);
@@ -65,6 +26,7 @@ export function PresetsPanel() {
   const setMusicWaveform = useProjectStore((s) => s.setMusicWaveform);
   const setMusicColor = useProjectStore((s) => s.setMusicColor);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
+  const setBackgroundStyle = useProjectStore((s) => s.setBackgroundStyle);
   const loadSnapshot = useProjectStore((s) => s.loadSnapshot);
   const loadProject = useProjectStore((s) => s.loadProject);
   const setNarration = useProjectStore((s) => s.setNarration);
@@ -84,22 +46,47 @@ export function PresetsPanel() {
   const [name, setName] = useState("");
   const [note, setNote] = useState<string | null>(null);
 
-  const applyBuiltIn = (b: BuiltIn) => {
+  /** Apply one of the nine, the same nine a job file names.
+   *
+   *  THIS PANEL USED TO HAVE ITS OWN THREE. They shared the names Halo,
+   *  Broadcast and Orbit with the real ones and were not the same objects: the
+   *  panel's restyled waveforms and captions only, while a preset also carries
+   *  where each speaker STANDS and how big they are. So "Halo · duo" in a job
+   *  file and "Halo" in the app produced visibly different videos, and the six
+   *  presets with a speaker count in their name could not be applied here at
+   *  all. Both now read builtinPresets(). */
+  const applyBuiltIn = (b: ReturnType<typeof builtinPresets>[number]) => {
+    const slots = b.slots ?? [];
     speakers.forEach((sp, i) => {
-      updateSpeaker(sp.id, { outlineShape: b.outlineShape });
-      // Keep the alternating lane so a second speaker stays visually separate.
-      setSpeakerWaveform(sp.id, {
-        ...b.speakerWaveform,
-        lane: i === 0 ? 0 : i % 2 === 1 ? 1 : -1,
+      // A preset made for two speakers applied to three: the third keeps its
+      // place rather than landing on top of the second.
+      const slot = slots[i];
+      if (!slot) return;
+      updateSpeaker(sp.id, {
+        outlineShape: slot.outlineShape,
+        x: slot.x,
+        y: slot.y,
+        size: slot.size,
+        surface: slot.surface,
       });
+      setSpeakerWaveform(sp.id, slot.waveform);
     });
-    setMusicWaveform(b.musicWaveform);
-    setMusicColor(b.musicColor);
-    setSubtitles(b.subtitles);
+    if (b.musicWaveform) setMusicWaveform(b.musicWaveform);
+    if (b.musicColor) setMusicColor(b.musicColor);
+    if (b.subtitles) setSubtitles(b.subtitles);
+    if (b.backgroundDim !== undefined || b.backgroundCrossfadeMs !== undefined) {
+      setBackgroundStyle({ dim: b.backgroundDim, crossfadeMs: b.backgroundCrossfadeMs });
+    }
+
+    const extra = speakers.length - slots.length;
     setNote(
       speakers.length === 0
         ? `Applied "${b.name}" — add a speaker to see it.`
-        : `Applied "${b.name}" to ${speakers.length} speaker(s). Faces and voices kept.`
+        : extra > 0
+          ? `Applied "${b.name}" to ${slots.length} of ${speakers.length} speakers. ` +
+            `It is a ${slots.length}-speaker look, so ${extra} kept their place — ` +
+            `use the "${b.name.split(" · ")[0]}" preset for ${speakers.length} instead.`
+          : `Applied "${b.name}" to ${speakers.length} speaker(s). Faces and voices kept.`
     );
   };
 
@@ -188,13 +175,14 @@ export function PresetsPanel() {
     }
   };
 
+  const BUILT_INS = builtinPresets();
   const saved = Object.entries(templates);
 
   return (
     <div className="space-y-6">
       <section className="space-y-3">
         <div className="label-etched">Built-in looks</div>
-        {BUILT_INS.map((b) => (
+        {BUILT_INS.filter((b) => b.speakerCount === Math.min(3, Math.max(1, speakers.length || 2))).map((b) => (
           <div key={b.name} className="border border-accent/25 bg-metal-800/60 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-base text-neutral-200">{b.name}</span>
@@ -203,6 +191,11 @@ export function PresetsPanel() {
             <p className="text-sm text-neutral-500">{b.description}</p>
           </div>
         ))}
+        <p className="text-sm text-neutral-500">
+          Showing the {Math.min(3, Math.max(1, speakers.length || 2))}-speaker
+          versions, matching your cast. Each look has a solo, duo and trio
+          layout — the same nine a job file can name.
+        </p>
         <p className="text-sm text-neutral-500">
           Applying a look restyles your existing speakers. It never replaces
           them, so faces and voices survive.

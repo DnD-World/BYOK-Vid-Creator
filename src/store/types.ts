@@ -34,8 +34,12 @@ export interface RenderSettings {
  *  "ribbon", "boil", "particles", "sparks" and "bloomBars" are DERIVED FROM
  *  TIME, not accumulated frame to frame — see src/lib/waveform/emitters.ts for
  *  why that is not optional in a renderer that draws frames out of order. */
+// "lines" is gone, removed 18 Aug 2026. It and "wave" were the same drawing
+// code and differed by one boolean — whether the points were joined with
+// straight segments or a smooth curve. That is not two looks, it is one look
+// and a worse version of it, and offering both only ever cost a decision.
 export const WAVEFORM_STYLES = [
-  "bars", "lines", "wave", "mirror", "dots", "rings",
+  "bars", "wave", "mirror", "dots", "rings",
   "ribbon", "particles", "sparks", "bloomBars", "boil",
 ] as const;
 
@@ -155,6 +159,9 @@ export function migrateSurface(sp: {
 export interface WaveformConfig {
   position: "circular" | "top" | "bottom" | "left" | "right";
   behavior: "single" | "single-colorshift" | "dual" | "dual-plus-music" | "triple";
+  /** Still names "lines" because this type exists to READ files written when
+   *  it was a choice. migrateTrack turns it into "wave", which is what it
+   *  always drew, only smoothed. */
   style: "bars" | "lines" | "wave" | "mirror" | "dots" | "rings";
   colorA: string;
   colorB: string;
