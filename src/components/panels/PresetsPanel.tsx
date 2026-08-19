@@ -17,6 +17,7 @@ import { useProjectStore } from "../../store/useProjectStore";
 import { useTemplatesStore } from "../../store/useTemplatesStore";
 import type { ProjectPreset } from "../../store/templatesTypes";
 import { builtinPresets } from "../../store/builtinPresets";
+import { sampleProject, SAMPLE_NAME } from "../../store/sampleProject";
 import { migrateSurface } from "../../store/types";
 
 
@@ -272,6 +273,32 @@ export function PresetsPanel() {
           <HudButton onClick={saveProject}>Save project…</HudButton>
           <HudButton onClick={openProject}>Open project…</HudButton>
         </div>
+      </section>
+
+      {/* A whole finished video, in a click. Someone opening this app for the
+          first time otherwise faces an empty canvas and no idea what it makes. */}
+      <section className="space-y-3 border-t border-accent/15 pt-5">
+        <div className="label-etched">Sample project</div>
+        <p className="text-sm text-neutral-500">
+          "{SAMPLE_NAME}" — all three characters, a written script, the house
+          look and subtitles. Press Render and you get a video. It replaces what
+          is on screen now, so save first if you want to keep it.
+        </p>
+        <HudButton
+          onClick={async () => {
+            if (
+              speakers.length > 0 &&
+              !window.confirm("This replaces the current project. Continue?")
+            ) {
+              return;
+            }
+            const dir = await window.byok?.storage?.puppetDir().catch(() => null);
+            loadProject(sampleProject(dir ?? null));
+            setNote(`Loaded "${SAMPLE_NAME}".`);
+          }}
+        >
+          Load {SAMPLE_NAME}
+        </HudButton>
       </section>
 
       <section className="space-y-3 border-t border-accent/15 pt-5">

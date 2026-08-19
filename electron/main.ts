@@ -5,6 +5,7 @@ import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import { analyzeNarration } from "./audio/analyzeNarration";
 import { listMusic } from "./audio/musicLibrary";
+import { listMedia } from "./net/mediaLibrary";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
 import { searchVideos, downloadTo, type MediaProvider } from "./net/mediaSearch";
@@ -276,6 +277,16 @@ ipcMain.handle("storage:writeFile", async (_e, filePath: string, data: ArrayBuff
 // The work itself is in src/lib/narration/buildBlocks.ts, shared with that
 // script, so the button and the command line cannot produce different files.
 // ---------------------------------------------------------------------------
+
+// The local media library: clips and sounds already on this machine. Both
+// folders, because downloads land under userData and the sound effects that
+// ship with the app live in the repo.
+ipcMain.handle("media:library", async () => {
+  return listMedia([
+    path.join(app.getPath("userData"), "media"),
+    path.join(app.getAppPath(), "sfx", "library"),
+  ]);
+});
 
 // The music library — the loops that ship with the app, in music/.
 ipcMain.handle("music:list", async () => {

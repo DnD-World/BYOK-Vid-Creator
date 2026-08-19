@@ -74,6 +74,14 @@ declare global {
         }>;
         /** Returns the absolute path the clip was saved to. */
         download: (id: string, url: string) => Promise<string>;
+        library: () => Promise<{
+          fileName: string;
+          filePath: string;
+          kind: "video" | "audio";
+          bytes: number;
+          modifiedMs: number;
+          source?: string;
+        }[]>;
         /** Reads the script, plans a query per scene and picks a clip for each. */
         autoBackgrounds: (opts: {
           segments: { text: string; startMs: number; endMs: number; speakerLabel: string }[];

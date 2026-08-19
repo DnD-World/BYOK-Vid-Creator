@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { HudButton } from "../ui/HudButton";
+import { MediaLibrary } from "./MediaLibrary";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { Tabs } from "../ui/Tabs";
@@ -252,7 +253,17 @@ export function ScenePanel() {
           </>
         )}
 
-        {tab === "background" && <BackgroundPanel />}
+        {tab === "background" && (
+          <>
+            <BackgroundPanel />
+            {/* The clips already on this machine. Sits under the search on
+                purpose: reaching for what is already here should be the first
+                thing offered, not a thing you have to know about. */}
+            <div className="border-t border-accent/15 pt-5">
+              <MediaLibrary />
+            </div>
+          </>
+        )}
 
         {tab === "subtitles" && (
           <section className="space-y-4">

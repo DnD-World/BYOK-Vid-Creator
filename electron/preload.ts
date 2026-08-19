@@ -47,6 +47,11 @@ const api = {
     download: (id: string, url: string): Promise<string> =>
       ipcRenderer.invoke("media:download", id, url),
     autoBackgrounds: (opts: unknown) => ipcRenderer.invoke("media:autoBackgrounds", opts),
+    /** Everything already downloaded to this machine. */
+    library: (): Promise<{
+      fileName: string; filePath: string; kind: "video" | "audio";
+      bytes: number; modifiedMs: number; source?: string;
+    }[]> => ipcRenderer.invoke("media:library"),
   },
 
   sound: {
