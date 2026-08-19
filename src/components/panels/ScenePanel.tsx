@@ -30,6 +30,8 @@ export function ScenePanel() {
   const setFps = useProjectStore((s) => s.setFps);
   const render = useProjectStore((s) => s.render);
   const setRender = useProjectStore((s) => s.setRender);
+  const cards = useProjectStore((s) => s.cards);
+  const setCards = useProjectStore((s) => s.setCards);
   const subtitles = useProjectStore((s) => s.subtitles);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
   const narration = useProjectStore((s) => s.narration);
@@ -79,6 +81,48 @@ export function ScenePanel() {
       <div className="flex-1 overflow-y-auto pr-1 space-y-6">
         {tab === "frame" && (
           <>
+            {/* Joined on AFTER the render, so nothing inside the lesson moves.
+                A card placed in the composition would shift the narration and
+                every subtitle by its own length. */}
+            <section className="space-y-2">
+              <div className="label-etched">Intro &amp; outro</div>
+              {(["intro", "outro"] as const).map((which) => {
+                const key = which === "intro" ? "introPath" : "outroPath";
+                const value = cards[key];
+                return (
+                  <div key={which} className="flex items-center gap-2">
+                    <HudButton
+                      onClick={async () => {
+                        const p = await window.byok.dialog.openFile([
+                          { name: "Video", extensions: ["mp4", "mov", "webm", "mkv", "m4v"] },
+                        ]);
+                        if (p) setCards({ [key]: p });
+                      }}
+                    >
+                      {value ? `Change ${which}` : `Choose ${which}…`}
+                    </HudButton>
+                    <span className="text-sm text-neutral-400 truncate flex-1">
+                      {value ? value.split(/[\/]/).pop() : "none"}
+                    </span>
+                    {value && (
+                      <button
+                        className="text-sm text-neutral-500 hover:text-red-400"
+                        onClick={() => setCards({ [key]: null })}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-sm text-neutral-500">
+                Two or three seconds each. Any video file. It is scaled to the
+                frame and silenced if it has no sound of its own, and it is
+                welded on after the lesson is rendered — so nothing inside the
+                lesson moves by a frame.
+              </p>
+            </section>
+
             <section>
               <div className="label-etched mb-2">Aspect Ratio</div>
               <div className="flex gap-2">

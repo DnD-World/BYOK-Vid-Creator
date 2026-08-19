@@ -178,6 +178,10 @@ export interface BatchJob {
    *  Here for the same reason waveformStyle is: comparing two looks must not
    *  mean editing a preset in source between renders. */
   subtitleEmphasis?: SubtitleConfig["activeEmphasis"];
+  /** Two- or three-second cards welded on after the render. Any video ffmpeg
+   *  can read; scaled and padded to the frame, silent if it has no sound. */
+  introPath?: string;
+  outroPath?: string;
 }
 
 export interface JobResult {
@@ -590,6 +594,8 @@ export async function runBatchJob(
     narrationSegments: narration.segments,
     narrationPauses: narration.pauses ?? [],
     crf: job.crf,
+    introPath: job.introPath,
+    outroPath: job.outroPath,
     glass: job.glass ?? null,
   } as RenderJob;
 

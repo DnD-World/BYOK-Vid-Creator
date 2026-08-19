@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
+  type Cards,
   ProjectState,
   RenderSettings,
   SpeakerConfig,
@@ -82,14 +83,30 @@ function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
  *  saved with it names a style that is no longer in the list, which would leave
  *  the picker showing nothing selected on a project that looks fine. It becomes
  *  "wave", which is the same shape drawn properly. */
+const RETIRED_STYLES: Record<string, string> = {
+  // Same drawing code as "wave", one boolean apart.
+  lines: "wave",
+  // Two attempts at the loops in the reference picture, both called a failure
+  // on 19 Aug 2026. A project saved with one of them names a style that is no
+  // longer in the list, which would leave the picker blank over a video that
+  // still renders. bloomBars is the look Ak has actually said he likes.
+  rings: "bloomBars",
+  orbits: "bloomBars",
+  orbitsCalm: "bloomBars",
+  orbitsShell: "bloomBars",
+  orbitsSwell: "bloomBars",
+};
+
 export function migrateTrack<T extends { style: string }>(t: T): T {
-  return t.style === "lines" ? { ...t, style: "wave" } : t;
+  const replacement = RETIRED_STYLES[t.style];
+  return replacement ? { ...t, style: replacement } : t;
 }
 
 interface Actions {
   setRender: (p: Partial<RenderSettings>) => void;
   setMusicWaveform: (p: Partial<TrackWaveform>) => void;
   setMusicColor: (c: string) => void;
+  setCards: (p: Partial<Cards>) => void;
   /** Patch one speaker's own waveform. Kept separate from updateSpeaker so
    *  callers don't have to spread the nested object by hand every time. */
   setSpeakerWaveform: (id: string, p: Partial<TrackWaveform>) => void;
@@ -134,6 +151,8 @@ export const useProjectStore = create<ProjectState & Actions>()(
   setMusicWaveform: (p) => set((s) => ({ musicWaveform: { ...s.musicWaveform, ...p } })),
 
   setMusicColor: (musicColor) => set({ musicColor }),
+
+  setCards: (p) => set((s) => ({ cards: { ...s.cards, ...p } })),
 
   setSpeakerWaveform: (id, p) =>
     set((s) => ({
@@ -328,6 +347,7 @@ export const useProjectStore = create<ProjectState & Actions>()(
         render: s.render,
         musicWaveform: s.musicWaveform,
         musicColor: s.musicColor,
+        cards: s.cards,
         subtitles: s.subtitles,
         // Worth persisting: the clips themselves are already cached under
         // userData by provider and id, so what is saved here is a few hundred

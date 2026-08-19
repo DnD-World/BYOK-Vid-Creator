@@ -38,14 +38,15 @@ export interface RenderSettings {
 // code and differed by one boolean — whether the points were joined with
 // straight segments or a smooth curve. That is not two looks, it is one look
 // and a worse version of it, and offering both only ever cost a decision.
-// "rings" is gone, replaced by the four orbit looks on 19 Aug 2026. It never
-// reached what it was aiming at — see "inspiration looks/look just at the
-// waveforms.jpeg" — and an orbit obeys one rule rings never did: it can never
-// touch the avatar's face.
+// "rings" went on 19 Aug 2026 and the four "orbits" that replaced it went the
+// same day. Both were attempts at the loops in "inspiration looks/look just at
+// the waveforms.jpeg" and neither came close. Two failures at one picture is
+// enough: the look is not being chased again before the 72 lessons are made.
+//
+// "mesh" stays. It is the other half of that picture, it landed nearer, and it
+// is worth returning to — but nothing uses it yet.
 export const WAVEFORM_STYLES = [
-  "bars", "wave", "mirror", "dots",
-  "orbits", "orbitsCalm", "orbitsShell", "orbitsSwell",
-  "mesh",
+  "bars", "wave", "mirror", "dots", "mesh",
   "ribbon", "particles", "sparks", "bloomBars", "boil",
 ] as const;
 
@@ -180,6 +181,15 @@ export interface WaveformConfig {
   ringSize: number;     // 0.5–1.5, overall ring cluster scale
   ringX: number;        // 0–1, ring cluster center (fraction of frame)
   ringY: number;        // 0–1
+}
+
+/** Short videos welded onto the front and back of the finished lesson.
+ *
+ *  Paths on disk, not files copied into the project — the same convention the
+ *  music bed and the puppets use. Two or three seconds each, sound optional. */
+export interface Cards {
+  introPath?: string | null;
+  outroPath?: string | null;
 }
 
 export interface SubtitleConfig {
@@ -432,6 +442,8 @@ export interface ProjectState {
    *  doesn't take turns the way speakers do. */
   musicWaveform: TrackWaveform;
   musicColor: string;
+  /** Intro and outro cards, joined on after the render. */
+  cards: Cards;
   subtitles: SubtitleConfig;
   /** Silence inserted before a line by the same speaker — a breath. */
   pauseSameMs: number;

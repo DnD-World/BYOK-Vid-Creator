@@ -34,12 +34,14 @@ const LAYOUTS: Record<1 | 2 | 3, { x: number; y: number; size: number }[]> = {
     { x: 0.27, y: 0.42, size: 0.34 },
     { x: 0.73, y: 0.42, size: 0.34 },
   ],
-  // A triangle rather than a row: three discs side by side in a 9:16 frame are
-  // too small to read a face in.
+  // ONE ABOVE, TWO BELOW — measured off the arrangement Ak set by hand on
+  // 19 Aug 2026, not invented. The human presenter takes the upper position
+  // and the two dogs sit under her, which leaves the middle of the frame clear
+  // for the subtitles now that they sit centred.
   3: [
-    { x: 0.24, y: 0.36, size: 0.3 },
-    { x: 0.76, y: 0.36, size: 0.3 },
-    { x: 0.5, y: 0.64, size: 0.3 },
+    { x: 0.55, y: 0.20, size: 0.26 },
+    { x: 0.31, y: 0.73, size: 0.26 },
+    { x: 0.76, y: 0.73, size: 0.26 },
   ],
 };
 
@@ -73,7 +75,7 @@ const STYLES: Style[] = [
       smoothing: 0.2,
     }),
     surface: { style: "none" },
-    subtitles: { position: "bottom", fontSize: 0.052, strokeWidth: 0.14, activeGlow: 0.6, uppercase: false },
+    subtitles: { position: "center", fontSize: 0.09, strokeWidth: 0.23, activeGlow: 0.25, activeEmphasis: "lift" as const, maxChars: 30, uppercase: false },
     backgroundDim: 0.45,
     backgroundBlur: 0,
   },
@@ -85,7 +87,7 @@ const STYLES: Style[] = [
     waveform: (i) => ({
       enabled: true,
       style: "bars",
-      position: "bottom",
+      position: "speaker",
       scale: 0.8,
       density: 96,
       thickness: 0.7,
@@ -95,16 +97,17 @@ const STYLES: Style[] = [
     }),
     surface: { style: "solid", color: "#0b0b0d", opacity: 0.5 },
     subtitles: {
-      position: "bottom",
-      fontSize: 0.058,
-      strokeWidth: 0.18,
-      activeGlow: 0.35,
+      position: "center",
+      fontSize: 0.09,
+      strokeWidth: 0.23,
+      activeGlow: 0.25,
+      activeEmphasis: "lift" as const,
+      maxChars: 30,
       // All-caps reads as shouting, and a lesson is not shouting. Kept as a
       // setting for the line where a character actually raises their voice;
       // never the default. When it IS used, toUpperGreek drops the accent and
       // keeps the dialytika, which is what Greek orthography asks for.
       uppercase: false,
-      maxChars: 34,
     },
     // Brighter footage than Halo, because the text carries its own surface and
     // no longer needs the whole frame darkened to stay readable.
@@ -133,7 +136,7 @@ const STYLES: Style[] = [
     }),
     // A real refracting disc behind each face now, not a tinted circle.
     surface: { style: "glass", color: "#0b0b0d", opacity: 0.28, blur: 0.01, borderOpacity: 0.3 },
-    subtitles: { position: "bottom", fontSize: 0.05, strokeWidth: 0.1, activeGlow: 1.0, uppercase: false, emoji: true },
+    subtitles: { position: "center", fontSize: 0.09, strokeWidth: 0.23, activeGlow: 0.25, activeEmphasis: "lift" as const, maxChars: 30, uppercase: false, emoji: true },
     // The background is pushed back with blur rather than darkness, so the
     // footage stays legible as footage.
     backgroundDim: 0.3,

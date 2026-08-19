@@ -29,6 +29,7 @@ import {
 import type { Puppet } from "../../src/store/puppetTypes";
 import { puppetAssetPaths, validatePuppet } from "../../src/lib/puppets/puppetAssets";
 import { ensureFont } from "../net/fonts";
+import { joinCards } from "./joinCards";
 
 export interface RenderJob {
   musicWaveform: RenderProps["musicWaveform"];
@@ -83,6 +84,15 @@ export interface RenderJob {
    *  a batch can trade size against quality per row — a social cut and an LMS
    *  master do not want the same file. */
   crf?: number;
+  /** A short card welded onto the front and the back after rendering.
+   *
+   *  JOINED AFTERWARDS, NOT PLACED INSIDE. A card in the composition would move
+   *  the narration, every subtitle cue and every viseme by its own length, and
+   *  a two-frame error there breaks lip-sync for the whole lesson. See
+   *  joinCards.ts. Any video ffmpeg can read; it is scaled and padded to the
+   *  frame and given a silent track if it has none. */
+  introPath?: string | null;
+  outroPath?: string | null;
 }
 
 export interface RenderContext {
@@ -458,6 +468,8 @@ export async function renderVideo(
       "backgrounds",        // clips copied in, rewritten to file names
       "subtitleFont",       // fetched and forwarded as files
       "crf",                // encoder setting, never reaches the composition
+      "introPath",          // joined on after the render, see joinCards.ts
+      "outroPath",
       "projectRoot",
       "outputDir",
       "outputName",
@@ -539,9 +551,23 @@ export async function renderVideo(
       100,
       warnings.length ? `Done, with ${warnings.length} thing(s) left out — see above` : "Done"
     );
+    // The cards go on last, once the lesson is finished and timed.
+    const joined = await joinCards({
+      mainPath: outputPath,
+      introPath: job.introPath,
+      outroPath: job.outroPath,
+      width: job.width,
+      height: job.height,
+      fps: job.fps,
+      crf: job.crf ?? 23,
+      tempDir: path.join(path.dirname(outputPath), `cards-${Date.now()}`),
+    });
+    warnings.push(...joined.warnings);
+    for (const w of joined.warnings) onProgress(99, w);
+
     return {
-      outputPath,
-      durationSec: job.durationSec,
+      outputPath: joined.outputPath,
+      durationSec: job.durationSec + joined.introSec + joined.outroSec,
       frames: composition.durationInFrames,
       warnings,
     };
