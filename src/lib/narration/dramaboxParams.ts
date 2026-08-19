@@ -203,16 +203,20 @@ export const DRAMABOX_KNOBS: KnobSpec[] = [
 
 /** Starting points, so a character does not have to be dialled in from scratch.
  *
- *  Deliberately few and deliberately named after what they sound like rather
- *  than what they set. The numbers are the starting guess to audition, not
- *  findings — nothing here has been judged by ear yet. */
+ *  AUDITIONED 19 AUG 2026 — fifteen takes in dramabox-audition/settings/,
+ *  three voices against five settings, judged by ear. The first two are what
+ *  the cast actually uses; the rest are the ones that lost, kept because
+ *  knowing what a flat read sounds like is worth having on a warning. */
 export const VOICE_PRESETS: Record<string, Partial<DramaboxParams>> = {
-  "As documented": { stgScale: 1.5, durationMultiplier: 1.1, cfgScale: 2.5 },
+  // Καίτη. Same acting, less time for the words — she tumbles over them, and
+  // at 1.0 she had room she did not want.
+  "Bright and quick": { stgScale: 1.5, durationMultiplier: 0.85, cfgScale: 2.5 },
+  // Σερίφης and Τσίκα both. Chosen over the bigger and faster takes.
   "House default": { stgScale: 1.5, durationMultiplier: 1.0, cfgScale: 2.5 },
   "Bigger performance": { stgScale: 2.2, durationMultiplier: 0.95, cfgScale: 2.3 },
-  "Fast and bright": { stgScale: 2.0, durationMultiplier: 0.9, cfgScale: 2.5 },
-  "Grave and unhurried": { stgScale: 1.2, durationMultiplier: 1.05, cfgScale: 2.7 },
-  "Flat read": { stgScale: 0.8, durationMultiplier: 1.0, cfgScale: 3.0 },
+  "Slower": { stgScale: 1.5, durationMultiplier: 1.15, cfgScale: 2.5 },
+  "Flat read": { stgScale: 0.8, durationMultiplier: 1.0, cfgScale: 2.5 },
+  "As documented": { stgScale: 1.5, durationMultiplier: 1.1, cfgScale: 2.5 },
 };
 
 /** Character settings over the defaults, then a single block's over those. */

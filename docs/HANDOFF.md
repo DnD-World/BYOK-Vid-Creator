@@ -119,6 +119,26 @@ custom payload — it cannot say the audio is ours, so it has nothing to do for 
 (`Hahaha`), so the script carries those and the subtitle shows «Χαχαχα».
 `src/lib/narration/displayText.ts`; the aligner is given the spoken form.
 
+### The voices are settled — 19 Aug 2026
+
+Auditioned by ear from fifteen takes (`dramabox-audition/settings/`): three
+characters against five settings, same line, same seed, same clip.
+
+| Character | Setting | What it is |
+|---|---|---|
+| Καίτη | acting 1.5, **pace 0.85** | Same acting, less time for the words. She tumbles over them. |
+| Σερίφης | acting 1.5, pace 1.0 | The defaults, over both the bigger and the faster takes. |
+| Τσίκα | acting 1.5, pace 1.0 | The defaults. Her speed is a WRITING device, not a setting. |
+
+Measured on the way: pace is real. The same words came out at 12s, 10s and 14s
+from Καίτη at 1.0, 0.85 and 1.15 — a 40% spread.
+
+These live on the built-in cast, so adding Καίτη from the Characters row brings
+her voice with her: opening phrase, reference clip and settings.
+
+**`steps` is not a parameter of this engine.** It is a command-line flag in the
+README and `generate()` rejects it. Fifteen generations failed on it once.
+
 **The app may add expression a script was written without** — a flat "speaks"
 lifted, a promised laugh spelled so it is actually heard. Off unless asked for,
 and every change is printed before anything is generated.

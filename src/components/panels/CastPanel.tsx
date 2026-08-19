@@ -139,6 +139,14 @@ export function CastPanel() {
       label: c.label,
       puppetPath: builtinPuppetPath(puppetDir, c.file),
       borderColor: c.borderColor,
+      // The voice comes with the character. Adding Καίτη used to give you her
+      // face and none of her voice — no opening phrase, no reference clip, no
+      // settings — so every project re-typed all three by hand, or shipped
+      // without them.
+      openingPhrase: c.openingPhrase,
+      voiceRef: c.voiceRef,
+      ttsEngine: "dramabox",
+      ...(c.dramabox ? { dramabox: c.dramabox } : {}),
       bgColor: "#1a1a1a",
       bgOpacity: 0,
       borderOpacity: 1,
