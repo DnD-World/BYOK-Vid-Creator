@@ -38,8 +38,14 @@ export interface RenderSettings {
 // code and differed by one boolean — whether the points were joined with
 // straight segments or a smooth curve. That is not two looks, it is one look
 // and a worse version of it, and offering both only ever cost a decision.
+// "rings" is gone, replaced by the four orbit looks on 19 Aug 2026. It never
+// reached what it was aiming at — see "inspiration looks/look just at the
+// waveforms.jpeg" — and an orbit obeys one rule rings never did: it can never
+// touch the avatar's face.
 export const WAVEFORM_STYLES = [
-  "bars", "wave", "mirror", "dots", "rings",
+  "bars", "wave", "mirror", "dots",
+  "orbits", "orbitsCalm", "orbitsShell", "orbitsSwell",
+  "mesh",
   "ribbon", "particles", "sparks", "bloomBars", "boil",
 ] as const;
 
@@ -190,6 +196,20 @@ export interface SubtitleConfig {
   strokeWidth: number;
   /** Glow strength on the active word, 0 = off. */
   activeGlow: number;
+  /** HOW the spoken word is marked, not how brightly.
+   *
+   *  Glow alone was the only option and it is the weakest of these: it is the
+   *  letter's own colour spread outwards, so over bright or busy footage it has
+   *  nothing to push against and the word only looks slightly blurred. The
+   *  others all work by CONTRAST at the letter's edge, which survives any
+   *  background. `activeGlow` still sets the strength of the ones that glow.
+   *
+   *  - `glow`      the original: colour plus a halo
+   *  - `stroke`    a hard black edge and one offset shadow
+   *  - `halo`      the glow, several times over, on a black bed
+   *  - `box`       a solid block behind the spoken word
+   *  - `lift`      the word grows and rises — reads with the sound off */
+  activeEmphasis?: "glow" | "stroke" | "halo" | "box" | "lift";
   /** Take the active word's colour and glow from whoever is speaking, instead
    *  of `activeColor`. Ties the caption to the speaker without a second set of
    *  controls to keep in sync — the same rule the waveform already follows. */

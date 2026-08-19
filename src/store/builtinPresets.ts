@@ -118,7 +118,7 @@ const STYLES: Style[] = [
     outlineShape: "none",
     waveform: () => ({
       enabled: true,
-      style: "rings",
+      style: "orbits",
       position: "speaker",
       scale: 1.4,
       density: 48,

@@ -177,8 +177,33 @@ export function ScenePanel() {
                   onChange={(v) => setSubtitles({ strokeWidth: v })}
                   format={(v) => (v === 0 ? "none" : `${Math.round(v * 100)}%`)}
                 />
+                <div>
+                  <div className="label-etched mb-2">Mark the spoken word</div>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ["glow", "glow"],
+                      ["stroke", "hard edge"],
+                      ["halo", "strong halo"],
+                      ["box", "highlight box"],
+                      ["lift", "lift & grow"],
+                    ] as const).map(([id, label]) => (
+                      <HudButton
+                        key={id}
+                        active={(subtitles.activeEmphasis ?? "glow") === id}
+                        onClick={() => setSubtitles({ activeEmphasis: id })}
+                      >
+                        {label}
+                      </HudButton>
+                    ))}
+                  </div>
+                  <p className="text-sm text-neutral-500 mt-2">
+                    Glow is the letter's own colour spread outwards, so over bright
+                    or busy footage it has little to push against. The others work
+                    by contrast at the letter's edge and survive any background.
+                  </p>
+                </div>
                 <Slider
-                  label="Active Word Glow" value={subtitles.activeGlow} min={0} max={1.5} step={0.05}
+                  label="Glow Strength" value={subtitles.activeGlow} min={0} max={1.5} step={0.05}
                   onChange={(v) => setSubtitles({ activeGlow: v })}
                   format={(v) => (v === 0 ? "off" : `${v.toFixed(2)}x`)}
                 />

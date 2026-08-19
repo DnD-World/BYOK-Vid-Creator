@@ -22,6 +22,7 @@ export const defaultProject: ProjectState = {
     strokeColor: "#000000",
     strokeWidth: 0.14,
     activeGlow: 0.6,
+    activeEmphasis: "glow",
     activeFromSpeaker: true,
     uppercase: false,
     maxChars: 42,

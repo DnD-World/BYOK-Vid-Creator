@@ -40,6 +40,7 @@ import {
   WAVEFORM_STYLES,
   type OutlineShape,
   type SpeakerConfig,
+  type SubtitleConfig,
   type TrackWaveform,
 } from "../../src/store/types";
 
@@ -173,6 +174,10 @@ export interface BatchJob {
   dumpNarrationMeta?: string;
   subtitleFont?: string;
   subtitleFontWeight?: number;
+  /** How the spoken word is marked — see SubtitleConfig.activeEmphasis.
+   *  Here for the same reason waveformStyle is: comparing two looks must not
+   *  mean editing a preset in source between renders. */
+  subtitleEmphasis?: SubtitleConfig["activeEmphasis"];
 }
 
 export interface JobResult {
@@ -577,6 +582,7 @@ export async function runBatchJob(
       ...preset.subtitles,
       ...(job.subtitleFont ? { fontFamily: job.subtitleFont } : {}),
       ...(job.subtitleFontWeight ? { fontWeight: job.subtitleFontWeight } : {}),
+      ...(job.subtitleEmphasis ? { activeEmphasis: job.subtitleEmphasis } : {}),
     },
     musicWaveform: { ...defaultProject.musicWaveform, ...preset.musicWaveform },
     visemeFadeMs: defaultProject.visemeFadeMs,
