@@ -73,6 +73,12 @@ const api = {
       ipcRenderer.invoke("storage:writeFile", filePath, data),
   },
 
+  music: {
+    /** The loops that ship with the app. */
+    list: (): Promise<{ name: string; filePath: string }[]> =>
+      ipcRenderer.invoke("music:list"),
+  },
+
   dramabox: {
     /** Write blocks.json and align.json for the current script and cast.
      *  The settings on each speaker travel with them. */

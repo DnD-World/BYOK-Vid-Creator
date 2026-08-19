@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import { analyzeNarration } from "./audio/analyzeNarration";
+import { listMusic } from "./audio/musicLibrary";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
 import { searchVideos, downloadTo, type MediaProvider } from "./net/mediaSearch";
@@ -275,6 +276,11 @@ ipcMain.handle("storage:writeFile", async (_e, filePath: string, data: ArrayBuff
 // The work itself is in src/lib/narration/buildBlocks.ts, shared with that
 // script, so the button and the command line cannot produce different files.
 // ---------------------------------------------------------------------------
+
+// The music library — the loops that ship with the app, in music/.
+ipcMain.handle("music:list", async () => {
+  return listMusic(path.join(app.getAppPath(), "music"));
+});
 
 ipcMain.handle(
   "dramabox:writeBlocks",

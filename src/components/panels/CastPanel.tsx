@@ -50,22 +50,20 @@ export function CastPanel() {
   const musicDuck = useProjectStore((s) => s.musicDuck);
   const setMusicMix = useProjectStore((s) => s.setMusicMix);
   const [musicBusy, setMusicBusy] = useState(false);
+  const [musicLibrary, setMusicLibrary] = useState<{ name: string; filePath: string }[]>([]);
+  useEffect(() => {
+    window.byok?.music?.list().then(setMusicLibrary).catch(() => setMusicLibrary([]));
+  }, []);
   const [musicNote, setMusicNote] = useState<string | null>(null);
   const voices = useVoicesStore((s) => s.voices);
   // Definitions only, no art: this panel needs to know whether a puppet file
   // is valid, not what it looks like.
   const { errors: puppetErrors } = usePuppetDefs(speakers.map((sp) => sp.puppetPath));
 
-  /** Load a music bed. The file plays whatever it is — the render decodes it
-   *  with FFmpeg — but only a WAV can be ANALYSED, and the analysis is what
-   *  gives the waveform something to move to and tells the render where the
-   *  track ends so it can repeat it. Said plainly on screen rather than left
-   *  as a mystery about why one file animates and another doesn't. */
-  const pickMusic = async () => {
-    const p = await window.byok.dialog.openFile([
-      { name: "Audio", extensions: ["wav", "mp3", "m4a", "ogg", "flac"] },
-    ]);
-    if (!p) return;
+  /** Load one track and analyse it. Shared by the library buttons and the file
+   *  dialog, because an unanalysed bed plays once and then leaves silence —
+   *  which is the whole reason the analysis is not optional here. */
+  const loadMusicFile = async (p: string) => {
     setMusicBusy(true);
     setMusicNote(null);
     try {
@@ -87,6 +85,13 @@ export function CastPanel() {
     } finally {
       setMusicBusy(false);
     }
+  };
+
+  const pickMusic = async () => {
+    const p = await window.byok.dialog.openFile([
+      { name: "Audio", extensions: ["wav", "mp3", "m4a", "ogg", "flac"] },
+    ]);
+    if (p) await loadMusicFile(p);
   };
 
   const addSpeakerFrom = useProjectStore((s) => s.addSpeakerFrom);
@@ -194,7 +199,7 @@ export function CastPanel() {
       {/* Recall a saved speaker. A face, a voice and a look are properties of a
           character, not of one video — picking them again every time is the
           most repetitive thing in the app. */}
-      {library.length > 0 && (
+      {musicLibrary.length > 0 && (
         <div className="flex items-center gap-2 mb-3">
           <Picker
             aria-label="Add a saved speaker from the library"
@@ -277,6 +282,30 @@ export function CastPanel() {
           <SfxPanel />
         ) : section === "music" ? (
           <>
+            {/* The loops that ship with the app. A batch picks from these by
+                itself; this is for choosing one by hand on a single video. */}
+            {musicLibrary.length > 0 && (
+              <div className="space-y-2">
+                <div className="label-etched">Library</div>
+                <div className="flex flex-wrap gap-2">
+                  {musicLibrary.map((t) => (
+                    <HudButton
+                      key={t.filePath}
+                      active={music?.filePath === t.filePath}
+                      onClick={() => loadMusicFile(t.filePath)}
+                    >
+                      {t.name.replace(/\.wav$/i, "").replace(/[_-]+/g, " ").slice(0, 28)}
+                    </HudButton>
+                  ))}
+                </div>
+                <p className="text-sm text-neutral-500">
+                  All loopable and cleared for use. A batch gives each lesson one
+                  of these on rotation, so the same lesson always gets the same
+                  bed and the next one gets the next track along.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <HudButton onClick={pickMusic} disabled={musicBusy}>
                 {musicBusy ? "Analysing…" : music ? "Change Track" : "Load Music"}

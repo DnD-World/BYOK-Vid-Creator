@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "A 12-second loop under a 29-second lesson, deliberately loud so the",
+    "bed is measurable. If it stops at 12s the analysis did not reach the render."
+  ],
+  "scriptPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/scripts/look-smoke.txt",
+  "language": "el",
+  "format": "9:16",
+  "preset": "Orbit · duo",
+  "topic": "The Swedish Vallhund, a small Nordic herding dog breed from Sweden. Everything shown must be dogs, Scandinavian farms, homes and green northern countryside. Never deserts, never cattle without a dog present.",
+  "backgrounds": "none",
+  "cast": [
+    {
+      "label": "Καίτη",
+      "puppetPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/puppet/kaiti.puppet.json",
+      "engine": "piper",
+      "piperPythonPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-venv/Scripts/python.exe",
+      "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-rapunzelina-medium.onnx",
+      "borderColor": "#ff9a3c",
+      "openingPhrase": "A bright woman"
+    },
+    {
+      "label": "Σερίφης",
+      "puppetPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/puppet/serifis.puppet.json",
+      "engine": "piper",
+      "piperPythonPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-venv/Scripts/python.exe",
+      "piperOnnxPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/piper-voices/el_GR-joy-medium.onnx",
+      "borderColor": "#3cb4ff",
+      "openingPhrase": "A grave man"
+    }
+  ],
+  "waveformStyle": "bloomBars",
+  "subtitleEmphasis": "lift",
+  "subtitleFont": "Comfortaa",
+  "subtitleFontWeight": 700,
+  "music": "auto",
+  "musicPath": "C:/Users/strav/Documents/CLAUDE SPACE/BYOK-Vid-Creator/music/danyvin_pizzicato-secrets_loop-a.wav",
+  "musicVolume": 0.9
+}

@@ -27,6 +27,8 @@ import { parseDramaboxScript } from "../../src/lib/narration/parseDramaboxScript
 import type { DramaboxParams } from "../../src/lib/narration/dramaboxParams";
 import type { ExpressionOptions } from "../../src/lib/narration/expression";
 import { checkScript } from "../tts/checkScript";
+import { analyzeNarration } from "../audio/analyzeNarration";
+import { listMusic, pickMusic, BACKGROUND_VOLUME } from "../audio/musicLibrary";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
 import { builtinPresets } from "../../src/store/builtinPresets";
@@ -116,7 +118,13 @@ export interface BatchJob {
    *  over the flat background, which is faster and needs no API keys — the
    *  right choice when you are testing timing rather than looks. */
   backgrounds?: "auto" | "none";
+  /** A music bed. A path to one file, or "auto" to take one from the library
+   *  in `music/` — which is what a batch wants, since it gives every lesson a
+   *  bed without naming one 72 times. "none" or absent is silence. */
   musicPath?: string;
+  music?: "auto" | "none";
+  /** 0–1. Absent means the background level, which is deliberately low. */
+  musicVolume?: number;
   language?: string;
   /** Overrides the preset. Present because orientation is the one thing a
    *  batch is likely to vary per row — the same lesson, wide for the LMS and
@@ -362,6 +370,31 @@ export async function runBatchJob(
     } as NarrationInput;
   });
 
+  // ---- music bed -------------------------------------------------------
+  // Chosen from the lesson's own script path, so re-rendering it tomorrow
+  // gives it the same loop and the course does not drift halfway through.
+  let musicFile: string | null = job.musicPath ?? null;
+  let musicAnalysis: RenderJob["musicAnalysis"] = null;
+  if (!musicFile && job.music === "auto") {
+    const tracks = await listMusic(path.join(ctx.projectRoot, "music"));
+    const chosen = pickMusic(tracks, job.scriptPath);
+    if (chosen) {
+      musicFile = chosen.filePath;
+      onProgress(3, `Music: ${chosen.name}`);
+    } else {
+      onProgress(3, "Music: asked for auto, and music/ has no .wav files — silent");
+    }
+  }
+  if (musicFile) {
+    try {
+      musicAnalysis = analyzeNarration(await fsp.readFile(musicFile), [], []);
+    } catch (e) {
+      // Said out loud: an unanalysed bed plays once and then stops, which is
+      // four silent minutes nobody notices until the end of the lesson.
+      onProgress(3, `Music could not be analysed and will not repeat: ${String(e)}`);
+    }
+  }
+
   onProgress(4, `Synthesising ${segments.length} lines…`);
   const narration = job.dramaboxWavDir
     ? await buildDramaboxNarration(
@@ -566,9 +599,15 @@ export async function runBatchJob(
     durationSec,
     audioFilePath: narration.filePath,
     analysis: narration.analysis,
-    musicFilePath: job.musicPath ?? null,
-    musicAnalysis: null,
-    musicVolume: defaultProject.musicVolume,
+    musicFilePath: musicFile,
+    // ANALYSED, OR IT PLAYS ONCE AND STOPS. The composition repeats a bed by
+    // counting frames against the track's own length, and without an analysis
+    // it has no length to count against — so it plays the file from the top
+    // and leaves silence for the rest of the lesson. These loops are twelve to
+    // eighty-five seconds against lessons of five minutes, so that is not an
+    // edge case, it is every single row.
+    musicAnalysis: musicAnalysis,
+    musicVolume: job.musicVolume ?? BACKGROUND_VOLUME,
     musicDuck: defaultProject.musicDuck,
     sfx: sfxClips,
     backgrounds,

@@ -139,6 +139,9 @@ declare global {
         readFile: (filePath: string) => Promise<ArrayBuffer>;
         writeFile: (filePath: string, data: ArrayBuffer) => Promise<boolean>;
       };
+      music: {
+        list: () => Promise<{ name: string; filePath: string }[]>;
+      };
       dramabox: {
         /** Write blocks.json and align.json for a script and cast, carrying
          *  each speaker's voice settings with them. */
