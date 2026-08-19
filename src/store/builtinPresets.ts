@@ -114,11 +114,15 @@ const STYLES: Style[] = [
   {
     name: "Orbit",
     description:
-      "Glowing rings behind frameless avatars on blurred footage. The most cinematic of the three.",
+      "Bloom behind frameless avatars on blurred footage. The most cinematic of the three.",
     outlineShape: "none",
     waveform: () => ({
       enabled: true,
-      style: "orbits",
+      // Was "rings", then "orbits". Both were attempts at the loops in
+      // "inspiration looks/look just at the waveforms.jpeg" and neither got
+      // near it. bloomBars is one Ak has actually said he likes, so the preset
+      // points at that rather than at a look nobody wants.
+      style: "bloomBars",
       position: "speaker",
       scale: 1.4,
       density: 48,

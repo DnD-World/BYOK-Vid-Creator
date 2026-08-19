@@ -21,9 +21,6 @@ export interface DramaboxParams {
   /** Latent-side CFG standard-deviation rescale. `null` is the documented
    *  "auto". Never touched before today; exposed so it can be tried. */
   rescaleScale: number | null;
-  /** Euler flow-matching steps. Quality against time — the one knob that
-   *  changes how long a generation takes. */
-  steps: number;
   /** Multiplier on the auto-estimated speech length.
    *
    *  OURS IS 1.0, THE DOCUMENTED DEFAULT IS 1.1. The estimate plus ten per cent
@@ -62,7 +59,6 @@ export const DRAMABOX_DEFAULTS: DramaboxParams = {
   cfgScale: 2.5,
   stgScale: 1.5,
   rescaleScale: null,
-  steps: 30,
   durationMultiplier: 1.0,
   genDuration: null,
   seed: 42,
@@ -141,16 +137,6 @@ export const DRAMABOX_KNOBS: KnobSpec[] = [
     label: "Watermark",
     hint: "Marks the file as machine-made to anyone with the detector. It cannot say it is yours. Off.",
     kind: "toggle",
-  },
-  {
-    key: "steps",
-    label: "Quality steps",
-    hint: "More steps, better audio, slower generation. 30 is the documented default.",
-    kind: "slider",
-    min: 10,
-    max: 60,
-    step: 1,
-    advanced: true,
   },
   {
     key: "seed",
@@ -249,7 +235,6 @@ const TO_ENGINE: Record<keyof DramaboxParams, string> = {
   cfgScale: "cfg_scale",
   stgScale: "stg_scale",
   rescaleScale: "rescale_scale",
-  steps: "steps",
   durationMultiplier: "duration_multiplier",
   genDuration: "gen_duration",
   seed: "seed",

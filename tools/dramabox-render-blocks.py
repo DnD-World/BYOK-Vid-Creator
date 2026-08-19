@@ -80,7 +80,6 @@ DEFAULTS = {
     # and the surplus comes back as dead air. Below 1.0 is the only real speed
     # control the engine has — the model fills the time it is given.
     "duration_multiplier": 1.0,
-    "steps": 30,                # Euler flow matching — quality against time
     "seed": 42,                 # fixes the noise, not the speaker
     "ref_duration": 20.0,       # 10 is the default; these clips are long
     "denoise_ref": True,
@@ -110,11 +109,21 @@ OPTIONAL = {"rescale_scale", "gen_duration"}
 # accept is reported and dropped, loudly, before the run starts.
 import inspect  # noqa: E402
 
-ACCEPTED = set(inspect.signature(server.generate_to_file).parameters)
-TAKES_KWARGS = any(
-    p.kind is inspect.Parameter.VAR_KEYWORD
-    for p in inspect.signature(server.generate_to_file).parameters.values()
-)
+# EVERY function the call passes through, not just the first one.
+#
+# Checking generate_to_file alone was worse than not checking: it takes
+# **kwargs and hands them down, so the check saw "accepts anything", passed
+# `steps` through, and generate() rejected it — fifteen generations failed
+# after the model had loaded. `steps` is a command-line flag in the README and
+# not a parameter of this API at all, which is exactly the kind of thing this
+# is supposed to catch.
+ACCEPTED = set()
+for fn in (server.generate_to_file, server.generate_long, server.generate):
+    try:
+        ACCEPTED |= set(inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        pass
+TAKES_KWARGS = False
 
 blocks = json.load(open(f"{WORK}/blocks.json", encoding="utf-8"))
 
