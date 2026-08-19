@@ -192,6 +192,26 @@ export interface Cards {
   outroPath?: string | null;
 }
 
+/** A logo sitting over the video.
+ *
+ *  Four corners or a centred watermark. Width is a fraction of the FRAME's
+ *  width, like everything else placed here, so a logo sized on the preview is
+ *  the same size in a 1080p render. */
+export interface LogoConfig {
+  filePath?: string | null;
+  position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "watermark";
+  /** 0.02–0.5 of frame width. */
+  size: number;
+  opacity: number;
+  /** Distance from the frame edge, as a fraction of frame width. Ignored by
+   *  the centred watermark. */
+  margin: number;
+}
+
+export function defaultLogo(): LogoConfig {
+  return { filePath: null, position: "bottom-right", size: 0.12, opacity: 0.85, margin: 0.04 };
+}
+
 export interface SubtitleConfig {
   enabled: boolean;
   position: "bottom" | "center" | "top";
@@ -444,6 +464,7 @@ export interface ProjectState {
   musicColor: string;
   /** Intro and outro cards, joined on after the render. */
   cards: Cards;
+  logo: LogoConfig;
   subtitles: SubtitleConfig;
   /** Silence inserted before a line by the same speaker — a breath. */
   pauseSameMs: number;

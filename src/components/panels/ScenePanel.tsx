@@ -32,6 +32,8 @@ export function ScenePanel() {
   const setRender = useProjectStore((s) => s.setRender);
   const cards = useProjectStore((s) => s.cards);
   const setCards = useProjectStore((s) => s.setCards);
+  const logo = useProjectStore((s) => s.logo);
+  const setLogo = useProjectStore((s) => s.setLogo);
   const subtitles = useProjectStore((s) => s.subtitles);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
   const narration = useProjectStore((s) => s.narration);
@@ -116,11 +118,77 @@ export function ScenePanel() {
                 );
               })}
               <p className="text-sm text-neutral-500">
-                Two or three seconds each. Any video file. It is scaled to the
-                frame and silenced if it has no sound of its own, and it is
-                welded on after the lesson is rendered — so nothing inside the
-                lesson moves by a frame.
+                Two or three seconds each. Any video file. It is scaled to fit
+                the frame, and it keeps whatever sound it came with — a card
+                with no sound is fine. It is joined on after the lesson is
+                rendered, so nothing inside the lesson moves by a frame.
               </p>
+            </section>
+
+            {/* Drawn over everything, subtitles included. */}
+            <section className="space-y-2">
+              <div className="label-etched">Logo</div>
+              <div className="flex items-center gap-2">
+                <HudButton
+                  onClick={async () => {
+                    const p = await window.byok.dialog.openFile([
+                      { name: "Image", extensions: ["png", "jpg", "jpeg", "webp", "svg"] },
+                    ]);
+                    if (p) setLogo({ filePath: p });
+                  }}
+                >
+                  {logo.filePath ? "Change logo" : "Choose logo…"}
+                </HudButton>
+                <span className="text-sm text-neutral-400 truncate flex-1">
+                  {logo.filePath ? logo.filePath.split(/[\/]/).pop() : "none"}
+                </span>
+                {logo.filePath && (
+                  <button
+                    className="text-sm text-neutral-500 hover:text-red-400"
+                    onClick={() => setLogo({ filePath: null })}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {logo.filePath && (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ["top-left", "top left"],
+                      ["top-right", "top right"],
+                      ["bottom-left", "bottom left"],
+                      ["bottom-right", "bottom right"],
+                      ["watermark", "centred"],
+                    ] as const).map(([id, label]) => (
+                      <HudButton
+                        key={id}
+                        active={logo.position === id}
+                        onClick={() => setLogo({ position: id })}
+                      >
+                        {label}
+                      </HudButton>
+                    ))}
+                  </div>
+                  <Slider
+                    label="Logo size" value={logo.size} min={0.03} max={0.5} step={0.01}
+                    onChange={(v) => setLogo({ size: v })}
+                    format={(v) => `${Math.round(v * 100)}% of width`}
+                  />
+                  <Slider
+                    label="Logo opacity" value={logo.opacity} min={0.05} max={1} step={0.05}
+                    onChange={(v) => setLogo({ opacity: v })}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  {logo.position !== "watermark" && (
+                    <Slider
+                      label="Distance from edge" value={logo.margin} min={0} max={0.15} step={0.005}
+                      onChange={(v) => setLogo({ margin: v })}
+                      format={(v) => `${Math.round(v * 100)}%`}
+                    />
+                  )}
+                </>
+              )}
             </section>
 
             <section>

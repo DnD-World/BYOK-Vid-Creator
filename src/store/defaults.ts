@@ -1,4 +1,4 @@
-import { ProjectState } from "./types";
+import { ProjectState, defaultLogo } from "./types";
 import { defaultTrackWaveform } from "../lib/waveform/buildTracks";
 
 export const defaultProject: ProjectState = {
@@ -33,6 +33,7 @@ export const defaultProject: ProjectState = {
     fontWeight: 700,
   },
   cards: {},
+  logo: defaultLogo(),
   pauseSameMs: 120,
   pauseTurnMs: 340,
   // A CUT, not a dissolve. Cross-fading two mouth drawings blends them, and a

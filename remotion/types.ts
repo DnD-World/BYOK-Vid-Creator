@@ -143,6 +143,15 @@ export type RenderProps = {
    *  footage back without darkening it, so avatars and text can carry their
    *  own surfaces over a bright clip. */
   backgroundBlur: number;
+  /** A logo drawn over everything. `fileName` is inside the render's public
+   *  dir, like every other asset the composition loads. */
+  logo: {
+    fileName: string;
+    position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "watermark";
+    size: number;
+    opacity: number;
+    margin: number;
+  } | null;
   /** How glass behaves, for every pane in the video.
    *
    *  Tuning only — it does NOT say where glass appears. That is decided per

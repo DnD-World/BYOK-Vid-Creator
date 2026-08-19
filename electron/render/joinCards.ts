@@ -56,6 +56,20 @@ function run(args: string[]): Promise<{ code: number; err: string }> {
   });
 }
 
+/** Does this file carry sound at all? */
+async function hasAudio(file: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const p = spawn("ffprobe", [
+      "-v", "error", "-select_streams", "a",
+      "-show_entries", "stream=index", "-of", "csv=p=0", file,
+    ], { windowsHide: true });
+    let out = "";
+    p.stdout.on("data", (d) => { out += String(d); });
+    p.on("error", () => resolve(false));
+    p.on("close", () => resolve(out.trim().length > 0));
+  });
+}
+
 async function durationOf(file: string): Promise<number> {
   return new Promise((resolve) => {
     const p = spawn("ffprobe", [
@@ -83,14 +97,23 @@ async function normalise(
   dest: string,
   o: JoinCardsOptions
 ): Promise<string | null> {
+  // A CARD KEEPS ITS OWN SOUND. The first version always mapped the generated
+  // silence and threw the card's audio away, whatever it had — a sting with a
+  // whoosh on it would have arrived silent, and the setting said so in words
+  // that made it sound deliberate.
+  //
+  // Silence is only manufactured when there is none to keep, and it is
+  // manufactured rather than left out because every part of a concatenation
+  // needs the same streams: a card with no audio track at all cannot be joined
+  // to a lesson that has one.
+  const keepsOwnAudio = await hasAudio(src);
   const { code, err } = await run([
     "-y",
     "-i", src,
-    // A silent track, used only if the card brought none of its own.
     "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
     "-shortest",
     "-map", "0:v:0",
-    "-map", "1:a:0?",
+    "-map", keepsOwnAudio ? "0:a:0" : "1:a:0",
     "-vf",
     `scale=${o.width}:${o.height}:force_original_aspect_ratio=decrease,` +
       `pad=${o.width}:${o.height}:(ow-iw)/2:(oh-ih)/2:color=black,` +

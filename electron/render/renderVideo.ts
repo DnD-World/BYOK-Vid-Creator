@@ -93,6 +93,16 @@ export interface RenderJob {
    *  frame and given a silent track if it has none. */
   introPath?: string | null;
   outroPath?: string | null;
+  /** A logo over the video. The file is copied into the render's public dir
+   *  like the faces and the audio, because the composition runs in a browser
+   *  and cannot read the disk. */
+  logo?: {
+    filePath?: string | null;
+    position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "watermark";
+    size: number;
+    opacity: number;
+    margin: number;
+  } | null;
 }
 
 export interface RenderContext {
@@ -400,6 +410,30 @@ export async function renderVideo(
     });
 
     onProgress(STAGE.bundle.from, "Building render bundle…");
+    // The logo travels the same road as every other asset, and it has to be
+    // copied in BEFORE bundle() runs — the bundler copies the public directory
+    // into what it serves, so anything written afterwards is never served. It
+    // was written afterwards first time and the render died with "Error loading
+    // image", which is at least loud; the same mistake with the spectrum failed
+    // silently and cost a day.
+    let logoProps: RenderProps["logo"] = null;
+    if (job.logo?.filePath) {
+      try {
+        const ext = path.extname(job.logo.filePath) || ".png";
+        const fileName = `logo${ext}`;
+        await fsp.copyFile(job.logo.filePath, path.join(publicDir, fileName));
+        logoProps = {
+          fileName,
+          position: job.logo.position,
+          size: job.logo.size,
+          opacity: job.logo.opacity,
+          margin: job.logo.margin,
+        };
+      } catch {
+        warnings.push(`[byok] the logo could not be read and was left off: ${job.logo.filePath}`);
+      }
+    }
+
     const serveUrl = await bundle({
       entryPoint,
       publicDir,
@@ -433,6 +467,7 @@ export async function renderVideo(
       backgrounds,
       backgroundDim: job.backgroundDim ?? 0,
       backgroundBlur: job.backgroundBlur ?? 0,
+      logo: logoProps,
       glass: job.glass ?? null,
       backgroundCrossfadeMs: job.backgroundCrossfadeMs ?? 0,
       subtitles: job.subtitles,
@@ -470,6 +505,7 @@ export async function renderVideo(
       "crf",                // encoder setting, never reaches the composition
       "introPath",          // joined on after the render, see joinCards.ts
       "outroPath",
+      "logo",               // copied in and forwarded as `logo` in inputProps
       "projectRoot",
       "outputDir",
       "outputName",

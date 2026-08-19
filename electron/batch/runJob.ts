@@ -43,6 +43,8 @@ import {
   type OutlineShape,
   type SpeakerConfig,
   type SubtitleConfig,
+  type LogoConfig,
+  defaultLogo,
   type TrackWaveform,
 } from "../../src/store/types";
 
@@ -187,9 +189,15 @@ export interface BatchJob {
    *  mean editing a preset in source between renders. */
   subtitleEmphasis?: SubtitleConfig["activeEmphasis"];
   /** Two- or three-second cards welded on after the render. Any video ffmpeg
-   *  can read; scaled and padded to the frame, silent if it has no sound. */
+   *  can read; scaled to fit the frame. A card with no sound is fine. */
   introPath?: string;
   outroPath?: string;
+  /** A logo over every frame. Just a path uses the defaults — bottom right,
+   *  12% of the frame's width. */
+  logoPath?: string;
+  logoPosition?: LogoConfig["position"];
+  logoSize?: number;
+  logoOpacity?: number;
 }
 
 export interface JobResult {
@@ -635,6 +643,15 @@ export async function runBatchJob(
     crf: job.crf,
     introPath: job.introPath,
     outroPath: job.outroPath,
+    logo: job.logoPath
+      ? {
+          ...defaultLogo(),
+          filePath: job.logoPath,
+          ...(job.logoPosition ? { position: job.logoPosition } : {}),
+          ...(job.logoSize !== undefined ? { size: job.logoSize } : {}),
+          ...(job.logoOpacity !== undefined ? { opacity: job.logoOpacity } : {}),
+        }
+      : null,
     glass: job.glass ?? null,
   } as RenderJob;
 

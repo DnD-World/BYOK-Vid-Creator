@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   type Cards,
+  type LogoConfig,
   ProjectState,
   RenderSettings,
   SpeakerConfig,
@@ -107,6 +108,7 @@ interface Actions {
   setMusicWaveform: (p: Partial<TrackWaveform>) => void;
   setMusicColor: (c: string) => void;
   setCards: (p: Partial<Cards>) => void;
+  setLogo: (p: Partial<LogoConfig>) => void;
   /** Patch one speaker's own waveform. Kept separate from updateSpeaker so
    *  callers don't have to spread the nested object by hand every time. */
   setSpeakerWaveform: (id: string, p: Partial<TrackWaveform>) => void;
@@ -153,6 +155,8 @@ export const useProjectStore = create<ProjectState & Actions>()(
   setMusicColor: (musicColor) => set({ musicColor }),
 
   setCards: (p) => set((s) => ({ cards: { ...s.cards, ...p } })),
+
+  setLogo: (p) => set((s) => ({ logo: { ...s.logo, ...p } })),
 
   setSpeakerWaveform: (id, p) =>
     set((s) => ({
@@ -348,6 +352,7 @@ export const useProjectStore = create<ProjectState & Actions>()(
         musicWaveform: s.musicWaveform,
         musicColor: s.musicColor,
         cards: s.cards,
+        logo: s.logo,
         subtitles: s.subtitles,
         // Worth persisting: the clips themselves are already cached under
         // userData by provider and id, so what is saved here is a few hundred
