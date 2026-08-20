@@ -205,6 +205,29 @@ file. `BYOK_SECRETS_DIR` overrides the location. The client must be of type
 program on your own machine, and the tool stops with that explanation rather
 than failing later with something obscure.
 
+### Proven end to end — 20 Aug 2026
+
+Two real uploads to the channel **Lambros Stravelakis**: one private, one
+private with a publish date of 1 Jan 2030. YouTube echoed both back. Delete them
+whenever — they are `KtN3cdh1tCs` and `ezZ2Gese6lY`.
+
+```bash
+node tools/youtube-auth.mjs --check        # says which channel, or why not
+node tools/youtube-upload.mjs video.mp4 --title "..." --publish-at 2026-09-01T10:00
+```
+
+**What cost the evening, so nobody repeats it:**
+
+- A `cmd` window cuts a URL at its first `&`, and an OAuth URL is mostly
+  ampersands. The browser got the client id and nothing else.
+- `fetch` reports "fetch failed" and hides the reason in `e.cause`.
+- Attaching `on("data")` to a file stream to measure upload progress CONSUMES
+  it, and fetch then sends an empty body. The error says "content-length
+  mismatch", which sounds like a header bug and is a stolen stream.
+- A valid token proves nothing about a channel. The account may have none, or
+  the channel may be a Brand account while the sign-in picked the person. Both
+  refuse with the same word. `--check` now names the channel.
+
 **Quota, checked against Google's own documentation:** a new project gets
 **100 uploads a day**, on a separate allowance from the 10,000 units everything
 else shares. Four hundred videos is four days, not two months.

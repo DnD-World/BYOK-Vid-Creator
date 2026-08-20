@@ -20,6 +20,7 @@
 import fsp from "node:fs/promises";
 import fs from "node:fs";
 import path from "node:path";
+import { Transform } from "node:stream";
 
 /** What Google hands back when a Desktop client is created. Web clients have
  *  the same shape under a different key, which is why both are accepted. */
@@ -220,12 +221,22 @@ export async function uploadVideo(
 
   // Step two: send the bytes. Streamed from disk rather than read into memory —
   // a 700MB lesson read whole would be 700MB of process.
-  const stream = fs.createReadStream(opts.videoPath);
+  //
+  // COUNTED THROUGH A TRANSFORM, NOT A LISTENER. Attaching `on("data")` to the
+  // file stream to measure progress puts it into flowing mode and consumes it
+  // then and there, so fetch was handed an already-drained stream and the
+  // upload died with "request body length does not match content-length" —
+  // which reads like a header bug and is in fact a stolen stream. A transform
+  // sits IN the pipe and passes every chunk on.
   let sent = 0;
-  stream.on("data", (chunk) => {
-    sent += (chunk as Buffer).length;
-    opts.onProgress?.(sent, stat.size);
+  const counter = new Transform({
+    transform(chunk, _enc, cb) {
+      sent += chunk.length;
+      opts.onProgress?.(sent, stat.size);
+      cb(null, chunk);
+    },
   });
+  const stream = fs.createReadStream(opts.videoPath).pipe(counter);
 
   const put = await fetch(location, {
     method: "PUT",
