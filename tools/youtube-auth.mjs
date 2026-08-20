@@ -53,7 +53,14 @@ const SECRETS =
   process.env.BYOK_SECRETS_DIR ?? path.resolve(ROOT, "..", "SECRETS");
 const PORT = 53682;
 const REDIRECT = `http://localhost:${PORT}`;
-const SCOPE = "https://www.googleapis.com/auth/youtube.upload";
+// Upload, plus read — the read part is only so --check can SAY which channel
+// this sign-in is attached to. Without it the tool cannot tell "no channel"
+// from "the wrong one of your two accounts", which is exactly the confusion
+// that cost an evening.
+const SCOPE = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.readonly",
+].join(" ");
 /** Long enough to find the right Google account, read the consent screen, and
  *  make a cup of tea. Five minutes was not, and running out looks exactly like
  *  a bug. */
@@ -364,11 +371,52 @@ BUT the token belongs to a different client than the one in this folder.
       })
     );
     if (body.access_token) {
-      console.log(`YES
+      console.log(`YES`);
 
+      // WHICH CHANNEL. A token can be perfectly valid and still belong to a
+      // Google account with no channel on it, or to the personal account
+      // rather than the brand account that owns the channel. Both refuse an
+      // upload with the same unhelpful word.
+      const r = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
+        { headers: { Authorization: `Bearer ${body.access_token}` } }
+      );
+      const chans = await r.json();
+      if (Array.isArray(chans.items) && chans.items.length > 0) {
+        console.log(`Channel          ${chans.items.map((c) => c.snippet.title).join(", ")}`);
+        console.log(`
 Everything is ready. Uploads can run.
 `);
-      process.exit(0);
+        process.exit(0);
+      }
+      if (r.status === 403) {
+        console.log(
+          `Channel          cannot check — this sign-in predates the readonly
+` +
+            `                 permission. Sign in again to have it checked:
+` +
+            `                 node tools/youtube-auth.mjs --link
+`
+        );
+        process.exit(0);
+      }
+      console.log(
+        `Channel          NONE on this account
+
+` +
+          `Uploads will be refused. Either this Google account has no YouTube
+` +
+          `channel, or the channel belongs to a BRAND account and the sign-in
+` +
+          `picked the personal one instead.
+
+` +
+          `Run: node tools/youtube-auth.mjs --link
+` +
+          `and on the "Choose an account" screen pick the CHANNEL, not the person.
+`
+      );
+      process.exit(1);
     }
     console.log(`no`);
     console.log(
