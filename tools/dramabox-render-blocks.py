@@ -28,8 +28,19 @@ import subprocess
 import sys
 import time
 
+# argv[1] may name a lesson folder; see WORK below.
+
 APP = "/opt/dramabox/DramaBox"
 WORK = "/opt/dramabox/work"
+# The reference clips are shared by every lesson — three characters, one set of
+# voices, whatever else is being generated.
+REFS = f"{WORK}/refs"
+
+# Every lesson folder named on the command line, or the shared one when none is.
+# ALL OF THEM IN ONE PROCESS on purpose: the model takes a minute or two to
+# load, and doing that seventy-two times is over an hour of a rented GPU spent
+# on nothing.
+LESSONS = sys.argv[1:] or [WORK]
 
 
 def require_empty_gpu(max_used_mib: int = 500) -> None:
@@ -125,54 +136,70 @@ for fn in (server.generate_to_file, server.generate_long, server.generate):
         pass
 TAKES_KWARGS = False
 
-blocks = json.load(open(f"{WORK}/blocks.json", encoding="utf-8"))
-
-unknown = {k for b in blocks for k in b.get("params", {})} - set(DEFAULTS) - OPTIONAL
-if unknown:
-    raise SystemExit(
-        f"[params] unknown setting(s) in blocks.json: {sorted(unknown)}. "
-        "A misspelled setting would otherwise be dropped silently and the "
-        "generation would look fine and sound like the default."
-    )
-
-out_dir = f"{WORK}/out"
-os.makedirs(out_dir, exist_ok=True)
-
-done = failed = 0
+total_done = total_failed = 0
 t_all = time.time()
 
-for b in blocks:
-    target = f"{out_dir}/{b['id']}.wav"
-    if os.path.exists(target):        # resume after a disconnect
-        done += 1
+for lesson in LESSONS:
+    name = os.path.basename(lesson.rstrip("/")) or "work"
+    blocks_file = f"{lesson}/blocks.json"
+    if not os.path.exists(blocks_file):
+        print(f"[{name}] no blocks.json — skipped", flush=True)
         continue
-    t = time.time()
-    params = {**DEFAULTS, **b.get("params", {})}
-    if not TAKES_KWARGS:
-        dropped = sorted(set(params) - ACCEPTED)
-        if dropped:
-            print(
-                f"[params] generate_to_file does not accept {dropped} — "
-                "dropping them. THEY WILL HAVE NO EFFECT ON THIS RUN.",
-                flush=True,
-            )
-            params = {k: v for k, v in params.items() if k in ACCEPTED}
-    try:
-        server.generate_to_file(
-            prompt=b["prompt"],
-            output=target,
-            voice_ref=f"{WORK}/refs/{b['voice_ref']}",
-            **params,
-        )
-        # Say what was actually applied. A setting that travelled from the job
-        # file and then quietly did not arrive is exactly the kind of silent
-        # success that has cost this project four days.
-        changed = {k: v for k, v in params.items() if v != DEFAULTS.get(k)}
-        note = f" {changed}" if changed else ""
-        print(f"[{b['id']}] {time.time()-t:.1f}s OK{note}", flush=True)
-        done += 1
-    except Exception as e:
-        print(f"[{b['id']}] FAILED {type(e).__name__}: {e}", flush=True)
-        failed += 1
 
-print(f"\n{done} generated, {failed} failed, {time.time()-t_all:.0f}s", flush=True)
+    blocks = json.load(open(blocks_file, encoding="utf-8"))
+
+    unknown = {k for b in blocks for k in b.get("params", {})} - set(DEFAULTS) - OPTIONAL
+    if unknown:
+        raise SystemExit(
+            f"[params] unknown setting(s) in {name}/blocks.json: {sorted(unknown)}. "
+            "A misspelled setting would otherwise be dropped silently and the "
+            "generation would look fine and sound like the default."
+        )
+
+    out_dir = f"{lesson}/out"
+    os.makedirs(out_dir, exist_ok=True)
+
+    done = failed = 0
+    t_lesson = time.time()
+    print(f"\n[{name}] {len(blocks)} blocks", flush=True)
+
+    for b in blocks:
+        target = f"{out_dir}/{b['id']}.wav"
+        if os.path.exists(target):        # resume after a disconnect
+            done += 1
+            continue
+        t = time.time()
+        params = {**DEFAULTS, **b.get("params", {})}
+        if not TAKES_KWARGS:
+            dropped = sorted(set(params) - ACCEPTED)
+            if dropped:
+                print(
+                    f"[params] generate_to_file does not accept {dropped} — "
+                    "dropping them. THEY WILL HAVE NO EFFECT ON THIS RUN.",
+                    flush=True,
+                )
+                params = {k: v for k, v in params.items() if k in ACCEPTED}
+        try:
+            server.generate_to_file(
+                prompt=b["prompt"],
+                output=target,
+                voice_ref=f"{REFS}/{b['voice_ref']}",
+                **params,
+            )
+            # Say what was actually applied. A setting that travelled from the
+            # job file and then quietly did not arrive is exactly the kind of
+            # silent success that has cost this project four days.
+            changed = {k: v for k, v in params.items() if v != DEFAULTS.get(k)}
+            note = f" {changed}" if changed else ""
+            print(f"[{name} {b['id']}] {time.time()-t:.1f}s OK{note}", flush=True)
+            done += 1
+        except Exception as e:
+            print(f"[{name} {b['id']}] FAILED {type(e).__name__}: {e}", flush=True)
+            failed += 1
+
+    print(f"[{name}] {done} generated, {failed} failed, {time.time()-t_lesson:.0f}s", flush=True)
+    total_done += done
+    total_failed += failed
+
+print(f"\n{total_done} generated, {total_failed} failed across "
+      f"{len(LESSONS)} lesson(s), {time.time()-t_all:.0f}s", flush=True)

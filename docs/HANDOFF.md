@@ -252,6 +252,26 @@ is the step between them — turning a page into a script good enough to publish
 without someone reading it first, which is a writing problem rather than a
 programming one.
 
+## The GPU round trip is one command — 20 Aug 2026
+
+```bash
+node tools/narrate-remote.mjs jobs/101.1.json jobs/101.2.json
+node tools/narrate-remote.mjs --queue queue.json
+```
+
+Builds the blocks, starts the box (retrying while the zone is out of cards),
+sends the lessons and the voice clips, generates, aligns, brings the audio back,
+writes `dramaboxWavDir` and `dramaboxWordsPath` into each job file, and **stops
+the machine**. A shutdown is also scheduled ON the box first, so the card dies
+even if this is killed or the laptop sleeps. `--keep-running` opts out.
+
+**One model load for the whole batch.** The generator takes a folder per lesson
+and is given all of them at once; loading it seventy-two times would be over an
+hour of rented card spent on nothing.
+
+Then rendering is just `npm run job -- jobs/101.1.json`, or the whole list
+through `tools/run-queue.mjs`.
+
 ## Open, in the order I would take them
 
 1. **Audition the voice settings by ear.** The presets — "Bigger performance",
