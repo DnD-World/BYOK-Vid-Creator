@@ -19,7 +19,20 @@
  * published, and an ignore rule only holds for as long as nobody edits the
  * ignore file. Set BYOK_SECRETS_DIR to override.
  *
- * TWO WAYS IN, because the first one failed in practice. Normally the browser
+ * THREE WAYS IN, because the first two failed in practice.
+ *
+ * The one that cannot go wrong is the two-step:
+ *
+ *     node tools/youtube-auth.mjs --link     prints the address, saves nothing
+ *     ...approve in the browser, let it fail to connect, copy the address...
+ *     node tools/youtube-auth.mjs --code "<paste it here>"
+ *
+ * Nothing is listening, nothing is waiting, and there is no session to lose.
+ * The two steps can be minutes apart. This exists because the automatic route
+ * kept failing for reasons that had nothing to do with Google: a browser
+ * reopening an old tab, a firewall, a window closed at the wrong moment.
+ *
+ * THE OTHER TWO WAYS IN, from before. Normally the browser
  * comes back to a small server running here and everything happens by itself.
  * But that server has to still be listening at the moment you approve, and if
  * it is not — the window was closed, the wait ran out, something else took the
@@ -84,10 +97,27 @@ if (kind === "web" && !(client.redirect_uris ?? []).some((u) => u.startsWith(RED
   process.exit(1);
 }
 
+// ---- which mode ------------------------------------------------------------
+
+const argv = process.argv.slice(2);
+const wantLink = argv.includes("--link");
+const codeArgIndex = argv.indexOf("--code");
+const codeArg = codeArgIndex >= 0 ? argv[codeArgIndex + 1] : null;
+
+/** Where the one-time value is kept between the two steps, so the second can
+ *  check the first really asked for it. Beside the secrets, not in the repo. */
+const STATE_FILE = path.join(SECRETS, ".youtube-auth-state");
+
 // A one-time random value, checked when Google sends the browser back. Without
 // it, anything that can reach this port during the sign-in could hand us a code
 // of its own choosing.
-const state = crypto.randomBytes(16).toString("hex");
+//
+// In two-step mode the value from the --link run is reused, because a fresh one
+// would never match what the browser is carrying.
+const state =
+  codeArg && fs.existsSync(STATE_FILE)
+    ? fs.readFileSync(STATE_FILE, "utf8").trim()
+    : crypto.randomBytes(16).toString("hex");
 
 const authUrl =
   "https://accounts.google.com/o/oauth2/v2/auth?" +
@@ -132,10 +162,18 @@ async function finish(code, sentState) {
 
   if (!body.refresh_token) {
     const why = String(body.error_description ?? body.error ?? "no reason given");
+    if (/malformed/i.test(why)) {
+      throw new Error(
+        `That does not look like an authorisation code. Paste the WHOLE address ` +
+          `from the browser's bar, in quotes — the one starting\n` +
+          `http://localhost:${PORT}/?state=…`
+      );
+    }
     if (/expired|invalid_grant|already redeemed/i.test(why)) {
       throw new Error(
         `That code was already used or has expired — they last a few minutes and ` +
-          `work once. Run this again for a fresh one.`
+          `work once. Get a fresh one with:\n\n` +
+          `  node tools/youtube-auth.mjs --link`
       );
     }
     throw new Error(
@@ -184,6 +222,80 @@ const failed = (e) => {
   console.error(`\n${e instanceof Error ? e.message : String(e)}\n`);
   process.exit(1);
 };
+
+// ---- the two-step, which has nothing to go wrong --------------------------
+
+if (wantLink) {
+  fs.mkdirSync(SECRETS, { recursive: true });
+  fs.writeFileSync(STATE_FILE, state, "utf8");
+  console.log(
+    `
+Step 1 of 2. Open this address and approve:
+
+${authUrl}
+
+` +
+      `The browser will then try to reach ${REDIRECT} and FAIL — "this site
+` +
+      `can't be reached". That is expected and fine. Nothing is listening.
+
+` +
+      `Copy the whole address out of the bar and run:
+
+` +
+      `  node tools/youtube-auth.mjs --code "<paste the address>"
+
+` +
+      `Keep the quotes. There is no hurry — a few minutes is fine.
+`
+  );
+  process.exit(0);
+}
+
+if (codeArg !== null) {
+  if (!codeArg) {
+    console.error(`
+Nothing came after --code. Put the address in quotes.
+`);
+    process.exit(1);
+  }
+  const parsed = codeFrom(codeArg);
+  if (!parsed?.code) {
+    console.error(
+      `
+Could not find a code in that. Paste the whole address, in quotes —
+` +
+        `the one starting http://localhost:${PORT}/?state=...
+`
+    );
+    process.exit(1);
+  }
+  if (!fs.existsSync(STATE_FILE)) {
+    console.error(
+      `
+Run this first, to get an address to approve:
+
+` +
+        `  node tools/youtube-auth.mjs --link
+`
+    );
+    process.exit(1);
+  }
+  try {
+    const dest = await finish(parsed.code, parsed.state);
+    try { fs.unlinkSync(STATE_FILE); } catch { /* already gone */ }
+    console.log(`
+Saved ${dest}
+Uploads can now run without you.
+`);
+    process.exit(0);
+  } catch (e) {
+    console.error(`
+${e instanceof Error ? e.message : String(e)}
+`);
+    process.exit(1);
+  }
+}
 
 // ---- route one: the browser comes back ------------------------------------
 
