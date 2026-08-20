@@ -333,8 +333,18 @@ export interface SpeakerConfig {
    *
    *  `dramabox` generates on a rented GPU rather than here, so the app writes
    *  its two files and the audio comes back as WAVs; `piper` runs locally. */
-  ttsEngine?: "dramabox" | "piper";
+  ttsEngine?: "dramabox" | "piper" | "elevenlabs";
   voiceId?: string;      // assigned Piper voice's onnxPath, if any
+  /** The voice id from the ElevenLabs library or a clone. An id, not a name. */
+  elevenVoiceId?: string;
+  /** Per-character voice settings. `speed` is the nearest thing to DramaBox's
+   *  pace; `stability` low wanders and is expressive, high is steady and flat. */
+  eleven?: {
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    speed?: number;
+  };
 }
 
 /** Per-band spectrum for every analysis frame — the data that lets bars move

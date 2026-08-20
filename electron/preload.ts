@@ -124,6 +124,10 @@ const api = {
     ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
       ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text),
 
+    /** The voices on the saved ElevenLabs account. Empty when there is no key. */
+    listElevenVoices: (): Promise<{ id: string; name: string; labels?: string }[]> =>
+      ipcRenderer.invoke("tts:listElevenVoices"),
+
     generateNarration: (
       segments: {
         speakerId: string;

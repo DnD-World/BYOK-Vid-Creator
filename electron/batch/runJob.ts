@@ -71,7 +71,10 @@ export interface JobSpeaker {
    *  are given — the same precedence the preview and the render already use. */
   sheetPath?: string;
   puppetPath?: string;
-  engine: "piper" | "dramabox";
+  engine: "piper" | "dramabox" | "elevenlabs";
+  /** ElevenLabs voice id, and this character's settings. */
+  elevenVoiceId?: string;
+  eleven?: { stability?: number; similarityBoost?: number; style?: number; speed?: number };
   piperPythonPath?: string;
   piperOnnxPath?: string;
   /** File name of this character's DramaBox reference clip — "tsika.wav".
@@ -372,9 +375,11 @@ export async function runBatchJob(
       speakerLabel: seg.speakerLabel,
       text: seg.text,
       language,
-      engine: "piper" as const,
+      engine: c.engine === "elevenlabs" ? ("elevenlabs" as const) : ("piper" as const),
       piperPythonPath: c.piperPythonPath,
       piperOnnxPath: c.piperOnnxPath,
+      elevenVoiceId: c.elevenVoiceId,
+      eleven: c.eleven,
     } as NarrationInput;
   });
 

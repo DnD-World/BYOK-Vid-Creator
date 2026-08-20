@@ -188,6 +188,7 @@ declare global {
           onnxPath: string,
           text: string
         ) => Promise<{ audioBuffer: ArrayBuffer; durationMs: number }>;
+        listElevenVoices: () => Promise<{ id: string; name: string; labels?: string }[]>;
         generateNarration: (
           segments: {
             speakerId: string;

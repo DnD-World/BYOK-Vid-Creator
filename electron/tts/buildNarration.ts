@@ -16,6 +16,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { synthesizeWithPiper } from "./piperEngine";
+import * as elevenlabs from "./elevenlabsEngine";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
 import { trimSilence, squeezeSilence } from "../audio/trimSilence";
@@ -33,9 +34,17 @@ export interface NarrationInput {
   speakerLabel: string;
   text: string;
   language: string;
-  engine?: "piper";
+  engine?: "piper" | "elevenlabs";
   piperPythonPath?: string;
   piperOnnxPath?: string;
+  /** ElevenLabs: the voice id and this character's settings. */
+  elevenVoiceId?: string;
+  eleven?: {
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    speed?: number;
+  };
 }
 
 export interface NarrationPauses {
@@ -88,6 +97,16 @@ function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): stri
       s.engine,
       s.piperOnnxPath,
       s.language,
+      // THE VOICE AND ITS SETTINGS COUNT. Changing an ElevenLabs voice or its
+      // speed changes every sample and not one character of the script, so a
+      // key without them serves the old audio for the new voice — and the
+      // change looks like it did nothing. That has already happened twice in
+      // this file's history, which is what the version string above is for.
+      s.elevenVoiceId,
+      s.eleven?.stability,
+      s.eleven?.similarityBoost,
+      s.eleven?.style,
+      s.eleven?.speed,
     ]),
     pauses.sameMs,
     pauses.turnMs,
@@ -161,7 +180,26 @@ export async function buildNarration(
   const trimmed = (b: Buffer): Buffer => squeezeSilence(trimSilence(b).buffer).buffer;
 
   const buffers: Buffer[] = [];
+  /** Only ever spent, never refunded — worth reporting at the end. */
+  let credits = 0;
+
   for (const seg of segments) {
+    if (seg.engine === "elevenlabs") {
+      const { audioBuffer, credits: spent } = await elevenlabs.synthesize({
+        text: seg.text,
+        voiceId: seg.elevenVoiceId ?? "",
+        settings: {
+          stability: seg.eleven?.stability,
+          similarityBoost: seg.eleven?.similarityBoost,
+          style: seg.eleven?.style,
+          speed: seg.eleven?.speed,
+        },
+      });
+      credits += spent;
+      buffers.push(trimmed(Buffer.from(audioBuffer)));
+      continue;
+    }
+
     if (!seg.piperPythonPath || !seg.piperOnnxPath) {
       throw new Error(
         `Speaker "${seg.speakerLabel}" has no Piper voice selected — pick one in the left rail. ` +
@@ -179,6 +217,15 @@ export async function buildNarration(
   // Nothing in front of the first line — leading silence only delays the video.
   // After that, a breath between a speaker's own lines and a longer beat when
   // the turn changes.
+  // MONEY, SAID OUT LOUD. A character is a credit, and a re-render spends them
+  // again — unlike the GPU, where a second attempt costs only minutes.
+  if (credits > 0) {
+    console.log(
+      `[byok] ElevenLabs: ${credits.toLocaleString()} credits spent on this narration ` +
+        `(about ${(credits / 4640).toFixed(1)} lessons' worth).`
+    );
+  }
+
   const gaps = segments.map((seg, i) =>
     i === 0 ? 0 : seg.speakerId === segments[i - 1].speakerId ? pauses.sameMs : pauses.turnMs
   );

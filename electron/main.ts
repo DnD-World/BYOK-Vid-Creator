@@ -5,6 +5,7 @@ import * as keyStore from "./keyStore";
 import { listPiperVoices, synthesizeWithPiper, shutdownAllPiperServers } from "./tts/piperEngine";
 import { analyzeNarration } from "./audio/analyzeNarration";
 import { listMusic } from "./audio/musicLibrary";
+import * as elevenlabs from "./tts/elevenlabsEngine";
 import { listMedia } from "./net/mediaLibrary";
 import { draftScript } from "./llm/glmScenePlanner";
 import { testProvider } from "./net/testProvider";
@@ -286,6 +287,12 @@ ipcMain.handle("media:library", async () => {
     path.join(app.getPath("userData"), "media"),
     path.join(app.getAppPath(), "sfx", "library"),
   ]);
+});
+
+// The voices on the ElevenLabs account, so the Cast panel can offer a list
+// rather than asking someone to go and find an id and paste it.
+ipcMain.handle("tts:listElevenVoices", async () => {
+  return elevenlabs.listVoices();
 });
 
 // The music library — the loops that ship with the app, in music/.

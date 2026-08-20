@@ -36,6 +36,17 @@ interface Provider {
 
 const PROVIDERS: Provider[] = [
   {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    what:
+      "Voices, charged by the character. A lesson is about 4,600 credits, so the " +
+      "72-lesson course is roughly 334,000 — one month of Pro, or three of Creator " +
+      "with nothing spare for re-renders. DramaBox does the same course for about " +
+      "five dollars of rented card, but needs a machine started and stopped.",
+    url: "https://elevenlabs.io/app/settings/api-keys",
+    access: "instant",
+  },
+  {
     id: "nvidia",
     label: "NVIDIA",
     what: "Writes and polishes your script with GLM-5.2. Free to use.",
@@ -74,8 +85,11 @@ const PROVIDERS: Provider[] = [
 //                NO synthesis code anywhere in the app. It could pass its test
 //                and still never speak, which is the most misleading state a
 //                setting can be in.
-//   Drive, 11L — on the cut list as "stubs only, don't build". A COMING SOON
+//   Drive      — on the cut list as "stubs only, don't build". A COMING SOON
 //                badge on something nobody intends to build is a promise.
+//
+// ElevenLabs was on that list too and came back on 20 Aug 2026, with the code
+// behind it in the same change — which is the rule below, kept.
 //
 // If any of these is ever genuinely wanted, add it back WITH the code behind
 // it, in the same change.

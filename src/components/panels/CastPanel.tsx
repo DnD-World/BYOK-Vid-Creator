@@ -50,6 +50,10 @@ export function CastPanel() {
   const musicDuck = useProjectStore((s) => s.musicDuck);
   const setMusicMix = useProjectStore((s) => s.setMusicMix);
   const [musicBusy, setMusicBusy] = useState(false);
+  const [elevenVoices, setElevenVoices] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    window.byok?.tts?.listElevenVoices?.().then(setElevenVoices).catch(() => setElevenVoices([]));
+  }, []);
   const [musicLibrary, setMusicLibrary] = useState<{ name: string; filePath: string }[]>([]);
   useEffect(() => {
     window.byok?.music?.list().then(setMusicLibrary).catch(() => setMusicLibrary([]));
@@ -566,10 +570,13 @@ export function CastPanel() {
                 value={speaker.ttsEngine ?? "dramabox"}
                 options={[
                   { value: "dramabox", label: "DramaBox — acts, runs on the GPU box" },
+                  { value: "elevenlabs", label: "ElevenLabs — charged per character" },
                   { value: "piper", label: "Piper — fast, local, flat" },
                 ]}
                 onChange={(v) =>
-                  updateSpeaker(speaker.id, { ttsEngine: v as "dramabox" | "piper" })
+                  updateSpeaker(speaker.id, {
+                    ttsEngine: v as "dramabox" | "elevenlabs" | "piper",
+                  })
                 }
               />
               {(speaker.ttsEngine ?? "dramabox") === "piper" && (
@@ -631,6 +638,51 @@ export function CastPanel() {
                   }
                 />
               </label>
+              {(speaker.ttsEngine ?? "dramabox") === "elevenlabs" && (
+                <div className="space-y-2">
+                  <label className="block">
+                    <span className="label-etched text-sm">ElevenLabs voice</span>
+                    <Picker
+                      aria-label="ElevenLabs voice"
+                      className="mt-1 w-full"
+                      placeholder={
+                        elevenVoices.length === 0
+                          ? "No voices — save a key in Backend Settings"
+                          : "Pick a voice"
+                      }
+                      value={speaker.elevenVoiceId ?? ""}
+                      options={[
+                        { value: "", label: "No voice chosen" },
+                        ...elevenVoices.map((v) => ({ value: v.id, label: v.name })),
+                      ]}
+                      onChange={(v) =>
+                        updateSpeaker(speaker.id, { elevenVoiceId: v || undefined })
+                      }
+                    />
+                  </label>
+                  <Slider
+                    label="Speed" value={speaker.eleven?.speed ?? 1} min={0.7} max={1.2} step={0.05}
+                    onChange={(v) =>
+                      updateSpeaker(speaker.id, { eleven: { ...speaker.eleven, speed: v } })
+                    }
+                    format={(v) => `${v.toFixed(2)}x`}
+                  />
+                  <Slider
+                    label="Steadiness" value={speaker.eleven?.stability ?? 0.5} min={0} max={1} step={0.05}
+                    onChange={(v) =>
+                      updateSpeaker(speaker.id, { eleven: { ...speaker.eleven, stability: v } })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <p className="text-sm text-neutral-500">
+                    Low steadiness wanders and is more expressive; high is even and
+                    flatter. Every generation is charged by the character, and a
+                    re-render is charged again.
+                  </p>
+                </div>
+              )}
+
+              {(speaker.ttsEngine ?? "dramabox") !== "elevenlabs" && (
               <VoiceControls
                 value={speaker.dramabox ?? {}}
                 onChange={(dramabox) => updateSpeaker(speaker.id, { dramabox })}
@@ -639,6 +691,7 @@ export function CastPanel() {
                   updateSpeaker(speaker.id, { expression })
                 }
               />
+              )}
             </section>
 
           </>

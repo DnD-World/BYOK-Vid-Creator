@@ -184,6 +184,40 @@ definition, so a superellipse drawn with arcs stays round.
 
 ---
 
+## ElevenLabs — the paid voice, added 20 Aug 2026
+
+It was on the cut list as "stubs only, don't build" and came back, with the code
+in the same change. Chosen per character in the Cast panel, alongside DramaBox
+and Piper.
+
+**What it costs, measured rather than guessed.** Lesson 101.1 is **4,640
+characters** of Greek, and a credit is a character:
+
+| | |
+|---|---|
+| 72 lessons | 334,080 credits |
+| Creator, $22/mo | 121,000 — about **26 lessons a month** |
+| Pro, $99/mo | 600,000 — the course plus ~1.8× of re-renders |
+| DramaBox, same course | about **$5** of rented card |
+
+**Every re-render spends it again.** The GPU charges only more minutes. Two
+months of Creator is 242,000 and leaves the course twenty lessons short — the
+question Ak asked, and the answer is no.
+
+**Raw PCM, not MP3.** The app's analysis reads 16-bit PCM — it is what moves a
+waveform, loops a music bed and feeds the aligner. The API is asked for
+`pcm_44100` and `elevenlabsEngine.ts` writes the WAV header itself, because the
+response is bare samples with no container. An MP3 would play and analyse as
+silence.
+
+**The voice id and its settings are in the narration cache key.** Changing a
+voice changes every sample and not one character of the script, so a key without
+them would serve the old audio for the new voice and the change would look like
+it did nothing. That has happened twice in this project for other reasons.
+
+Untested against the real API — there is no key saved yet. The key test in
+Backend Settings reports the tier and how many lessons the remaining credits buy.
+
 ## YouTube — scheduled publishing
 
 Not a Premiere. **Decided 20 Aug 2026:** a video is uploaded private with a
