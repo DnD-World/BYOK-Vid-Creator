@@ -184,6 +184,43 @@ definition, so a superellipse drawn with arcs stays round.
 
 ---
 
+## YouTube — scheduled publishing
+
+Not a Premiere. **Decided 20 Aug 2026:** a video is uploaded private with a
+`publishAt` time and becomes public at that moment. No countdown, no waiting
+room, no live chat. A real Premiere needs a live broadcast created alongside the
+video and is a different and more fragile piece of work; nothing about this
+course needs one.
+
+- `electron/net/youtube.ts` — refresh, resumable upload, read the status back.
+  No SDK: three HTTP calls do not justify that dependency tree.
+- `tools/youtube-auth.mjs` — **Ak runs this once**, in a browser. It writes
+  `youtube-token.json`, which is gitignored along with the client secret.
+
+**Quota, checked against Google's own documentation:** a new project gets
+**100 uploads a day**, on a separate allowance from the 10,000 units everything
+else shares. Four hundred videos is four days, not two months.
+
+**A scheduled video must be uploaded private.** Any other starting state and
+YouTube ignores the schedule and publishes it the moment the upload finishes.
+The uploader refuses that combination rather than discovering it from a
+subscriber.
+
+### Later: the websites write the videos
+
+The intended shape, once the 72 lessons are made and the pipeline has earned
+trust: point the app at a page on our own sites, have it read the page
+(`electron/net/readPage.ts` already does this), draft a script from it, render,
+and upload on a drip — one a day, for as long as there are pages. Four hundred
+of them was the number discussed.
+
+Two things are already in place for it: the page reader, which refuses to
+invent a lesson from a page that came back empty, and `tools/run-queue.mjs`,
+which renders a long list and survives failing in the middle. What is missing
+is the step between them — turning a page into a script good enough to publish
+without someone reading it first, which is a writing problem rather than a
+programming one.
+
 ## Open, in the order I would take them
 
 1. **Audition the voice settings by ear.** The presets — "Bigger performance",
