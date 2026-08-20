@@ -46,6 +46,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import readline from "node:readline";
 import { spawn } from "node:child_process";
+import https from "node:https";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const SECRETS =
@@ -135,6 +136,94 @@ const authUrl =
     state,
   });
 
+// ---- talking to Google ----------------------------------------------------
+//
+// TWO WAYS, because `fetch` failed on this machine with nothing but "fetch
+// failed" — a message that hides the cause completely. The second way uses
+// node:https directly, and can be handed the machine's own certificate bundle,
+// which is what this project already does for Python and curl in
+// electron/net/childEnv.ts. Antivirus HTTPS scanning re-signs every response
+// with a root only Windows trusts, and that has cost this project a day before.
+
+const CA_BUNDLE = path.join(ROOT, "tools", "windows-ca-bundle.pem");
+
+function postFormViaHttps(url, form, ca) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const payload = form.toString();
+    const req = https.request(
+      {
+        hostname: u.hostname,
+        path: u.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+        ...(ca ? { ca } : {}),
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (d) => { body += d; });
+        res.on("end", () => {
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error(`Google sent something unreadable: ${body.slice(0, 200)}`)); }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.end(payload);
+  });
+}
+
+/** Try the simple way; if the connection itself fails, try again with the
+ *  certificate bundle. Whatever happens, say what actually went wrong. */
+async function postForm(url, form) {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form,
+    });
+    return await res.json();
+  } catch (e) {
+    const cause = e?.cause;
+    const detail = cause?.code
+      ? `${cause.code}${cause.message ? ` — ${cause.message}` : ""}`
+      : (e?.message ?? String(e));
+    console.error(`
+  (the direct connection failed: ${detail})`);
+
+    let ca = null;
+    try { ca = fs.readFileSync(CA_BUNDLE); } catch { /* no bundle on this machine */ }
+    console.error(
+      ca
+        ? `  (trying again with this machine's certificate bundle…)`
+        : `  (trying again a different way…)`
+    );
+
+    try {
+      return await postFormViaHttps(url, form, ca);
+    } catch (e2) {
+      const c2 = e2?.code ? `${e2.code} — ${e2.message}` : String(e2?.message ?? e2);
+      throw new Error(
+        `Could not reach Google.
+` +
+          `  first attempt : ${detail}
+` +
+          `  second attempt: ${c2}
+
+` +
+          `Nothing was saved. If this mentions a certificate, it is antivirus HTTPS
+` +
+          `scanning — see the trap in docs/HANDOFF.md. If it mentions a timeout or a
+` +
+          `refused connection, it is the network or a VPN.`
+      );
+    }
+  }
+}
+
 // ---- finishing, from either route -----------------------------------------
 
 let finished = false;
@@ -148,18 +237,16 @@ async function finish(code, sentState) {
     );
   }
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
+  const body = await postForm(
+    "https://oauth2.googleapis.com/token",
+    new URLSearchParams({
       code,
       client_id: client.client_id,
       client_secret: client.client_secret,
       redirect_uri: REDIRECT,
       grant_type: "authorization_code",
-    }),
-  });
-  const body = await res.json();
+    })
+  );
 
   if (!body.refresh_token) {
     const why = String(body.error_description ?? body.error ?? "no reason given");
@@ -267,17 +354,15 @@ BUT the token belongs to a different client than the one in this folder.
   // The only real proof: ask Google for an access token with it.
   process.stdout.write(`Token works?     asking Google… `);
   try {
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
+    const body = await postForm(
+      "https://oauth2.googleapis.com/token",
+      new URLSearchParams({
         client_id: client.client_id,
         client_secret: client.client_secret,
         refresh_token: tok.refresh_token,
         grant_type: "refresh_token",
-      }),
-    });
-    const body = await res.json();
+      })
+    );
     if (body.access_token) {
       console.log(`YES
 
