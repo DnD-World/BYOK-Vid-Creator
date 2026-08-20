@@ -318,13 +318,19 @@ ${authUrl}
       `can't be reached". That is expected and fine. Nothing is listening.
 
 ` +
-      `Copy the whole address out of the bar and run:
+      `Copy the whole address out of the bar. It looks like this:
 
 ` +
-      `  node tools/youtube-auth.mjs --code "<paste the address>"
+      `  http://localhost:${PORT}/?state=${state}&code=4/0Axxxxxxxx&scope=...
 
 ` +
-      `Keep the quotes. There is no hurry — a few minutes is fine.
+      `Then run this, with YOUR address inside the quotes:
+
+` +
+      `  node tools/youtube-auth.mjs --code "http://localhost:${PORT}/?state=..."
+
+` +
+      `There is no hurry — a few minutes is fine.
 `
   );
   process.exit(0);
@@ -337,6 +343,29 @@ Nothing came after --code. Put the address in quotes.
 `);
     process.exit(1);
   }
+  // THE PLACEHOLDER GETS PASTED. It is written in angle brackets in every
+  // instruction, which reads as "type this" to anyone moving quickly, and the
+  // failure it produced ("fetch failed") said nothing about the cause.
+  if (/^<|>$|paste/i.test(codeArg)) {
+    console.error(
+      `
+That is the example text, not the address.
+
+` +
+        `Approve in the browser first. It will fail to reach localhost — that is
+` +
+        `expected. Then copy the address out of the browser's bar. It starts:
+
+` +
+        `  http://localhost:${PORT}/?state=
+
+` +
+        `and run:  node tools/youtube-auth.mjs --code "THAT_ADDRESS"
+`
+    );
+    process.exit(1);
+  }
+
   const parsed = codeFrom(codeArg);
   if (!parsed?.code) {
     console.error(
@@ -368,9 +397,24 @@ Uploads can now run without you.
 `);
     process.exit(0);
   } catch (e) {
-    console.error(`
-${e instanceof Error ? e.message : String(e)}
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/fetch failed/i.test(msg)) {
+      console.error(
+        `
+Could not reach Google at all (${msg}).
+` +
+          `Nothing was saved and the code is still good for a few minutes — try the
+` +
+          `same command again. If it keeps happening, it is the connection rather
+` +
+          `than the code.
+`
+      );
+    } else {
+      console.error(`
+${msg}
 `);
+    }
     process.exit(1);
   }
 }
