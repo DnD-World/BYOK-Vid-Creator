@@ -195,7 +195,15 @@ course needs one.
 - `electron/net/youtube.ts` — refresh, resumable upload, read the status back.
   No SDK: three HTTP calls do not justify that dependency tree.
 - `tools/youtube-auth.mjs` — **Ak runs this once**, in a browser. It writes
-  `youtube-token.json`, which is gitignored along with the client secret.
+  the refresh token beside the client secret.
+
+**Credentials live in `../SECRETS`, outside the repository**, and that is
+deliberate: a secret inside a working tree is one `git add -A` away from being
+published, and an ignore rule only holds for as long as nobody edits the ignore
+file. `BYOK_SECRETS_DIR` overrides the location. The client must be of type
+**Desktop app** — a "Web application" client cannot complete a sign-in from a
+program on your own machine, and the tool stops with that explanation rather
+than failing later with something obscure.
 
 **Quota, checked against Google's own documentation:** a new project gets
 **100 uploads a day**, on a separate allowance from the 10,000 units everything

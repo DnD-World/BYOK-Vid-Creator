@@ -83,7 +83,16 @@ export async function readClientSecret(file: string): Promise<ClientSecret> {
   return raw[kind];
 }
 
-/** Find the client secret sitting in the project folder, if there is one. */
+/** Where credentials live: beside the project, never inside it.
+ *
+ *  A secret in a working tree is one `git add -A` away from being published,
+ *  and an ignore rule only holds for as long as nobody edits the ignore file.
+ *  Override with BYOK_SECRETS_DIR. */
+export function secretsDir(projectRoot: string): string {
+  return process.env.BYOK_SECRETS_DIR ?? path.resolve(projectRoot, "..", "SECRETS");
+}
+
+/** Find the client secret, if there is one. */
 export async function findClientSecret(dir: string): Promise<string | null> {
   try {
     const names = await fsp.readdir(dir);

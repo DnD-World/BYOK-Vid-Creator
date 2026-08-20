@@ -15,6 +15,12 @@
  * registered against it, and Desktop clients are the kind meant for a program
  * running on your own machine. The check below says so rather than failing
  * later with something obscure.
+ *
+ * WHERE THE SECRETS LIVE: `../SECRETS`, beside the project rather than inside
+ * it. Ak put them there and it is the right place — a credential in a working
+ * tree is one `git add -A` away from being published, and gitignoring it only
+ * works for as long as nobody edits the ignore file. Set BYOK_SECRETS_DIR to
+ * override.
  */
 import fs from "node:fs";
 import http from "node:http";
@@ -23,24 +29,32 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
+/** Outside the repository on purpose. See the note above. */
+const SECRETS =
+  process.env.BYOK_SECRETS_DIR ?? path.resolve(ROOT, "..", "SECRETS");
 const PORT = 53682;
 const REDIRECT = `http://localhost:${PORT}`;
 const SCOPE = "https://www.googleapis.com/auth/youtube.upload";
 
-const secretFile = fs
-  .readdirSync(ROOT)
-  .find((n) => n.startsWith("client_secret") && n.endsWith(".json"));
+let secretFile = null;
+try {
+  secretFile = fs
+    .readdirSync(SECRETS)
+    .find((n) => n.startsWith("client_secret") && n.endsWith(".json"));
+} catch {
+  // No such folder yet, which is the same problem as an empty one.
+}
 
 if (!secretFile) {
   console.error(
-    `No client_secret*.json in ${ROOT}.\n` +
+    `No client_secret*.json in ${SECRETS}.\n` +
       `Create an OAuth client (type: Desktop app) in the Google Cloud console,\n` +
-      `download the JSON, and drop it in this folder.`
+      `download the JSON, and put it in that folder.`
   );
   process.exit(1);
 }
 
-const raw = JSON.parse(fs.readFileSync(path.join(ROOT, secretFile), "utf8"));
+const raw = JSON.parse(fs.readFileSync(path.join(SECRETS, secretFile), "utf8"));
 const kind = raw.installed ? "installed" : raw.web ? "web" : null;
 if (!kind) {
   console.error(`${secretFile} is not a Google OAuth client file.`);
@@ -142,8 +156,9 @@ const server = http.createServer(async (req, res) => {
     process.exit(1);
   }
 
+  fs.mkdirSync(SECRETS, { recursive: true });
   fs.writeFileSync(
-    path.join(ROOT, "youtube-token.json"),
+    path.join(SECRETS, "youtube-token.json"),
     JSON.stringify(
       {
         refresh_token: body.refresh_token,
@@ -158,7 +173,7 @@ const server = http.createServer(async (req, res) => {
 
   say("Signed in. The token has been saved.");
   console.log(
-    `\nSaved youtube-token.json (gitignored).\n` +
+    `\nSaved ${path.join(SECRETS, "youtube-token.json")}\n` +
       `Uploads can now run without you.\n`
   );
   server.close();
