@@ -391,9 +391,24 @@ Google said: ${body.error_description ?? body.error}
 if (wantLink) {
   fs.mkdirSync(SECRETS, { recursive: true });
   fs.writeFileSync(STATE_FILE, state, "utf8");
+
+  // OPENED HERE, so there is only ever ONE address for a person to handle: the
+  // one the browser ends up on. Printing the sign-in link as well invited it to
+  // be pasted into step two, which is exactly what happened.
+  const open =
+    process.platform === "win32"
+      ? ["powershell", ["-NoProfile", "-Command", `Start-Process '${authUrl.replace(/'/g, "''")}'`]]
+      : process.platform === "darwin"
+        ? ["open", [authUrl]]
+        : ["xdg-open", [authUrl]];
+  spawn(open[0], open[1], { stdio: "ignore", detached: true }).unref();
+
   console.log(
     `
-Step 1 of 2. Open this address and approve:
+A browser is opening. Approve there.
+
+` +
+      `If it did not open, use this address:
 
 ${authUrl}
 
@@ -403,22 +418,48 @@ ${authUrl}
       `can't be reached". That is expected and fine. Nothing is listening.
 
 ` +
-      `Copy the whole address out of the bar. It looks like this:
+      `AFTER you approve, the browser shows an error page. That is expected.
+` +
+      `The address in its bar is what matters — it begins:
 
 ` +
-      `  http://localhost:${PORT}/?state=${state}&code=4/0Axxxxxxxx&scope=...
+      `  http://localhost:${PORT}/?state=${state}&code=...
 
 ` +
-      `Then run this, with YOUR address inside the quotes:
-
+      `Paste that address here and press Enter — or close this and run
 ` +
-      `  node tools/youtube-auth.mjs --code "http://localhost:${PORT}/?state=..."
-
-` +
-      `There is no hurry — a few minutes is fine.
+      `--code with it later. Either way works.
 `
   );
-  process.exit(0);
+
+  // Waiting here as well, so the common case is one command and one paste.
+  const rlLink = readline.createInterface({ input: process.stdin, output: process.stdout });
+  rlLink.on("line", async (line) => {
+    if (/accounts\.google\.com/.test(line)) {
+      console.error(`
+That is the sign-in link. Approve in the browser first, then paste
+the address the browser ENDS UP on.
+`);
+      return;
+    }
+    const parsed = codeFrom(line);
+    if (!parsed?.code) return;
+    try {
+      const dest = await finish(parsed.code, parsed.state);
+      try { fs.unlinkSync(STATE_FILE); } catch { /* already gone */ }
+      console.log(`
+Saved ${dest}
+Uploads can now run without you.
+`);
+      process.exit(0);
+    } catch (e) {
+      console.error(`
+${e instanceof Error ? e.message : String(e)}
+`);
+      console.error(`Still waiting — paste the address again, or press Ctrl+C.
+`);
+    }
+  });
 }
 
 if (codeArg !== null) {
@@ -446,6 +487,29 @@ That is the example text, not the address.
 
 ` +
         `and run:  node tools/youtube-auth.mjs --code "THAT_ADDRESS"
+`
+    );
+    process.exit(1);
+  }
+
+  // THE TWO ADDRESSES LOOK ALIKE. The one that goes out is Google's sign-in
+  // page; the one that comes back is localhost carrying the code. Pasting the
+  // first into this step is the obvious mistake and deserves its own answer.
+  if (/accounts\.google\.com/.test(codeArg)) {
+    console.error(
+      `
+That is the sign-in link — the one to OPEN, not the one to paste back.
+
+` +
+        `  1. Open it in your browser and approve.
+` +
+        `  2. The browser lands on an error page. That is expected.
+` +
+        `  3. Copy the address from the browser's bar — it begins
+` +
+        `     http://localhost:${PORT}/?state=
+` +
+        `  4. Run --code with THAT one.
 `
     );
     process.exit(1);
