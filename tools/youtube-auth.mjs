@@ -181,9 +181,28 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
+  // AN AMPERSAND IS A COMMAND SEPARATOR IN cmd.
+  //
+  // `cmd /c start "" <url>` cut this URL at its first `&`, so Google received
+  // the client_id and nothing else and refused with "Required parameter is
+  // missing: response_type". Every OAuth URL is mostly ampersands, so this was
+  // never going to work.
+  //
+  // PowerShell's Start-Process takes the whole thing as one argument, and the
+  // URL is single-quoted inside the command so nothing in it is interpreted.
+  // There is no apostrophe in a URL Google builds, but it is escaped anyway.
   const open =
-    process.platform === "win32" ? ["cmd", ["/c", "start", "", authUrl]]
-      : process.platform === "darwin" ? ["open", [authUrl]]
+    process.platform === "win32"
+      ? [
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            `Start-Process '${authUrl.replace(/'/g, "''")}'`,
+          ],
+        ]
+      : process.platform === "darwin"
+        ? ["open", [authUrl]]
         : ["xdg-open", [authUrl]];
   spawn(open[0], open[1], { stdio: "ignore", detached: true }).unref();
 });
