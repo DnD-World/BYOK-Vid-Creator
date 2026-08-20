@@ -185,8 +185,34 @@ export async function uploadVideo(
     body: JSON.stringify(metadata),
   });
   if (!start.ok) {
+    // TRANSLATED, because the raw answer is a wall of JSON with the one useful
+    // word buried in it. Each of these is a real condition with a real fix, and
+    // none of them is a bug in this code.
+    const text = await start.text();
+    const reason = text.match(/"reason":\s*"([^"]+)"/)?.[1] ?? "";
+    const plain: Record<string, string> = {
+      youtubeSignupRequired:
+        `The Google account you signed in with has no YouTube channel.
+` +
+        `Either create one on that account, or sign in again with the account that
+` +
+        `owns the channel:  node tools/youtube-auth.mjs --link`,
+      quotaExceeded:
+        `The daily upload allowance is used up. It is 100 uploads a day and it
+` +
+        `resets at midnight Pacific time.`,
+      forbidden:
+        `The account is not allowed to upload — usually an unverified channel.
+` +
+        `Verify it at youtube.com/verify and try again.`,
+      uploadLimitExceeded:
+        `This channel has hit its upload limit for now. Try again later.`,
+      authError:
+        `The sign-in is no longer good. Run: node tools/youtube-auth.mjs --link`,
+    };
     throw new Error(
-      `YouTube refused the upload: ${start.status} ${start.statusText} — ${await start.text()}`
+      plain[reason] ??
+        `YouTube refused the upload: ${start.status} ${start.statusText} — ${text}`
     );
   }
   const location = start.headers.get("location");
