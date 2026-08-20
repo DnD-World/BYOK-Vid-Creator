@@ -101,6 +101,7 @@ if (kind === "web" && !(client.redirect_uris ?? []).some((u) => u.startsWith(RED
 
 const argv = process.argv.slice(2);
 const wantLink = argv.includes("--link");
+const wantCheck = argv.includes("--check");
 const codeArgIndex = argv.indexOf("--code");
 const codeArg = codeArgIndex >= 0 ? argv[codeArgIndex + 1] : null;
 
@@ -222,6 +223,83 @@ const failed = (e) => {
   console.error(`\n${e instanceof Error ? e.message : String(e)}\n`);
   process.exit(1);
 };
+
+// ---- a look at where things stand -----------------------------------------
+//
+// Written because the sign-in failed several times in a row for several
+// different reasons, and each failure looked the same from outside. This says
+// which of them it is, in words, and what to do next.
+
+if (wantCheck) {
+  const tokenPath = path.join(SECRETS, "youtube-token.json");
+  console.log(`
+Where things stand
+──────────────────`);
+  console.log(`Secrets folder   ${SECRETS}`);
+  console.log(`Client file      ${secretFile}`);
+  console.log(
+    `Client type      ${kind}` +
+      (kind === "installed" ? "  (Desktop app — correct)" : "  (should be a Desktop app)")
+  );
+
+  if (!fs.existsSync(tokenPath)) {
+    console.log(`Sign-in          NOT DONE — no token saved yet
+`);
+    console.log(`Next: node tools/youtube-auth.mjs --link
+`);
+    process.exit(0);
+  }
+
+  const tok = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
+  console.log(`Sign-in          token saved ${tok.obtained}`);
+
+  if (tok.client_id !== client.client_id) {
+    console.log(
+      `
+BUT the token belongs to a different client than the one in this folder.
+` +
+        `Sign in again: node tools/youtube-auth.mjs --link
+`
+    );
+    process.exit(1);
+  }
+
+  // The only real proof: ask Google for an access token with it.
+  process.stdout.write(`Token works?     asking Google… `);
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: client.client_id,
+        client_secret: client.client_secret,
+        refresh_token: tok.refresh_token,
+        grant_type: "refresh_token",
+      }),
+    });
+    const body = await res.json();
+    if (body.access_token) {
+      console.log(`YES
+
+Everything is ready. Uploads can run.
+`);
+      process.exit(0);
+    }
+    console.log(`no`);
+    console.log(
+      `
+Google said: ${body.error_description ?? body.error}
+` +
+        `Sign in again: node tools/youtube-auth.mjs --link
+`
+    );
+    process.exit(1);
+  } catch (e) {
+    console.log(`could not ask — ${e instanceof Error ? e.message : String(e)}
+`);
+    process.exit(1);
+  }
+}
 
 // ---- the two-step, which has nothing to go wrong --------------------------
 
