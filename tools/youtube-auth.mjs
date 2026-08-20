@@ -5,36 +5,47 @@
  *
  * YOU RUN THIS, not an assistant and not a script on a schedule. It opens a
  * browser, you pick the Google account and approve, and the refresh token it
- * gets back is written to `youtube-token.json` — which is gitignored, along
- * with the client secret, because both are credentials.
+ * gets back is written beside the client secret.
  *
  * After this, uploads run unattended until the token is revoked.
  *
  * WHAT IT NEEDS FIRST: an OAuth client of type **Desktop app**. A "Web
  * application" client cannot complete this flow unless a redirect address is
  * registered against it, and Desktop clients are the kind meant for a program
- * running on your own machine. The check below says so rather than failing
- * later with something obscure.
+ * running on your own machine.
  *
  * WHERE THE SECRETS LIVE: `../SECRETS`, beside the project rather than inside
- * it. Ak put them there and it is the right place — a credential in a working
- * tree is one `git add -A` away from being published, and gitignoring it only
- * works for as long as nobody edits the ignore file. Set BYOK_SECRETS_DIR to
- * override.
+ * it. A credential in a working tree is one `git add -A` away from being
+ * published, and an ignore rule only holds for as long as nobody edits the
+ * ignore file. Set BYOK_SECRETS_DIR to override.
+ *
+ * TWO WAYS IN, because the first one failed in practice. Normally the browser
+ * comes back to a small server running here and everything happens by itself.
+ * But that server has to still be listening at the moment you approve, and if
+ * it is not — the window was closed, the wait ran out, something else took the
+ * port — the browser lands on "localhost refused to connect" and the sign-in is
+ * lost with no way to finish it. So the address bar can also be pasted back
+ * here by hand. Same code, same result, no need to start again.
  */
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import crypto from "node:crypto";
+import readline from "node:readline";
 import { spawn } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-/** Outside the repository on purpose. See the note above. */
 const SECRETS =
   process.env.BYOK_SECRETS_DIR ?? path.resolve(ROOT, "..", "SECRETS");
 const PORT = 53682;
 const REDIRECT = `http://localhost:${PORT}`;
 const SCOPE = "https://www.googleapis.com/auth/youtube.upload";
+/** Long enough to find the right Google account, read the consent screen, and
+ *  make a cup of tea. Five minutes was not, and running out looks exactly like
+ *  a bug. */
+const WAIT_MS = 20 * 60 * 1000;
+
+// ---- the client -----------------------------------------------------------
 
 let secretFile = null;
 try {
@@ -62,21 +73,15 @@ if (!kind) {
 }
 const client = raw[kind];
 
-if (kind === "web") {
-  const allowed = client.redirect_uris ?? [];
-  if (!allowed.some((u) => u.startsWith(REDIRECT))) {
-    console.error(
-      `This is a "Web application" OAuth client, and it has no redirect address\n` +
-        `for this machine, so Google will refuse the sign-in.\n\n` +
-        `Two ways to fix it, either is fine:\n\n` +
-        `  A. Make a new client of type "Desktop app" and use that JSON instead.\n` +
-        `     This is the kind meant for a program on your own computer.\n\n` +
-        `  B. Keep this one, and in the Google Cloud console add exactly:\n` +
-        `         ${REDIRECT}\n` +
-        `     to its "Authorised redirect URIs", then download the JSON again.\n`
-    );
-    process.exit(1);
-  }
+if (kind === "web" && !(client.redirect_uris ?? []).some((u) => u.startsWith(REDIRECT))) {
+  console.error(
+    `This is a "Web application" OAuth client with no redirect address for this\n` +
+      `machine, so Google will refuse the sign-in.\n\n` +
+      `  A. Make a new client of type "Desktop app" and use that JSON instead.\n` +
+      `  B. Or add exactly ${REDIRECT} to this one's\n` +
+      `     "Authorised redirect URIs" and download the JSON again.\n`
+  );
+  process.exit(1);
 }
 
 // A one-time random value, checked when Google sends the browser back. Without
@@ -91,48 +96,28 @@ const authUrl =
     redirect_uri: REDIRECT,
     response_type: "code",
     scope: SCOPE,
-    // Both are needed to be GIVEN a refresh token rather than just an hour of
-    // access: offline asks for one, and consent forces the prompt that issues
-    // it even if this account has approved before.
+    // Both are needed to be GIVEN a lasting token rather than an hour of
+    // access: offline asks for one, consent forces the prompt that issues it
+    // even if this account has approved before.
     access_type: "offline",
     prompt: "consent",
     state,
   });
 
-console.log(
-  `\nOpening your browser to sign in.\n` +
-    `If it does not open, paste this in yourself:\n\n${authUrl}\n`
-);
+// ---- finishing, from either route -----------------------------------------
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url ?? "/", REDIRECT);
-  const code = url.searchParams.get("code");
-  const err = url.searchParams.get("error");
+let finished = false;
 
-  const say = (msg) => {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(
-      `<body style="font:16px system-ui;background:#0b0b0d;color:#eee;padding:3rem">` +
-        `<p>${msg}</p><p style="color:#888">You can close this tab.</p></body>`
+async function finish(code, sentState) {
+  if (finished) return "already done";
+  if (sentState && sentState !== state) {
+    throw new Error(
+      "That address is from a different sign-in attempt. Nothing was saved — " +
+        "run this again and use the new link."
     );
-  };
-
-  if (err) {
-    say(`Sign-in was refused: ${err}`);
-    console.error(`\nGoogle said: ${err}`);
-    server.close();
-    process.exit(1);
-  }
-  if (!code) return say("Waiting…");
-
-  if (url.searchParams.get("state") !== state) {
-    say("That response did not match this request, so it was ignored.");
-    console.error("\nThe state value did not match. Nothing was saved. Run this again.");
-    server.close();
-    process.exit(1);
   }
 
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -143,22 +128,27 @@ const server = http.createServer(async (req, res) => {
       grant_type: "authorization_code",
     }),
   });
-  const body = await tokenRes.json();
+  const body = await res.json();
 
   if (!body.refresh_token) {
-    say("Signed in, but Google did not send a lasting token.");
-    console.error(
-      `\nNo refresh token came back. This usually means the account has approved\n` +
-        `this client before. Remove it at https://myaccount.google.com/permissions\n` +
-        `and run this again.`
+    const why = String(body.error_description ?? body.error ?? "no reason given");
+    if (/expired|invalid_grant|already redeemed/i.test(why)) {
+      throw new Error(
+        `That code was already used or has expired — they last a few minutes and ` +
+          `work once. Run this again for a fresh one.`
+      );
+    }
+    throw new Error(
+      `Google did not send a lasting token (${why}).\n` +
+        `That usually means this account has approved the app before. Remove it at\n` +
+        `https://myaccount.google.com/permissions and run this again.`
     );
-    server.close();
-    process.exit(1);
   }
 
   fs.mkdirSync(SECRETS, { recursive: true });
+  const dest = path.join(SECRETS, "youtube-token.json");
   fs.writeFileSync(
-    path.join(SECRETS, "youtube-token.json"),
+    dest,
     JSON.stringify(
       {
         refresh_token: body.refresh_token,
@@ -170,44 +160,112 @@ const server = http.createServer(async (req, res) => {
     ),
     "utf8"
   );
+  finished = true;
+  return dest;
+}
 
-  say("Signed in. The token has been saved.");
-  console.log(
-    `\nSaved ${path.join(SECRETS, "youtube-token.json")}\n` +
-      `Uploads can now run without you.\n`
-  );
-  server.close();
+/** Accepts the whole address, or just the code out of it. */
+function codeFrom(input) {
+  const s = input.trim().replace(/^["']|["']$/g, "");
+  if (!s) return null;
+  if (s.startsWith("http")) {
+    const u = new URL(s);
+    return { code: u.searchParams.get("code"), state: u.searchParams.get("state") };
+  }
+  return { code: s, state: null };
+}
+
+const done = (dest) => {
+  console.log(`\nSaved ${dest}\nUploads can now run without you.\n`);
   process.exit(0);
+};
+
+const failed = (e) => {
+  console.error(`\n${e instanceof Error ? e.message : String(e)}\n`);
+  process.exit(1);
+};
+
+// ---- route one: the browser comes back ------------------------------------
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", REDIRECT);
+  const say = (msg) => {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(
+      `<body style="font:16px system-ui;background:#0b0b0d;color:#eee;padding:3rem">` +
+        `<p>${msg}</p><p style="color:#888">You can close this tab.</p></body>`
+    );
+  };
+
+  const err = url.searchParams.get("error");
+  if (err) {
+    say(`Sign-in was refused: ${err}`);
+    failed(new Error(`Google said: ${err}`));
+    return;
+  }
+
+  const code = url.searchParams.get("code");
+  if (!code) return say("Waiting…");
+
+  try {
+    const dest = await finish(code, url.searchParams.get("state"));
+    say("Signed in. The token has been saved.");
+    server.close();
+    done(dest);
+  } catch (e) {
+    say("Signed in, but the token could not be saved. See the terminal.");
+    failed(e);
+  }
+});
+
+server.on("error", (e) => {
+  if (e.code === "EADDRINUSE") {
+    console.error(
+      `\nPort ${PORT} is already in use — another copy of this tool is probably\n` +
+        `still running. Close it and try again.\n`
+    );
+  } else {
+    console.error(`\nCould not listen on ${REDIRECT}: ${e.message}\n`);
+  }
+  process.exit(1);
 });
 
 server.listen(PORT, () => {
-  // AN AMPERSAND IS A COMMAND SEPARATOR IN cmd.
-  //
-  // `cmd /c start "" <url>` cut this URL at its first `&`, so Google received
-  // the client_id and nothing else and refused with "Required parameter is
-  // missing: response_type". Every OAuth URL is mostly ampersands, so this was
-  // never going to work.
-  //
-  // PowerShell's Start-Process takes the whole thing as one argument, and the
-  // URL is single-quoted inside the command so nothing in it is interpreted.
-  // There is no apostrophe in a URL Google builds, but it is escaped anyway.
+  console.log(
+    `\nListening on ${REDIRECT} — leave this window open.\n\n` +
+      `A browser should open. If it does not, paste this in yourself:\n\n${authUrl}\n\n` +
+      `If the browser ends up on "localhost refused to connect", copy the whole\n` +
+      `address out of the bar and paste it here, then press Enter.\n`
+  );
+
+  // An ampersand is a command separator in cmd, which cut this URL at the first
+  // one and made Google refuse with "response_type is missing". PowerShell takes
+  // the whole thing as one argument.
   const open =
     process.platform === "win32"
-      ? [
-          "powershell",
-          [
-            "-NoProfile",
-            "-Command",
-            `Start-Process '${authUrl.replace(/'/g, "''")}'`,
-          ],
-        ]
+      ? ["powershell", ["-NoProfile", "-Command", `Start-Process '${authUrl.replace(/'/g, "''")}'`]]
       : process.platform === "darwin"
         ? ["open", [authUrl]]
         : ["xdg-open", [authUrl]];
   spawn(open[0], open[1], { stdio: "ignore", detached: true }).unref();
 });
 
+// ---- route two: paste it back ---------------------------------------------
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+rl.on("line", async (line) => {
+  const parsed = codeFrom(line);
+  if (!parsed?.code) return;
+  try {
+    const dest = await finish(parsed.code, parsed.state);
+    server.close();
+    done(dest);
+  } catch (e) {
+    failed(e);
+  }
+});
+
 setTimeout(() => {
-  console.error("\nNothing came back within five minutes. Stopping.");
+  console.error(`\nNothing came back within ${WAIT_MS / 60000} minutes. Stopping.`);
   process.exit(1);
-}, 5 * 60 * 1000);
+}, WAIT_MS);
