@@ -47,6 +47,11 @@ const api = {
     download: (id: string, url: string): Promise<string> =>
       ipcRenderer.invoke("media:download", id, url),
     autoBackgrounds: (opts: unknown) => ipcRenderer.invoke("media:autoBackgrounds", opts),
+    /** Everything already downloaded to this machine. */
+    library: (): Promise<{
+      fileName: string; filePath: string; kind: "video" | "audio";
+      bytes: number; modifiedMs: number; source?: string;
+    }[]> => ipcRenderer.invoke("media:library"),
   },
 
   sound: {
@@ -71,6 +76,27 @@ const api = {
       ipcRenderer.invoke("storage:readFile", filePath),
     writeFile: (filePath: string, data: ArrayBuffer): Promise<boolean> =>
       ipcRenderer.invoke("storage:writeFile", filePath, data),
+  },
+
+  music: {
+    /** The loops that ship with the app. */
+    list: (): Promise<{ name: string; filePath: string }[]> =>
+      ipcRenderer.invoke("music:list"),
+  },
+
+  dramabox: {
+    /** Write blocks.json and align.json for the current script and cast.
+     *  The settings on each speaker travel with them. */
+    writeBlocks: (
+      scriptText: string,
+      speakers: unknown[],
+      outDir: string
+    ): Promise<{
+      ok: boolean;
+      errors: string[];
+      count?: number;
+      summary: string[];
+    }> => ipcRenderer.invoke("dramabox:writeBlocks", scriptText, speakers, outDir),
   },
 
   render: {
@@ -98,26 +124,9 @@ const api = {
     ): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
       ipcRenderer.invoke("tts:synthesizePiper", pythonPath, onnxPath, text),
 
-    chatterbox: {
-      ensureRunning: (cfg: { installPath: string; port: number }): Promise<boolean> =>
-        ipcRenderer.invoke("tts:chatterboxEnsureRunning", cfg),
-      isRunning: (): Promise<boolean> => ipcRenderer.invoke("tts:chatterboxIsRunning"),
-      listPredefinedVoices: (): Promise<{ id: string; label: string }[]> =>
-        ipcRenderer.invoke("tts:chatterboxListPredefinedVoices"),
-      listReferenceAudio: (): Promise<{ id: string; label: string }[]> =>
-        ipcRenderer.invoke("tts:chatterboxListReferenceAudio"),
-      synthesize: (opts: {
-        text: string;
-        language: string;
-        voiceMode: "predefined" | "clone";
-        predefinedVoiceId?: string;
-        referenceAudioFilename?: string;
-        seed?: number;
-        exaggeration?: number;
-        cfgWeight?: number;
-      }): Promise<{ audioBuffer: ArrayBuffer; durationMs: number }> =>
-        ipcRenderer.invoke("tts:chatterboxSynthesize", opts),
-    },
+    /** The voices on the saved ElevenLabs account. Empty when there is no key. */
+    listElevenVoices: (): Promise<{ id: string; name: string; labels?: string }[]> =>
+      ipcRenderer.invoke("tts:listElevenVoices"),
 
     generateNarration: (
       segments: {
@@ -125,12 +134,7 @@ const api = {
         speakerLabel: string;
         text: string;
         language: string;
-        voiceMode: "predefined" | "clone";
-        predefinedVoiceId?: string;
-        referenceAudioFilename?: string;
-        exaggeration?: number;
-        cfgWeight?: number;
-        engine?: "chatterbox" | "piper";
+        engine?: "piper";
         piperPythonPath?: string;
         piperOnnxPath?: string;
       }[],

@@ -59,9 +59,18 @@ now a boundary between generations.
 - Long text is auto-chunked at sentence and quote boundaries, targeting
   **~37 seconds**, hard cap 45.
 
-At our measured 135 words per minute, **37 seconds is about 85 spoken words**.
+**Corrected 18 Aug 2026 — the 85 below was wrong.** 135 wpm was measured from
+PIPER renders (`docs/SCRIPT-GEM-NOTES.md`), and Piper is a different engine
+reading at a different speed. Measured from DramaBox's own Greek, using the
+aligned word times of lesson 101.1's 24 blocks: **750 words over 364 seconds of
+speech — 124 wpm overall, median 122, slowest block 103.** At the slowest rate,
+37 seconds is **65 words**, which is the cap now enforced in
+`tools/make-blocks.mjs` and stated in `docs/SCRIPT-GEM.md`. Nothing in 101.1 came
+near it — its longest block is 45 words — so the cap costs nothing in practice.
+
+~~At our measured 135 words per minute, **37 seconds is about 85 spoken words**.
 So a speaker run must be capped near 85 words, and chunked at a sentence
-boundary above it. A five-minute lesson is dozens of generations however it is
+boundary above it.~~ A five-minute lesson is dozens of generations however it is
 sliced — the question was only ever whether they are per line or per run.
 
 ## 3b. The speaker description must be tiny — and ours are paragraphs
@@ -156,10 +165,14 @@ determinism control at all. Do not build anything on re-generating identical
 audio. The narration cache already keyed on script and voice is the real
 protection: a re-render reuses the WAV rather than making a new one.
 
-**Watermarking is ON by default.** Every output is neurally watermarked with
-Resemble Perth unless `watermark=False` / `--no-watermark` is passed. **Ak's
-decision, not mine** — it is his course and his name on it. It is left on until
-he says otherwise.
+**Watermarking is ON by default — and we turn it OFF.** Every output is
+neurally watermarked with Resemble Perth unless `watermark=False` /
+`--no-watermark` is passed.
+
+**Decided 18 Aug 2026: off.** The mark is inaudible and identifies the audio as
+machine-made to anyone running Resemble's detector, but it carries no custom
+payload — it cannot say the audio is Ak's. A mark that cannot be ours has
+nothing to do for us. Set in `DRAMABOX_DEFAULTS` and in the GPU script.
 
 **Licence: LTX-2 Community.** Commercial use is free while the business is
 under **$10M annual revenue**; above that it needs a commercial licence. That

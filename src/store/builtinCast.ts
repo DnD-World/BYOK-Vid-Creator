@@ -13,6 +13,8 @@
 // are on screen.
 // ---------------------------------------------------------------------------
 
+import type { DramaboxParams } from "../lib/narration/dramaboxParams";
+
 /** A character the app ships with, ready to drop onto the canvas. */
 export interface BuiltinCharacter {
   /** Filename inside the app's bundled `puppet/` folder. */
@@ -27,6 +29,14 @@ export interface BuiltinCharacter {
    *  stack them on top of each other. */
   x: number;
   y: number;
+  /** The phrase this character's script blocks open with. How a block finds
+   *  its voice — see parseDramaboxScript. */
+  openingPhrase: string;
+  /** Their DramaBox reference clip, by file name, inside voice-refs/. */
+  voiceRef: string;
+  /** Engine settings, SETTLED BY EAR on 19 Aug 2026 from the fifteen takes in
+   *  dramabox-audition/settings/. Only what differs from the defaults. */
+  dramabox?: Partial<DramaboxParams>;
 }
 
 export const BUILTIN_CAST: BuiltinCharacter[] = [
@@ -37,6 +47,11 @@ export const BUILTIN_CAST: BuiltinCharacter[] = [
     borderColor: "#e8a24a",
     x: 0.28,
     y: 0.42,
+    openingPhrase: "A bright woman",
+    voiceRef: "kaiti.wav",
+    // Chosen by ear over "house": same acting, less time for the words. She
+    // tumbles over them, and at 1.0 she had room she did not want.
+    dramabox: { durationMultiplier: 0.85 },
   },
   {
     file: "serifis.puppet.json",
@@ -45,6 +60,9 @@ export const BUILTIN_CAST: BuiltinCharacter[] = [
     borderColor: "#6fb3d9",
     x: 0.5,
     y: 0.7,
+    openingPhrase: "A grave man",
+    voiceRef: "serifis.wav",
+    // The defaults, chosen over both the bigger and the faster takes.
   },
   {
     file: "tsika.puppet.json",
@@ -53,6 +71,10 @@ export const BUILTIN_CAST: BuiltinCharacter[] = [
     borderColor: "#c98ad9",
     x: 0.72,
     y: 0.42,
+    openingPhrase: "A tiny woman",
+    voiceRef: "tsika.wav",
+    // The defaults. Her speed is a WRITING device — words run together in the
+    // script, then repeated properly — not a setting. See docs/SCRIPT-GEM.md.
   },
 ];
 

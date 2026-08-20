@@ -1,0 +1,146 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Subtitle lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<!--
+  Five ways to make the spoken word stand out, over real footage, at real size.
+  Cell 1 is what the app does today so there is something to judge against.
+
+  WHY GLOW ALONE IS WEAK, and it is worth knowing before choosing: a glow is
+  the same colour as the letter, spread outwards. Over a dark scene it works.
+  Over a bright or busy one it has nothing to push against and the word just
+  looks slightly blurred. What survives every background is CONTRAST at the
+  letter's edge — a dark stroke, or a solid shape behind the word.
+
+  The background cycles light / dark / busy every few seconds. Judge each cell
+  through a whole cycle, not on the first look.
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;700&display=swap');
+  body { margin:0; background:#0b0b0d; color:#eee; font:13px system-ui; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; padding:6px; }
+  .cell { position:relative; aspect-ratio:16/9; border-radius:6px; overflow:hidden; }
+  .bg { position:absolute; inset:0; transition:none; }
+  .lab { position:absolute; left:8px; top:8px; z-index:5; background:#000b; color:#fff;
+         padding:3px 7px; border-radius:4px; font:11px/1.4 system-ui; }
+  .lab b { color:#ff9a3c; }
+  .cap { position:absolute; left:0; right:0; bottom:9%; text-align:center;
+         font-family:Comfortaa, system-ui; font-weight:700; font-size:clamp(14px,4.2vw,34px);
+         line-height:1.25; padding:0 6%; }
+  .w { display:inline-block; margin:0 .18em; color:#fff; }
+  .hint { padding:6px 10px; color:#999; }
+</style>
+
+<div class="grid" id="grid"></div>
+<div class="hint">Same words, same font, same size. Only the treatment differs.</div>
+
+<script>
+const LINE = "Μην τρώτε σοκολάτα ποτέ".split(" ");
+const ACCENT = "#ff9a3c";
+
+// Three backgrounds, because a subtitle that only works on one is not a
+// subtitle treatment, it is a lucky frame.
+const BGS = [
+  { name:"dark",  css:"linear-gradient(160deg,#1a1d24,#0b0b0d)" },
+  { name:"bright",css:"linear-gradient(160deg,#e8d9b8,#cfa76a)" },
+  { name:"busy",  css:"repeating-linear-gradient(48deg,#5a7d3a 0 22px,#2d4a1e 22px 44px), radial-gradient(circle at 30% 40%,#c8b06a,#40301a)" },
+];
+
+const STYLES = [
+  { name:"1 · today",
+    note:"Stroke 0.14, faint glow. What ships now.",
+    word:(active)=>({
+      color: active?ACCENT:"#fff",
+      textShadow: "0 0 .06em #000, 0 0 .12em #000" + (active?", 0 0 .35em "+ACCENT:""),
+      WebkitTextStroke: "0.055em #000",
+    })},
+
+  { name:"2 · hard stroke + drop",
+    note:"Thicker black edge, one offset shadow. Survives any background.",
+    word:(active)=>({
+      color: active?ACCENT:"#fff",
+      WebkitTextStroke: "0.10em #000",
+      paintOrder: "stroke fill",
+      textShadow: "0 .045em .06em rgba(0,0,0,.85)",
+    })},
+
+  { name:"3 · strong halo",
+    note:"The glow you have, four times over, on a black bed.",
+    word:(active)=>({
+      color: active?ACCENT:"#fff",
+      WebkitTextStroke: "0.06em #000",
+      paintOrder: "stroke fill",
+      textShadow: active
+        ? "0 0 .18em "+ACCENT+", 0 0 .42em "+ACCENT+", 0 0 .9em "+ACCENT+", 0 .04em .08em #000"
+        : "0 0 .1em #000, 0 .04em .08em #000",
+    })},
+
+  { name:"4 · highlight box",
+    note:"Solid block behind the spoken word. Loudest, most legible.",
+    word:(active)=>({
+      color: active?"#171310":"#fff",
+      background: active?ACCENT:"transparent",
+      borderRadius:".12em",
+      padding:"0 .16em",
+      WebkitTextStroke: active?"0":"0.075em #000",
+      paintOrder:"stroke fill",
+      textShadow: active?"none":"0 .04em .07em rgba(0,0,0,.9)",
+    })},
+
+  { name:"5 · panel behind the line",
+    note:"Dark bar under the whole caption; colour marks the word.",
+    line:{ background:"rgba(8,8,10,.62)", borderRadius:".2em", padding:".28em .5em",
+           display:"inline-block", backdropFilter:"blur(3px)" },
+    word:(active)=>({
+      color: active?ACCENT:"#f2f2f2",
+      textShadow:"0 .03em .06em rgba(0,0,0,.7)",
+    })},
+
+  { name:"6 · lift the spoken word",
+    note:"Scale and weight, not light. Reads even with sound off.",
+    word:(active)=>({
+      color: active?ACCENT:"#fff",
+      WebkitTextStroke:"0.085em #000",
+      paintOrder:"stroke fill",
+      transform: active?"translateY(-.06em) scale(1.14)":"none",
+      textShadow: active?"0 .05em .1em rgba(0,0,0,.9), 0 0 .3em "+ACCENT:"0 .04em .07em rgba(0,0,0,.85)",
+    })},
+];
+
+const grid = document.getElementById("grid");
+const cells = STYLES.map(s => {
+  const cell = document.createElement("div"); cell.className = "cell";
+  const bg = document.createElement("div"); bg.className = "bg";
+  const lab = document.createElement("div"); lab.className = "lab";
+  lab.innerHTML = "<b>" + s.name + "</b><br>" + s.note;
+  const cap = document.createElement("div"); cap.className = "cap";
+  const inner = document.createElement("span");
+  if (s.line) Object.assign(inner.style, s.line);
+  const words = LINE.map(w => {
+    const el = document.createElement("span");
+    el.className = "w"; el.textContent = w;
+    inner.append(el);
+    return el;
+  });
+  cap.append(inner);
+  cell.append(bg, lab, cap);
+  grid.append(cell);
+  return { s, bg, words };
+});
+
+let active = 0, bgi = 0, lastWord = 0, lastBg = 0;
+function frame(t) {
+  if (t - lastWord > 520) { lastWord = t; active = (active + 1) % LINE.length; }
+  if (t - lastBg > 3400) { lastBg = t; bgi = (bgi + 1) % BGS.length; }
+  for (const c of cells) {
+    c.bg.style.background = BGS[bgi].css;
+    c.words.forEach((el, i) => {
+      const style = c.s.word(i === active);
+      el.style.cssText = "display:inline-block;margin:0 .18em;transition:transform .12s ease";
+      for (const [k, v] of Object.entries(style)) el.style[k] = v;
+    });
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

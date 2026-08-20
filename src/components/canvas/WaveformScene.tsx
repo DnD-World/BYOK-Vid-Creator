@@ -127,21 +127,75 @@ function toPathD(points: { x: number; y: number }[], closed: boolean, smooth: bo
   return d;
 }
 
-/** One tilted glowing ellipse — the building block of the rings style. */
-function RingEllipse({
-  r, squash, rotationDeg, color, glowWidth, coreWidth, opacity,
+/** Half of one orbit, as a path.
+ *
+ *  WHY HALVES. An orbit reads as a loop in SPACE rather than an oval on glass
+ *  only because the half nearer the viewer is brighter than the half behind.
+ *  Drawn as one ellipse it is a flat ring, whatever else is done to it.
+ *
+ *  WHY A PATH AND NOT <ellipse>. Two reasons, and both are load-bearing. The
+ *  radius answers the voice at the ANGLE the voice is loud, so it is not an
+ *  ellipse at all. And the avatar must never be touched: any point that would
+ *  fall inside `inner` is pushed back out to it, so a loud moment makes the
+ *  loop bigger and can never make it eat the face. An <ellipse> can do neither.
+ */
+function orbitHalf(
+  near: boolean,
+  radius: number,
+  squash: number,
+  inner: number,
+  ampAtAngle: (turns: number) => number
+): string {
+  const STEPS = 96;
+  const pts: string[] = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const turns = i / STEPS;
+    const a = turns * Math.PI * 2;
+    // In SVG y grows downwards, so the near half is the bottom of the ellipse.
+    if ((Math.sin(a) > 0) !== near) continue;
+    const swell = 1 + ampAtAngle(turns) * 0.14;
+    let x = Math.cos(a) * radius * swell;
+    let y = Math.sin(a) * radius * squash * swell;
+    const dist = Math.hypot(x, y) || 1;
+    if (dist < inner) { const k = inner / dist; x *= k; y *= k; }
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  return pts.length ? "M" + pts.join(" L") : "";
+}
+
+/** One orbit: a far half, a near half, and the glow under both. */
+function Orbit({
+  radius, squash, rotationDeg, inner, color, coreWidth, glowWidth, opacity, ampAtAngle,
 }: {
-  r: number; squash: number; rotationDeg: number; color: string;
-  glowWidth: number; coreWidth: number; opacity: number;
+  radius: number; squash: number; rotationDeg: number; inner: number;
+  color: string; coreWidth: number; glowWidth: number; opacity: number;
+  ampAtAngle: (turns: number) => number;
 }) {
+  const far = orbitHalf(false, radius, squash, inner, ampAtAngle);
+  const near = orbitHalf(true, radius, squash, inner, ampAtAngle);
   return (
     <g opacity={opacity} transform={`rotate(${rotationDeg.toFixed(1)})`}>
-      <ellipse rx={r} ry={r * squash} fill="none" stroke={color} strokeWidth={glowWidth}
-        opacity={0.3} style={{ filter: "blur(6px)" }} />
-      <ellipse rx={r} ry={r * squash} fill="none" stroke={color} strokeWidth={coreWidth} />
+      <path d={far} fill="none" stroke={color} strokeWidth={coreWidth} opacity={0.28} />
+      <path d={near} fill="none" stroke={color} strokeWidth={glowWidth} opacity={0.35}
+        style={{ filter: "blur(7px)" }} />
+      <path d={near} fill="none" stroke={color} strokeWidth={coreWidth} strokeLinecap="round" />
     </g>
   );
 }
+
+/** How many loops each orbit look has, and how they are dressed.
+ *
+ *  One table rather than four code paths: the looks differ only in count,
+ *  speed, weight and whether the core breathes. Anything else and they would
+ *  drift apart the first time one of them was tuned. */
+const ORBIT_LOOKS: Record<string, {
+  count: number; weight: number; glow: number; speeds: number[]; swellCore: boolean;
+}> = {
+  orbits:      { count: 3, weight: 1.0, glow: 1.0, speeds: [1, 0.8, 1.3], swellCore: false },
+  orbitsCalm:  { count: 2, weight: 1.2, glow: 1.0, speeds: [1, 0.7], swellCore: false },
+  orbitsShell: { count: 5, weight: 0.7, glow: 0.7, speeds: [0.6, 0.82, 1.04, 1.26, 1.48], swellCore: false },
+  orbitsSwell: { count: 2, weight: 1.0, glow: 1.1, speeds: [1, 0.9], swellCore: true },
+};
 
 export function WaveformScene({
   tracks, width, height, timeMs, analysis, spectrum, musicAnalysis, musicSpectrum,
@@ -566,37 +620,125 @@ export function WaveformScene({
           );
         }
 
-        if (cfg.style === "rings") {
-          const cx = width * cfg.ringX;
-          const cy = height * cfg.ringY;
-          const innerR = frameMin * 0.5 * cfg.ringInnerRadius;
-          const clusterR = frameMin * 0.42 * cfg.ringSize;
-          const avgAmp = [...Array(6)].reduce((s, _, i) => s + ampAt(i * 7, 42, false), 0) / 6;
+        // ORBITS. Loops round the face, never through it.
+        if (ORBIT_LOOKS[cfg.style]) {
+          const look = ORBIT_LOOKS[cfg.style];
+          const cx = halo ? halo.cx : width * cfg.ringX;
+          const cy = halo ? halo.cy : height * cfg.ringY;
+          // The avatar's own radius is the floor. With no face to ring, the
+          // inner radius setting stands in for one.
+          const inner = halo
+            ? halo.r * 1.06
+            : Math.max(frameMin * 0.08, frameMin * 0.5 * cfg.ringInnerRadius);
+          // CLOSE TO THE FACE. The first cut used 2.1x the head and the loops
+          // sprawled across the whole frame, crossing the other speaker. An
+          // orbit belongs to the face it circles, so the outermost sits a bit
+          // over half a head clear of it.
+          const outer = halo
+            ? halo.r * (1.12 + 0.42 * cfg.ringSize)
+            : frameMin * 0.3 * cfg.ringSize;
+          const level = active ? ampAt(0, 1, true) : 0;
 
           return (
-            <g key={ti} transform={`translate(${cx} ${cy})`}>
-              {[0, 1].map((ri) => {
-                const seed = ti * 2 + ri;
-                const r =
-                  innerR +
-                  (clusterR - innerR) *
-                    (0.55 + (0.45 * ((seed * 37) % 100)) / 100) *
-                    (0.85 + avgAmp * 0.3);
-                const squash = 0.28 + 0.22 * Math.sin(timeMs / (1800 + seed * 240) + seed * 2.3);
-                const speed = 30 + (seed % 3) * 14;
-                const direction = seed % 2 === 0 ? 1 : -1;
-                const rotationDeg = ((timeMs / speed) * direction + seed * 73) % 360;
+            <g key={ti} transform={`translate(${cx} ${cy})`} opacity={opacity}>
+              {look.swellCore && (
+                <circle r={inner * (1 + level * 0.3)} fill={track.color} opacity={0.18}
+                  style={{ filter: `blur(${(frameMin * 0.03).toFixed(1)}px)` }} />
+              )}
+              {[...Array(look.count)].map((_, oi) => {
+                const speed = look.speeds[oi] ?? 1;
+                // Every loop sits at its own distance, so five do not stack.
+                const spread = look.count === 1 ? 0.5 : oi / (look.count - 1);
+                const radius = inner + (outer - inner) * (0.5 + spread * 0.5) * (0.9 + level * 0.25);
+                // DERIVED FROM TIME, never accumulated — Remotion renders frames
+                // out of order and in parallel, so a spin that counted upwards
+                // would differ between workers. See emitters.ts.
+                const squash = Math.cos(timeMs / 900 * speed + oi * 2.1) * 0.88;
+                const rotationDeg = (timeMs / (40 / speed) + oi * 61) % 360;
                 return (
-                  <RingEllipse
-                    key={ri}
-                    r={r}
+                  <Orbit
+                    key={oi}
+                    radius={radius}
                     squash={squash}
                     rotationDeg={rotationDeg}
+                    inner={inner}
                     color={track.color}
-                    glowWidth={Math.max(2, frameMin * 0.01 * cfg.thickness)}
-                    coreWidth={Math.max(1.5, frameMin * 0.0035 * cfg.thickness)}
-                    opacity={opacity * (ri === 0 ? 1 : 0.75)}
+                    coreWidth={Math.max(1.5, frameMin * 0.0035 * cfg.thickness * look.weight)}
+                    glowWidth={Math.max(3, frameMin * 0.012 * cfg.thickness * look.weight * look.glow)}
+                    opacity={oi === 0 ? 1 : 0.8}
+                    // READ BETWEEN THE BANDS. Snapping each point to its
+                    // nearest of 24 bands puts 24 corners in a loop that is
+                    // supposed to be a smooth curve, and the eye reads the
+                    // result as scribble. Cosine between neighbours instead.
+                    ampAtAngle={(turns) => {
+                      if (!active) return 0;
+                      const f = turns * 24;
+                      const i = Math.floor(f);
+                      const frac = f - i;
+                      const a = ampAt(i % 24, 24, true);
+                      const b = ampAt((i + 1) % 24, 24, true);
+                      return a + (b - a) * (1 - Math.cos(frac * Math.PI)) / 2;
+                    }}
                   />
+                );
+              })}
+            </g>
+          );
+        }
+
+        // MESH — the last few seconds of voice, laid back in perspective.
+        //
+        // The history is READ FROM THE ANALYSIS at past timestamps rather than
+        // remembered between frames, for the same reason everything else here
+        // is: frames are rendered out of order, so a row kept from "last frame"
+        // would be a different row on every worker.
+        if (cfg.style === "mesh") {
+          const ROWS = 26;
+          const COLS = Math.max(8, Math.min(48, density));
+          const STEP_MS = 90;
+          // The horizon sits below the middle so the landscape stays under the
+          // cast rather than growing up through their faces.
+          const horizon = height * 0.52;
+          const front = height * 0.94;
+          const lift = height * 0.22 * cfg.scale;
+
+          const rows = [...Array(ROWS)].map((_, r) => {
+            const at = timeMs - r * STEP_MS;
+            const past = at < 0 ? null : sampleAnalysis(analysis, at, spectrum);
+            return [...Array(COLS)].map((_, c) => {
+              if (!past) return 0;
+              return past.bands
+                ? bandAmplitude(past.bands, past.bandCount, c, COLS, false)
+                : shapedAmplitude(ti, c, at, past.level);
+            });
+          });
+
+          const project = (r: number, c: number): [number, number] => {
+            const p = r / ROWS;
+            const depth = Math.pow(p, 1.5);
+            const y0 = front + (horizon - front) * depth;
+            const wide = width * 0.9 * (1 - depth * 0.72);
+            const x = width / 2 + (c / (COLS - 1) - 0.5) * wide;
+            return [x, y0 - rows[r][c] * lift * (1 - depth * 0.5)];
+          };
+
+          const rowPath = (r: number) =>
+            "M" + [...Array(COLS)].map((_, c) => project(r, c).map((n) => n.toFixed(1)).join(",")).join(" L");
+          const colPath = (c: number) =>
+            "M" + [...Array(ROWS)].map((_, r) => project(r, c).map((n) => n.toFixed(1)).join(",")).join(" L");
+
+          return (
+            <g key={ti} opacity={opacity}>
+              {[...Array(COLS)].map((_, c) => (
+                <path key={`c${c}`} d={colPath(c)} fill="none" stroke={track.color}
+                  strokeWidth={Math.max(0.5, frameMin * 0.0008 * cfg.thickness)} opacity={0.16} />
+              ))}
+              {[...Array(ROWS)].map((_, r) => {
+                const fade = 1 - r / ROWS;
+                return (
+                  <path key={`r${r}`} d={rowPath(r)} fill="none" stroke={track.color}
+                    strokeWidth={Math.max(0.6, frameMin * 0.0016 * cfg.thickness * (0.4 + fade))}
+                    opacity={0.15 + fade * 0.75} />
                 );
               })}
             </g>
@@ -737,7 +879,6 @@ export function WaveformScene({
                 })}
               </g>
             );
-          case "lines":
           case "wave":
           default: {
             const outline = points.map((p, i) => extend(p, amps[i] * maxLen));

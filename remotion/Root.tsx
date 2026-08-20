@@ -35,6 +35,7 @@ const previewDefaults: RenderProps = {
   idleMotion: defaultProject.idleMotion,
   narrationSegments: [],
   narrationPauses: [],
+  logo: null,
 };
 
 export function RemotionRoot() {

@@ -28,6 +28,8 @@ export function RenderBar() {
   const fps = useProjectStore((s) => s.fps);
   const musicWaveform = useProjectStore((s) => s.musicWaveform);
   const musicColor = useProjectStore((s) => s.musicColor);
+  const cards = useProjectStore((s) => s.cards);
+  const logo = useProjectStore((s) => s.logo);
   const speakers = useProjectStore((s) => s.speakers);
   const narration = useProjectStore((s) => s.narration);
   const subtitles = useProjectStore((s) => s.subtitles);
@@ -116,6 +118,10 @@ export function RenderBar() {
       const res = await window.byok.render.start({
         musicWaveform,
         musicColor,
+        // Welded on after the render, so nothing inside the lesson shifts.
+        introPath: cards.introPath,
+        outroPath: cards.outroPath,
+        logo: logo.filePath ? logo : null,
         // Only the fields the video needs — the sprite sheet and voice
         // assignments aren't used by the renderer yet.
         speakers: speakers.map((sp) => ({

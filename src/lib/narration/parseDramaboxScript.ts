@@ -40,11 +40,55 @@ export interface ParsedDramaboxScript {
   cues: SoundCue[];
   /** Blocks that matched no character. Never silently dropped. */
   unmatchedLines: string[];
-  /** One entry per block, in order — the exact string to send for it. */
-  blocks: { speakerId: string; prompt: string; segmentIndices: number[] }[];
+  /** One entry per block, in order — the exact string to send for it, and any
+   *  engine settings a `[VOICE: …]` line asked for just above it. */
+  blocks: {
+    speakerId: string;
+    prompt: string;
+    segmentIndices: number[];
+    params?: Record<string, number | boolean>;
+  }[];
+  /** `[VOICE: …]` settings that were not understood. Never applied silently. */
+  badVoiceLines: string[];
 }
 
 const CUE_LINE = /^\[\s*(?:SFX|ΗΧΟΣ)\s*:\s*([^\]]+?)\s*\]$/iu;
+
+/** A settings line for the NEXT block only:
+ *
+ *      [VOICE: acting=2.2 pace=0.9]
+ *
+ *  Same bracket family as [SFX:] on purpose — one thing to remember, and it
+ *  already reads as "not speech". The short names are the ones a person would
+ *  use out loud; the full engine names work too. */
+const VOICE_LINE = /^\[\s*(?:VOICE|ΦΩΝΗ)\s*:\s*([^\]]+?)\s*\]$/iu;
+
+const VOICE_ALIASES: Record<string, string> = {
+  acting: "stgScale",
+  stg: "stgScale",
+  pace: "durationMultiplier",
+  speed: "durationMultiplier",
+  obedience: "cfgScale",
+  cfg: "cfgScale",
+  seed: "seed",
+  steps: "steps",
+  length: "genDuration",
+  // The rest of the engine's settings. Rarely worth changing for one block,
+  // but leaving them out meant a block could not be given what a character
+  // could, which is an arbitrary line to draw.
+  sample: "refDuration",
+  denoise: "denoiseRef",
+  watermark: "watermark",
+  rescale: "rescaleScale",
+  chunk: "targetChunkDuration",
+  chunkmax: "maxChunkDuration",
+  crossfade: "crossfadeMs",
+};
+
+/** Settings written as words rather than numbers — `denoise=off`. */
+const VOICE_BOOLEANS: Record<string, boolean> = {
+  on: true, off: false, yes: true, no: false, true: true, false: false,
+};
 
 /**
  * Parse a DramaBox-format script.
@@ -60,6 +104,9 @@ export function parseDramaboxScript(
   const cues: SoundCue[] = [];
   const unmatchedLines: string[] = [];
   const blocks: ParsedDramaboxScript["blocks"] = [];
+  const badVoiceLines: string[] = [];
+  /** Set by a `[VOICE: …]` line, spent by the next block. */
+  let pendingParams: Record<string, number | boolean> = {};
 
   // Longest phrase first, so "A bright young woman" is preferred over
   // "A bright woman" if both were ever configured.
@@ -67,15 +114,64 @@ export function parseDramaboxScript(
     (a, b) => b.openingPhrase.length - a.openingPhrase.length
   );
 
+  /** `acting=2.2 pace=0.9`, or with colons, or comma separated — all the ways
+   *  someone might reasonably type it. Anything unreadable is reported rather
+   *  than dropped, because a setting that silently does nothing is worse than
+   *  one that never existed. */
+  function readVoiceLine(body: string): void {
+    for (const pair of body.split(/[\s,]+/).filter(Boolean)) {
+      const m = pair.match(/^([\p{L}]+)\s*[=:]\s*(-?\d+(?:\.\d+)?|[\p{L}]+)$/u);
+      const key = m && VOICE_ALIASES[m[1].toLowerCase()];
+      if (!key) {
+        badVoiceLines.push(pair);
+        continue;
+      }
+      const raw = m![2];
+      const asBool = VOICE_BOOLEANS[raw.toLowerCase()];
+      if (asBool !== undefined) pendingParams[key] = asBool;
+      else if (/^-?\d/.test(raw)) pendingParams[key] = Number(raw);
+      else badVoiceLines.push(pair);
+    }
+  }
+
   const rawBlocks = script.split(/\n\s*\n/);
 
   for (const raw of rawBlocks) {
-    const block = raw.trim();
+    let block = raw.trim();
     if (!block) continue;
+
+    // A BRACKET LINE STUCK TO THE TOP OF A BLOCK IS STILL A BRACKET LINE.
+    // Writers put `[VOICE: …]` or `[SFX: …]` directly above the speech with no
+    // blank line between, which is the natural way to write it and how the
+    // first real script came back. Requiring the blank line meant the whole
+    // block matched no character and was thrown away — a lesson silently short
+    // one turn. So leading bracket lines are peeled off here instead.
+    const lines = block.split("\n");
+    let peeled = 0;
+    while (peeled < lines.length) {
+      const line = lines[peeled].trim();
+      const c = line.match(CUE_LINE);
+      const v = line.match(VOICE_LINE);
+      if (c) cues.push({ name: c[1], beforeSegment: segments.length });
+      else if (v) readVoiceLine(v[1]);
+      else break;
+      peeled++;
+    }
+    if (peeled > 0) {
+      block = lines.slice(peeled).join("\n").trim();
+      // Bracket lines and nothing else — a cue or a setting standing alone.
+      if (!block) continue;
+    }
 
     const cue = block.match(CUE_LINE);
     if (cue) {
       cues.push({ name: cue[1], beforeSegment: segments.length });
+      continue;
+    }
+
+    const voice = block.match(VOICE_LINE);
+    if (voice) {
+      readVoiceLine(voice[1]);
       continue;
     }
 
@@ -127,8 +223,10 @@ export function parseDramaboxScript(
       speakerId: speaker.id,
       prompt: flat.slice(0, lastQuoteEnd),
       segmentIndices: indices,
+      params: Object.keys(pendingParams).length ? pendingParams : undefined,
     });
+    pendingParams = {};
   }
 
-  return { segments, cues, unmatchedLines, blocks };
+  return { segments, cues, unmatchedLines, blocks, badVoiceLines };
 }

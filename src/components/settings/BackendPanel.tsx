@@ -3,7 +3,6 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { Toggle } from "../ui/Toggle";
 import { HudButton } from "../ui/HudButton";
 import TtsTestPanel from "./TtsTestPanel";
-import ChatterboxTestPanel from "./ChatterboxTestPanel";
 
 // Every provider carries its own plain-English explanation and a direct link
 // to the page that issues the key. The `access` field is the important one:
@@ -36,6 +35,17 @@ interface Provider {
 }
 
 const PROVIDERS: Provider[] = [
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    what:
+      "Voices, charged by the character. A lesson is about 4,600 credits, so the " +
+      "72-lesson course is roughly 334,000 — one month of Pro, or three of Creator " +
+      "with nothing spare for re-renders. DramaBox does the same course for about " +
+      "five dollars of rented card, but needs a machine started and stopped.",
+    url: "https://elevenlabs.io/app/settings/api-keys",
+    access: "instant",
+  },
   {
     id: "nvidia",
     label: "NVIDIA",
@@ -75,8 +85,11 @@ const PROVIDERS: Provider[] = [
 //                NO synthesis code anywhere in the app. It could pass its test
 //                and still never speak, which is the most misleading state a
 //                setting can be in.
-//   Drive, 11L — on the cut list as "stubs only, don't build". A COMING SOON
+//   Drive      — on the cut list as "stubs only, don't build". A COMING SOON
 //                badge on something nobody intends to build is a promise.
+//
+// ElevenLabs was on that list too and came back on 20 Aug 2026, with the code
+// behind it in the same change — which is the rule below, kept.
 //
 // If any of these is ever genuinely wanted, add it back WITH the code behind
 // it, in the same change.
@@ -303,15 +316,16 @@ export default function BackendPanel() {
       <div className="border border-accent/25 bg-metal-800/60 p-4">
         <h3 className="label-lit text-sm mb-2">Voice Engines — no API key needed</h3>
         <p className="text-sm">
-          Chatterbox and Piper run entirely on your own machine, so there's
-          nothing to sign up for and nothing to paste. What they ask for below
-          are <em>folder paths</em> on this computer — where you installed them —
-          not keys. Chatterbox is the quality voice; Piper is the fast one for
-          quick tests.
+          Piper runs entirely on your own machine, so there's nothing to sign up
+          for and nothing to paste. What it asks for below are{" "}
+          <em>folder paths</em> on this computer — where you installed it — not
+          keys. Piper is the fast local voice, correct and flat, and it is right
+          for checking timing. DramaBox is the one that acts, and it generates on
+          a rented GPU rather than here — the app writes its files from the
+          Narration tab.
         </p>
       </div>
 
-      <ChatterboxTestPanel />
 
       <TtsTestPanel />
     </div>

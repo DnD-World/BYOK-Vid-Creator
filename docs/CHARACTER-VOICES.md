@@ -1,7 +1,18 @@
 # The cast, as DramaBox hears them
 
-> **⚠ THESE PARAGRAPHS CONTRADICT THE OFFICIAL PROMPTING GUIDE. Do not use them
-> as written.** Read `docs/DRAMABOX.md` first.
+> **⚠ THIS FILE IS FOR THE WRITER, NOT THE ENGINE. Nothing here is sent
+> anywhere.** What the engine actually receives is settled and lives in two
+> places: the opening phrases in `docs/SCRIPT-GEM.md`, and the per-character
+> settings in the app's Cast panel.
+>
+> | Character | Opening phrase | Reference clip |
+> |---|---|---|
+> | Καίτη | `A bright woman` | `kaiti.wav` (and `kaiti-babytalk.wav`) |
+> | Σερίφης | `A grave man` | `serifis.wav` |
+> | Τσίκα | `A tiny woman` | `tsika.wav` |
+>
+> **THE PARAGRAPHS BELOW CONTRADICT THE OFFICIAL PROMPTING GUIDE. Never paste
+> one into a script.** Read `docs/DRAMABOX.md` first.
 >
 > The guide requires a **generic noun with at most one adjective** — "A man",
 > "A weary woman" — and names two of the things below as its most common

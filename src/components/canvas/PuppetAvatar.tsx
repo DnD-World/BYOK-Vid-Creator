@@ -39,6 +39,23 @@ interface Props {
   puppet: Puppet;
   /** file path -> loadable URL (blob: in the preview, staticFile() in a render). */
   urls: Record<string, string>;
+  /** Whether `urls` is FINISHED, or still filling in.
+   *
+   *  IN THE PREVIEW THESE ARRIVE LATE, ON PURPOSE. The JSON settles first so
+   *  the layout is right, then twenty-odd PNGs are read off disk one at a time
+   *  and turned into blob URLs — see useFileUrls. For those few hundred
+   *  milliseconds every layer has no URL, which is indistinguishable from a
+   *  layer whose file is gone unless someone says which it is.
+   *
+   *  Nobody said, so the first paint of every character reported its entire
+   *  face as missing, permanently — the reporter dedupes and never retracts.
+   *  Sixty-four console errors about files that were all present and loaded a
+   *  moment later, which is worse than useless: it is the one channel that is
+   *  supposed to mean something is really wrong.
+   *
+   *  A render passes `staticFile()` URLs that exist from the first frame, so it
+   *  leaves this undefined and every report there is real. */
+  urlsReady?: boolean;
   /** Viseme index 0–8. */
   viseme: number;
   /** The mouth being faded out of, and how far through the fade we are
@@ -85,7 +102,7 @@ function filterFor(l: PuppetLayer): string | undefined {
 }
 
 export function PuppetAvatar({
-  puppet, urls, viseme, prevViseme, mix = 1,
+  puppet, urls, urlsReady, viseme, prevViseme, mix = 1,
   lidLeft = "open", lidRight = "open",
   lidLeftTo, lidRightTo, lidMix = 1,
   // Defaulted, not optional-and-absent, for the reason in `browSet` below.
@@ -189,6 +206,9 @@ export function PuppetAvatar({
   const draw = (l: PuppetLayer | undefined, key: string, opacity?: number) => {
     if (!l) return null;
     if (!urls[l.file]) {
+      // Still arriving is not the same as gone. Draw nothing either way; only
+      // say something once there is nothing left to wait for.
+      if (urlsReady === false) return null;
       // SAY SO. A layer with no image used to return null, so a missing mouth
       // was a face with no mouth and a render that reported success. The
       // renderer collects "[byok]" lines out of the browser console and prints

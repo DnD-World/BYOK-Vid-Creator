@@ -34,7 +34,9 @@ import sys
 import torch
 import torchaudio
 
-WORK = "/opt/dramabox/work"
+# One lesson's folder, given on the command line, or the shared one when it is
+# not. A batch of seventy-two keeps each lesson's audio and word times apart.
+WORK = sys.argv[1] if len(sys.argv) > 1 else "/opt/dramabox/work"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 bundle = torchaudio.pipelines.MMS_FA

@@ -24,7 +24,12 @@ const STYLES = WAVEFORM_STYLES;
 const STYLE_LABEL: Partial<Record<TrackWaveform["style"], string>> = {
   bloomBars: "bloom bars",
   boil: "boiling",
+  mesh: "mesh",
 };
+
+/** Looks that draw round a centre rather than sampling a path along an edge.
+ *  They hide the edge controls. Only the mesh is left, and nothing uses it. */
+const isOrbit = (style: string) => style === "mesh";
 const POSITIONS: TrackWaveform["position"][] = [
   "speaker", "circular", "top", "bottom", "left", "right",
 ];
@@ -64,7 +69,7 @@ export function WaveformControls({ value, onChange, label, canAnchorToFace = tru
             </div>
           </div>
 
-          {value.style !== "rings" && (
+          {!isOrbit(value.style) && (
             <div>
               <div className="label-etched mb-2">Position</div>
               <div className="flex flex-wrap gap-2">
@@ -83,7 +88,7 @@ export function WaveformControls({ value, onChange, label, canAnchorToFace = tru
             </div>
           )}
 
-          {value.position === "speaker" && value.style !== "rings" && (
+          {value.position === "speaker" && !isOrbit(value.style) && (
             <Slider
               label="Ring Size" value={value.ringSize} min={0.6} max={3} step={0.02}
               onChange={(v) => onChange({ ringSize: v })} format={(v) => `${v.toFixed(2)}x`}
@@ -124,14 +129,14 @@ export function WaveformControls({ value, onChange, label, canAnchorToFace = tru
             />
           )}
 
-          {value.style !== "rings" && value.position !== "circular" && (
+          {!isOrbit(value.style) && value.position !== "circular" && (
             <Toggle
               label="Flush to edge" checked={value.edgeFlush}
               onChange={(v) => onChange({ edgeFlush: v })}
             />
           )}
 
-          {value.style === "rings" && (
+          {isOrbit(value.style) && (
             <>
               <Slider
                 label="Ring Size" value={value.ringSize} min={0.2} max={2} step={0.02}

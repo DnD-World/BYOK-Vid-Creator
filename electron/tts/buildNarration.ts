@@ -16,21 +16,36 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { synthesizeWithPiper } from "./piperEngine";
-import * as chatterbox from "./chatterboxEngine";
+import * as elevenlabs from "./elevenlabsEngine";
 import { concatWavBuffers } from "../audio/concatWav";
 import { analyzeNarration } from "../audio/analyzeNarration";
 import { trimSilence, squeezeSilence } from "../audio/trimSilence";
+import { displayLine } from "../../src/lib/narration/displayText";
 
 /** One line of script, with its speaker's voice already resolved.
  *
- *  Piper and Chatterbox can be mixed within one script — the engine is a
- *  per-speaker choice, so a fast Piper voice and a cloned Chatterbox voice can
- *  appear in the same narration. */
-export type NarrationInput = chatterbox.NarrationSegmentInput & {
-  engine?: "chatterbox" | "piper";
+ *  THIS IS THE PIPER PATH ONLY. DramaBox does not synthesise here — it runs on
+ *  a rented GPU, and the app's side of it is writing the two files that box
+ *  reads (`buildBlocks.ts`) and assembling the WAVs that come back
+ *  (`buildDramaboxNarration.ts`). Chatterbox, the third engine, was removed on
+ *  18 Aug 2026. */
+export interface NarrationInput {
+  speakerId: string;
+  speakerLabel: string;
+  text: string;
+  language: string;
+  engine?: "piper" | "elevenlabs";
   piperPythonPath?: string;
   piperOnnxPath?: string;
-};
+  /** ElevenLabs: the voice id and this character's settings. */
+  elevenVoiceId?: string;
+  eleven?: {
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    speed?: number;
+  };
+}
 
 export interface NarrationPauses {
   /** Between two lines by the same speaker — a breath. */
@@ -82,11 +97,16 @@ function narrationKey(segments: NarrationInput[], pauses: NarrationPauses): stri
       s.engine,
       s.piperOnnxPath,
       s.language,
-      s.voiceMode,
-      s.predefinedVoiceId,
-      s.referenceAudioFilename,
-      s.exaggeration,
-      s.cfgWeight,
+      // THE VOICE AND ITS SETTINGS COUNT. Changing an ElevenLabs voice or its
+      // speed changes every sample and not one character of the script, so a
+      // key without them serves the old audio for the new voice — and the
+      // change looks like it did nothing. That has already happened twice in
+      // this file's history, which is what the version string above is for.
+      s.elevenVoiceId,
+      s.eleven?.stability,
+      s.eleven?.similarityBoost,
+      s.eleven?.style,
+      s.eleven?.speed,
     ]),
     pauses.sameMs,
     pauses.turnMs,
@@ -160,37 +180,52 @@ export async function buildNarration(
   const trimmed = (b: Buffer): Buffer => squeezeSilence(trimSilence(b).buffer).buffer;
 
   const buffers: Buffer[] = [];
+  /** Only ever spent, never refunded — worth reporting at the end. */
+  let credits = 0;
+
   for (const seg of segments) {
-    if (seg.engine === "piper") {
-      if (!seg.piperPythonPath || !seg.piperOnnxPath) {
-        throw new Error(
-          `Speaker "${seg.speakerLabel}" is set to Piper but has no voice selected — pick one in the left rail.`
-        );
-      }
-      const { audioBuffer } = await synthesizeWithPiper(
-        seg.piperPythonPath,
-        seg.piperOnnxPath,
-        seg.text
-      );
+    if (seg.engine === "elevenlabs") {
+      const { audioBuffer, credits: spent } = await elevenlabs.synthesize({
+        text: seg.text,
+        voiceId: seg.elevenVoiceId ?? "",
+        settings: {
+          stability: seg.eleven?.stability,
+          similarityBoost: seg.eleven?.similarityBoost,
+          style: seg.eleven?.style,
+          speed: seg.eleven?.speed,
+        },
+      });
+      credits += spent;
       buffers.push(trimmed(Buffer.from(audioBuffer)));
       continue;
     }
 
-    const { audioBuffer } = await chatterbox.synthesize({
-      text: seg.text,
-      language: seg.language,
-      voiceMode: seg.voiceMode,
-      predefinedVoiceId: seg.predefinedVoiceId,
-      referenceAudioFilename: seg.referenceAudioFilename,
-      exaggeration: seg.exaggeration,
-      cfgWeight: seg.cfgWeight,
-    });
+    if (!seg.piperPythonPath || !seg.piperOnnxPath) {
+      throw new Error(
+        `Speaker "${seg.speakerLabel}" has no Piper voice selected — pick one in the left rail. ` +
+          `DramaBox voices are not synthesised here: write its files from the Narration tab.`
+      );
+    }
+    const { audioBuffer } = await synthesizeWithPiper(
+      seg.piperPythonPath,
+      seg.piperOnnxPath,
+      seg.text
+    );
     buffers.push(trimmed(Buffer.from(audioBuffer)));
   }
 
   // Nothing in front of the first line — leading silence only delays the video.
   // After that, a breath between a speaker's own lines and a longer beat when
   // the turn changes.
+  // MONEY, SAID OUT LOUD. A character is a credit, and a re-render spends them
+  // again — unlike the GPU, where a second attempt costs only minutes.
+  if (credits > 0) {
+    console.log(
+      `[byok] ElevenLabs: ${credits.toLocaleString()} credits spent on this narration ` +
+        `(about ${(credits / 4640).toFixed(1)} lessons' worth).`
+    );
+  }
+
   const gaps = segments.map((seg, i) =>
     i === 0 ? 0 : seg.speakerId === segments[i - 1].speakerId ? pauses.sameMs : pauses.turnMs
   );
@@ -203,7 +238,12 @@ export async function buildNarration(
   const resolved = segments.map((seg, i) => ({
     speakerId: seg.speakerId,
     speakerLabel: seg.speakerLabel,
-    text: seg.text,
+    // SAID ONE WAY, SHOWN ANOTHER — the same rule the DramaBox path follows.
+    // These engines are handed the text above and say it literally, so a script
+    // written with "Hahaha" is spoken as written whichever engine reads it. The
+    // subtitle should still say «Χαχαχα». Applied here, after synthesis, so it
+    // can never change what was spoken.
+    text: displayLine(seg.text),
     startMs: timing[i].startMs,
     endMs: timing[i].endMs,
   }));

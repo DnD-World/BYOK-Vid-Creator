@@ -1,4 +1,4 @@
-# Handoff — 15 Aug 2026
+# Handoff — 18 Aug 2026
 
 Everything a fresh session needs. `PLAN.md` holds the long history; this is the
 working state.
@@ -50,17 +50,19 @@ disagree, that is a bug, not a variant.
 
 ## Voices — DramaBox
 
-**Decided and proven.** Chatterbox was tried, rejected, and uninstalled.
+**Decided and proven.** Chatterbox was tried, rejected, and removed from the
+code on 18 Aug 2026 — two engines, not three.
 
 - Open weights, Resemble AI. **Prompt-driven**: stage directions control the
   acting and never appear in the audio.
 - **Will not run locally** — ~24 GB VRAM against an 8 GB laptop 3070.
 - Runs on a **GCP L4** (24 GB, the cheapest card that clears it).
   Measured: **8.5 s per generation**, ~3.4× slower than the documented H100.
-- **Greek is NOT a supported language.** The official docs say English only.
-  The Greek test here reported `OK`, which means a file was produced — nobody
-  has listened to it. **Audition it before writing 72 lessons**; see
-  `docs/DRAMABOX.md`. Piper is the fallback: correct and flat.
+- **Greek is not a documented language** — the official docs say English only —
+  **and it works.** Auditioned by ear, then used for the whole of lesson 101.1.
+  Piper remains the fallback: correct and flat.
+- **Noises must be spelled the English way.** `Χαχαχα` produced no laugh at all
+  in a finished lesson; `Hahaha` does. The subtitle shows the Greek.
 
 ### The instance
 
@@ -86,13 +88,60 @@ full_checkpoint → dramabox-audio-components.safetensors
 gemma_root      → unsloth/gemma-3-12b-it-bnb-4bit, read from $GEMMA_DIR
 ```
 
-### Blocked on
+### The clips exist — unblocked 17 Aug 2026
 
-**Three reference clips** — `kaiti.wav`, `serifis.wav`, `tsika.wav`. Ak is making
-them in Voicemod. Spec in `docs/HANDOFF-VOICE-CLIPS.md`. Rule: **record the
-voice, not the mood** — timbre comes from the clip, acting from the prompt.
+`voice-refs/` holds `kaiti.wav`, `serifis.wav`, `tsika.wav` and a fourth,
+`kaiti-babytalk.wav`, for the voice she uses on Τσίκα. Spec in
+`docs/HANDOFF-VOICE-CLIPS.md`. Rule: **record the voice, not the mood** — timbre
+comes from the clip, acting from the prompt.
 
-Nothing DramaBox-related can be finished until those exist.
+Lesson 101.1 was narrated with them end to end: 24 blocks generated, forced
+aligned, word times remapped through the silence cuts, rendered.
+
+### Every knob is reachable — 18 Aug 2026
+
+The engine's settings used to be literals inside `tools/dramabox-render-blocks.py`,
+which meant one setting for the whole cast. They are now **per character and per
+block**:
+
+| Where | How |
+|---|---|
+| `src/lib/narration/dramaboxParams.ts` | The one list. The Cast panel builds its controls from it, so a knob added here appears in the app. |
+| Cast panel → "DramaBox — this voice" | Thirteen controls, plus the reference clip and opening phrase. |
+| `[VOICE: acting=2.4 pace=0.9]` in a script | That block only. Beats the character's setting. |
+| Narration panel → "Write DramaBox files…" | Writes `blocks.json` and `align.json` from the current project. |
+| `tools/make-blocks.mjs job.json` | The same, from a job file. Shares `buildBlocks.ts` with the button. |
+
+**Watermark is OFF** (18 Aug 2026). Resemble Perth is inaudible and carries no
+custom payload — it cannot say the audio is ours, so it has nothing to do for us.
+
+**Said in English, shown in Greek.** Laughs only fire from English spellings
+(`Hahaha`), so the script carries those and the subtitle shows «Χαχαχα».
+`src/lib/narration/displayText.ts`; the aligner is given the spoken form.
+
+### The voices are settled — 19 Aug 2026
+
+Auditioned by ear from fifteen takes (`dramabox-audition/settings/`): three
+characters against five settings, same line, same seed, same clip.
+
+| Character | Setting | What it is |
+|---|---|---|
+| Καίτη | acting 1.5, **pace 0.85** | Same acting, less time for the words. She tumbles over them. |
+| Σερίφης | acting 1.5, pace 1.0 | The defaults, over both the bigger and the faster takes. |
+| Τσίκα | acting 1.5, pace 1.0 | The defaults. Her speed is a WRITING device, not a setting. |
+
+Measured on the way: pace is real. The same words came out at 12s, 10s and 14s
+from Καίτη at 1.0, 0.85 and 1.15 — a 40% spread.
+
+These live on the built-in cast, so adding Καίτη from the Characters row brings
+her voice with her: opening phrase, reference clip and settings.
+
+**`steps` is not a parameter of this engine.** It is a command-line flag in the
+README and `generate()` rejects it. Fifteen generations failed on it once.
+
+**The app may add expression a script was written without** — a flat "speaks"
+lifted, a promised laugh spelled so it is actually heard. Off unless asked for,
+and every change is printed before anything is generated.
 
 ---
 
@@ -135,72 +184,153 @@ definition, so a superellipse drawn with arcs stays round.
 
 ---
 
+## ElevenLabs — the paid voice, added 20 Aug 2026
+
+It was on the cut list as "stubs only, don't build" and came back, with the code
+in the same change. Chosen per character in the Cast panel, alongside DramaBox
+and Piper.
+
+**What it costs, measured rather than guessed.** Lesson 101.1 is **4,640
+characters** of Greek, and a credit is a character:
+
+| | |
+|---|---|
+| 72 lessons | 334,080 credits |
+| Creator, $22/mo | 121,000 — about **26 lessons a month** |
+| Pro, $99/mo | 600,000 — the course plus ~1.8× of re-renders |
+| DramaBox, same course | about **$5** of rented card |
+
+**Every re-render spends it again.** The GPU charges only more minutes. Two
+months of Creator is 242,000 and leaves the course twenty lessons short — the
+question Ak asked, and the answer is no.
+
+**Raw PCM, not MP3.** The app's analysis reads 16-bit PCM — it is what moves a
+waveform, loops a music bed and feeds the aligner. The API is asked for
+`pcm_44100` and `elevenlabsEngine.ts` writes the WAV header itself, because the
+response is bare samples with no container. An MP3 would play and analyse as
+silence.
+
+**The voice id and its settings are in the narration cache key.** Changing a
+voice changes every sample and not one character of the script, so a key without
+them would serve the old audio for the new voice and the change would look like
+it did nothing. That has happened twice in this project for other reasons.
+
+Untested against the real API — there is no key saved yet. The key test in
+Backend Settings reports the tier and how many lessons the remaining credits buy.
+
+## YouTube — scheduled publishing
+
+Not a Premiere. **Decided 20 Aug 2026:** a video is uploaded private with a
+`publishAt` time and becomes public at that moment. No countdown, no waiting
+room, no live chat. A real Premiere needs a live broadcast created alongside the
+video and is a different and more fragile piece of work; nothing about this
+course needs one.
+
+- `electron/net/youtube.ts` — refresh, resumable upload, read the status back.
+  No SDK: three HTTP calls do not justify that dependency tree.
+- `tools/youtube-auth.mjs` — **Ak runs this once**, in a browser. It writes
+  the refresh token beside the client secret.
+
+**Credentials live in `../SECRETS`, outside the repository**, and that is
+deliberate: a secret inside a working tree is one `git add -A` away from being
+published, and an ignore rule only holds for as long as nobody edits the ignore
+file. `BYOK_SECRETS_DIR` overrides the location. The client must be of type
+**Desktop app** — a "Web application" client cannot complete a sign-in from a
+program on your own machine, and the tool stops with that explanation rather
+than failing later with something obscure.
+
+### Proven end to end — 20 Aug 2026
+
+Two real uploads to the channel **Lambros Stravelakis**: one private, one
+private with a publish date of 1 Jan 2030. YouTube echoed both back. Delete them
+whenever — they are `KtN3cdh1tCs` and `ezZ2Gese6lY`.
+
+```bash
+node tools/youtube-auth.mjs --check        # says which channel, or why not
+node tools/youtube-upload.mjs video.mp4 --title "..." --publish-at 2026-09-01T10:00
+```
+
+**What cost the evening, so nobody repeats it:**
+
+- A `cmd` window cuts a URL at its first `&`, and an OAuth URL is mostly
+  ampersands. The browser got the client id and nothing else.
+- `fetch` reports "fetch failed" and hides the reason in `e.cause`.
+- Attaching `on("data")` to a file stream to measure upload progress CONSUMES
+  it, and fetch then sends an empty body. The error says "content-length
+  mismatch", which sounds like a header bug and is a stolen stream.
+- A valid token proves nothing about a channel. The account may have none, or
+  the channel may be a Brand account while the sign-in picked the person. Both
+  refuse with the same word. `--check` now names the channel.
+
+**Quota, checked against Google's own documentation:** a new project gets
+**100 uploads a day**, on a separate allowance from the 10,000 units everything
+else shares. Four hundred videos is four days, not two months.
+
+**A scheduled video must be uploaded private.** Any other starting state and
+YouTube ignores the schedule and publishes it the moment the upload finishes.
+The uploader refuses that combination rather than discovering it from a
+subscriber.
+
+### Later: the websites write the videos
+
+The intended shape, once the 72 lessons are made and the pipeline has earned
+trust: point the app at a page on our own sites, have it read the page
+(`electron/net/readPage.ts` already does this), draft a script from it, render,
+and upload on a drip — one a day, for as long as there are pages. Four hundred
+of them was the number discussed.
+
+Two things are already in place for it: the page reader, which refuses to
+invent a lesson from a page that came back empty, and `tools/run-queue.mjs`,
+which renders a long list and survives failing in the middle. What is missing
+is the step between them — turning a page into a script good enough to publish
+without someone reading it first, which is a writing problem rather than a
+programming one.
+
+## The GPU round trip is one command — 20 Aug 2026
+
+```bash
+node tools/narrate-remote.mjs jobs/101.1.json jobs/101.2.json
+node tools/narrate-remote.mjs --queue queue.json
+```
+
+Builds the blocks, starts the box (retrying while the zone is out of cards),
+sends the lessons and the voice clips, generates, aligns, brings the audio back,
+writes `dramaboxWavDir` and `dramaboxWordsPath` into each job file, and **stops
+the machine**. A shutdown is also scheduled ON the box first, so the card dies
+even if this is killed or the laptop sleeps. `--keep-running` opts out.
+
+**One model load for the whole batch.** The generator takes a folder per lesson
+and is given all of them at once; loading it seventy-two times would be over an
+hour of rented card spent on nothing.
+
+Then rendering is just `npm run job -- jobs/101.1.json`, or the whole list
+through `tools/run-queue.mjs`.
+
 ## Open, in the order I would take them
 
-1. **Make the render say what it could not apply.** The failure mode here is
-   never a crash — it is a render reporting success while quietly leaving
-   something out. It has happened four times (the spectrum 404,
-   `backgroundBlur`, subtitle surfaces, transitions) and a fifth would put a
-   subtly wrong video in front of a student. `onBrowserLog` carries exactly one
-   message today. Ak raised this as his stability worry and it is the answer to
-   it.
-2. **Remote narration step** — script and clips up to the L4, WAVs and timings
-   back. `buildNarration` is the seam.
-
-   **It must not be line-by-line, and the current code is.** `buildNarration`
-   synthesises one segment per call and concatenates with fixed pauses. That is
-   right for Piper, which is a line reader with no context to lose, and it is
-   wrong for DramaBox. The repo's own working test prompt is a whole scene —
-   two characters, the acting carried by prose around the quoted speech, one
-   generation:
-
-   ```
-   A furious mother-in-law slams a wooden spoon onto the counter and shouts,
-   "Ίντα πράμα είναι δαύτο που μας έφκιαξες;"
-   Her daughter-in-law inhales shakily, fighting tears, and answers quietly,
-   "Έκανα ό,τι καλύτερο μπορούσα... Δεν είναι τόσο χάλια."
-   ```
-
-   Fed single lines it cannot build a performance across a turn, and the
-   timing between two characters becomes our fixed `pauseTurnMs` rather than
-   acting. Ak raised this; it is not a detail.
-
-   **What makes line-by-line tempting is that it hands us per-segment timings
-   for free**, and visemes, subtitles and the active-speaker gate all need
-   them. Generating a scene in one pass loses that — so the timings have to be
-   recovered by aligning the returned audio against the script we already
-   know. That was the original plan (whisperX, in `handoff 1.md`) and it buys
-   better subtitles too: word-level timing instead of per-line.
-
-   **But not a whole scene either — the official docs say one speaker per
-   prompt.** I proposed scene-level generation on the strength of that test
-   prompt, which has two characters in one string; the test only reports
-   whether it crashed. See `docs/DRAMABOX.md`.
-
-   So the unit is a **SPEAKER RUN**: consecutive lines by one character, joined
-   into one prompt, capped near **85 spoken words** (~37s, the model's own
-   chunk target; its hard ceiling is 45s and it was trained on 20s clips). The
-   turn-to-turn pause stays ours, because a turn boundary is now a boundary
-   between generations.
-
-   The script format does not change — a line's `[direction]` becomes the prose
-   around its quoted speech.
-
-   **Read `docs/DRAMABOX.md` before touching this.** It also carries the
-   biggest open risk in the project: DramaBox is documented as English only.
-3. **Rip out Chatterbox** — `chatterboxEngine.ts`, the engine enum, settings and
-   test panels. Dead weight; remove before DramaBox lands so there are two
-   engines, not three.
-4. **Batch spreadsheet** — CSV → queue on the existing runner. One row per
+1. **Audition the voice settings by ear.** The presets — "Bigger performance",
+   "Fast and bright" — are plausible numbers nobody has listened to. One GPU
+   session settles all three characters. **Ak only; I cannot judge audio.**
+2. **Re-run four blocks of lesson 101.1.** Blocks 000, 003, 008 and 022 still
+   say `Ουφ`, `Χεχε`, `Χαχαχα` and `Μμμμ` in Greek letters, which make no sound.
+   The script is fixed; the audio is one revision behind it.
+3. **Batch spreadsheet** — CSV → queue on the existing runner. One row per
    lesson; a row carries a finished script, a topic, or a URL.
-5. **Render a series in one process.** 72 short videos pay bundle+browser startup
+4. **Render a series in one process.** 72 short videos pay bundle+browser startup
    72 times — about 50 minutes of pure setup.
+5. **The GPU round trip is still by hand** — files up, run the script, WAVs
+   back, run the aligner. The app writes the files now; nothing drives the box.
 6. Narration-cache eviction; preview has no audio at all.
 
-**Done since this list was written:** the blink is a crossfade (it was a
-three-state step function inside 3½ frames, which is what "a bit choppy"
-was); the `ribbon` style; and the four lab styles that had no way to be
-selected.
+**Done 18 Aug 2026:** every engine knob reachable per character and per block;
+the app writes `blocks.json` and `align.json` itself; English spellings shown as
+Greek in subtitles; Chatterbox removed; and the render now names any setting it
+was given but could not apply.
+
+**Done before that:** the blink is a crossfade (it was a three-state step
+function inside 3½ frames, which is what "a bit choppy" was); the `ribbon`
+style; the four lab styles that had no way to be selected; generation per
+speaker turn rather than per line; and forced alignment for word-level timing.
 
 ---
 

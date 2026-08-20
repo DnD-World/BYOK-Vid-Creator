@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
+  type Cards,
+  type LogoConfig,
   ProjectState,
   RenderSettings,
   SpeakerConfig,
@@ -11,7 +13,7 @@ import {
   BackgroundScene,
   SfxClip,
 } from "./types";
-import type { ProjectPreset } from "./templatesTypes";
+import type { ProjectPreset, SpeakerSlot } from "./templatesTypes";
 import { defaultProject } from "./defaults";
 import { defaultTrackWaveform } from "../lib/waveform/buildTracks";
 
@@ -27,6 +29,34 @@ const LEGACY_AUTHORED_WIDTH = 560;
 /** Brings a speaker from any older preset up to the current shape: pixel sizes
  *  become fractions, and speakers saved before waveforms moved onto them get a
  *  default one rather than crashing the renderer with an undefined config. */
+/** Put a preset's layout onto the speakers that already exist.
+ *
+ *  Order is position: the first slot dresses the first speaker. A preset for
+ *  fewer speakers than the cast leaves the extras alone rather than piling them
+ *  on top of each other. */
+function applySlots(
+  current: SpeakerConfig[],
+  snap: { slots?: SpeakerSlot[]; speakers?: SpeakerConfig[] }
+): SpeakerConfig[] {
+  if (snap.slots?.length) {
+    return current.map((sp, i) => {
+      const slot = snap.slots![i];
+      if (!slot) return sp;
+      return {
+        ...sp,
+        x: slot.x,
+        y: slot.y,
+        size: slot.size,
+        outlineShape: slot.outlineShape,
+        surface: slot.surface,
+        waveform: slot.waveform,
+      };
+    });
+  }
+  // Written before slots existed: the whole speaker, faces and voices included.
+  return snap.speakers ?? current;
+}
+
 function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
   const size = sp.size > 1 ? Math.min(1, sp.size / LEGACY_AUTHORED_WIDTH) : sp.size;
   const lane = i === 0 ? 0 : i % 2 === 1 ? 1 : -1;
@@ -43,14 +73,42 @@ function migrateSpeaker(sp: SpeakerConfig, i: number): SpeakerConfig {
     // and the waveform silently renders NOTHING — no error, no clue, just a
     // missing waveform on a project that used to have one. Confirmed against a
     // real pre-branch autosave shape.
-    waveform: { ...defaultTrackWaveform(lane), ...(sp.waveform ?? {}) },
+    waveform: migrateTrack({ ...defaultTrackWaveform(lane), ...(sp.waveform ?? {}) }),
   };
+}
+
+/** A saved waveform, read in today's terms.
+ *
+ *  "lines" was retired on 18 Aug 2026: it and "wave" ran the same drawing code
+ *  and differed by whether the points were joined straight or smoothed. A file
+ *  saved with it names a style that is no longer in the list, which would leave
+ *  the picker showing nothing selected on a project that looks fine. It becomes
+ *  "wave", which is the same shape drawn properly. */
+const RETIRED_STYLES: Record<string, string> = {
+  // Same drawing code as "wave", one boolean apart.
+  lines: "wave",
+  // Two attempts at the loops in the reference picture, both called a failure
+  // on 19 Aug 2026. A project saved with one of them names a style that is no
+  // longer in the list, which would leave the picker blank over a video that
+  // still renders. bloomBars is the look Ak has actually said he likes.
+  rings: "bloomBars",
+  orbits: "bloomBars",
+  orbitsCalm: "bloomBars",
+  orbitsShell: "bloomBars",
+  orbitsSwell: "bloomBars",
+};
+
+export function migrateTrack<T extends { style: string }>(t: T): T {
+  const replacement = RETIRED_STYLES[t.style];
+  return replacement ? { ...t, style: replacement } : t;
 }
 
 interface Actions {
   setRender: (p: Partial<RenderSettings>) => void;
   setMusicWaveform: (p: Partial<TrackWaveform>) => void;
   setMusicColor: (c: string) => void;
+  setCards: (p: Partial<Cards>) => void;
+  setLogo: (p: Partial<LogoConfig>) => void;
   /** Patch one speaker's own waveform. Kept separate from updateSpeaker so
    *  callers don't have to spread the nested object by hand every time. */
   setSpeakerWaveform: (id: string, p: Partial<TrackWaveform>) => void;
@@ -95,6 +153,10 @@ export const useProjectStore = create<ProjectState & Actions>()(
   setMusicWaveform: (p) => set((s) => ({ musicWaveform: { ...s.musicWaveform, ...p } })),
 
   setMusicColor: (musicColor) => set({ musicColor }),
+
+  setCards: (p) => set((s) => ({ cards: { ...s.cards, ...p } })),
+
+  setLogo: (p) => set((s) => ({ logo: { ...s.logo, ...p } })),
 
   setSpeakerWaveform: (id, p) =>
     set((s) => ({
@@ -241,13 +303,23 @@ export const useProjectStore = create<ProjectState & Actions>()(
     set((s) => ({
       render: snap.render ?? s.render,
       fps: snap.fps ?? s.fps,
-      musicWaveform: { ...defaultProject.musicWaveform, ...snap.musicWaveform },
+      musicWaveform: migrateTrack({ ...defaultProject.musicWaveform, ...snap.musicWaveform }),
       musicColor: snap.musicColor ?? defaultProject.musicColor,
       subtitles: { ...s.subtitles, ...snap.subtitles },
       backgroundDim: snap.backgroundDim ?? s.backgroundDim,
       backgroundBlur: snap.backgroundBlur ?? s.backgroundBlur,
       backgroundCrossfadeMs: snap.backgroundCrossfadeMs ?? s.backgroundCrossfadeMs,
-      speakers: (snap.speakers ?? s.speakers).map(migrateSpeaker),
+
+      // A PRESET'S LAYOUT LIVES IN `slots`, AND THIS USED TO IGNORE THEM.
+      //
+      // Loading a preset therefore changed the captions and the music bar and
+      // left every speaker exactly where they were — which is what "presets
+      // don't load" was. Only presets exported before slots existed carry
+      // whole `speakers`, and those are still honoured below.
+      //
+      // A slot dresses a speaker; it never replaces one. Faces and voices are
+      // not part of a look, so applying one must not touch them.
+      speakers: applySlots(s.speakers, snap).map(migrateSpeaker),
     })),
 
   loadProject: (p) =>
@@ -260,7 +332,7 @@ export const useProjectStore = create<ProjectState & Actions>()(
       // "Scan for Voices" un-clickable; it is not getting a second outing.
       render: { ...defaultProject.render, ...(p.render ?? {}) },
       subtitles: { ...defaultProject.subtitles, ...(p.subtitles ?? {}) },
-      musicWaveform: { ...defaultProject.musicWaveform, ...(p.musicWaveform ?? {}) },
+      musicWaveform: migrateTrack({ ...defaultProject.musicWaveform, ...(p.musicWaveform ?? {}) }),
       speakers: (p.speakers ?? []).map(migrateSpeaker),
     })),
 
@@ -279,6 +351,8 @@ export const useProjectStore = create<ProjectState & Actions>()(
         render: s.render,
         musicWaveform: s.musicWaveform,
         musicColor: s.musicColor,
+        cards: s.cards,
+        logo: s.logo,
         subtitles: s.subtitles,
         // Worth persisting: the clips themselves are already cached under
         // userData by provider and id, so what is saved here is a few hundred

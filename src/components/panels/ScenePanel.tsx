@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { HudButton } from "../ui/HudButton";
+import { MediaLibrary } from "./MediaLibrary";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { Tabs } from "../ui/Tabs";
@@ -30,6 +31,10 @@ export function ScenePanel() {
   const setFps = useProjectStore((s) => s.setFps);
   const render = useProjectStore((s) => s.render);
   const setRender = useProjectStore((s) => s.setRender);
+  const cards = useProjectStore((s) => s.cards);
+  const setCards = useProjectStore((s) => s.setCards);
+  const logo = useProjectStore((s) => s.logo);
+  const setLogo = useProjectStore((s) => s.setLogo);
   const subtitles = useProjectStore((s) => s.subtitles);
   const setSubtitles = useProjectStore((s) => s.setSubtitles);
   const narration = useProjectStore((s) => s.narration);
@@ -79,6 +84,114 @@ export function ScenePanel() {
       <div className="flex-1 overflow-y-auto pr-1 space-y-6">
         {tab === "frame" && (
           <>
+            {/* Joined on AFTER the render, so nothing inside the lesson moves.
+                A card placed in the composition would shift the narration and
+                every subtitle by its own length. */}
+            <section className="space-y-2">
+              <div className="label-etched">Intro &amp; outro</div>
+              {(["intro", "outro"] as const).map((which) => {
+                const key = which === "intro" ? "introPath" : "outroPath";
+                const value = cards[key];
+                return (
+                  <div key={which} className="flex items-center gap-2">
+                    <HudButton
+                      onClick={async () => {
+                        const p = await window.byok.dialog.openFile([
+                          { name: "Video", extensions: ["mp4", "mov", "webm", "mkv", "m4v"] },
+                        ]);
+                        if (p) setCards({ [key]: p });
+                      }}
+                    >
+                      {value ? `Change ${which}` : `Choose ${which}…`}
+                    </HudButton>
+                    <span className="text-sm text-neutral-400 truncate flex-1">
+                      {value ? value.split(/[\/]/).pop() : "none"}
+                    </span>
+                    {value && (
+                      <button
+                        className="text-sm text-neutral-500 hover:text-red-400"
+                        onClick={() => setCards({ [key]: null })}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-sm text-neutral-500">
+                Two or three seconds each. Any video file. It is scaled to fit
+                the frame, and it keeps whatever sound it came with — a card
+                with no sound is fine. It is joined on after the lesson is
+                rendered, so nothing inside the lesson moves by a frame.
+              </p>
+            </section>
+
+            {/* Drawn over everything, subtitles included. */}
+            <section className="space-y-2">
+              <div className="label-etched">Logo</div>
+              <div className="flex items-center gap-2">
+                <HudButton
+                  onClick={async () => {
+                    const p = await window.byok.dialog.openFile([
+                      { name: "Image", extensions: ["png", "jpg", "jpeg", "webp", "svg"] },
+                    ]);
+                    if (p) setLogo({ filePath: p });
+                  }}
+                >
+                  {logo.filePath ? "Change logo" : "Choose logo…"}
+                </HudButton>
+                <span className="text-sm text-neutral-400 truncate flex-1">
+                  {logo.filePath ? logo.filePath.split(/[\/]/).pop() : "none"}
+                </span>
+                {logo.filePath && (
+                  <button
+                    className="text-sm text-neutral-500 hover:text-red-400"
+                    onClick={() => setLogo({ filePath: null })}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {logo.filePath && (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ["top-left", "top left"],
+                      ["top-right", "top right"],
+                      ["bottom-left", "bottom left"],
+                      ["bottom-right", "bottom right"],
+                      ["watermark", "centred"],
+                    ] as const).map(([id, label]) => (
+                      <HudButton
+                        key={id}
+                        active={logo.position === id}
+                        onClick={() => setLogo({ position: id })}
+                      >
+                        {label}
+                      </HudButton>
+                    ))}
+                  </div>
+                  <Slider
+                    label="Logo size" value={logo.size} min={0.03} max={0.5} step={0.01}
+                    onChange={(v) => setLogo({ size: v })}
+                    format={(v) => `${Math.round(v * 100)}% of width`}
+                  />
+                  <Slider
+                    label="Logo opacity" value={logo.opacity} min={0.05} max={1} step={0.05}
+                    onChange={(v) => setLogo({ opacity: v })}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  {logo.position !== "watermark" && (
+                    <Slider
+                      label="Distance from edge" value={logo.margin} min={0} max={0.15} step={0.005}
+                      onChange={(v) => setLogo({ margin: v })}
+                      format={(v) => `${Math.round(v * 100)}%`}
+                    />
+                  )}
+                </>
+              )}
+            </section>
+
             <section>
               <div className="label-etched mb-2">Aspect Ratio</div>
               <div className="flex gap-2">
@@ -140,7 +253,17 @@ export function ScenePanel() {
           </>
         )}
 
-        {tab === "background" && <BackgroundPanel />}
+        {tab === "background" && (
+          <>
+            <BackgroundPanel />
+            {/* The clips already on this machine. Sits under the search on
+                purpose: reaching for what is already here should be the first
+                thing offered, not a thing you have to know about. */}
+            <div className="border-t border-accent/15 pt-5">
+              <MediaLibrary />
+            </div>
+          </>
+        )}
 
         {tab === "subtitles" && (
           <section className="space-y-4">
@@ -177,8 +300,33 @@ export function ScenePanel() {
                   onChange={(v) => setSubtitles({ strokeWidth: v })}
                   format={(v) => (v === 0 ? "none" : `${Math.round(v * 100)}%`)}
                 />
+                <div>
+                  <div className="label-etched mb-2">Mark the spoken word</div>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ["glow", "glow"],
+                      ["stroke", "hard edge"],
+                      ["halo", "strong halo"],
+                      ["box", "highlight box"],
+                      ["lift", "lift & grow"],
+                    ] as const).map(([id, label]) => (
+                      <HudButton
+                        key={id}
+                        active={(subtitles.activeEmphasis ?? "glow") === id}
+                        onClick={() => setSubtitles({ activeEmphasis: id })}
+                      >
+                        {label}
+                      </HudButton>
+                    ))}
+                  </div>
+                  <p className="text-sm text-neutral-500 mt-2">
+                    Glow is the letter's own colour spread outwards, so over bright
+                    or busy footage it has little to push against. The others work
+                    by contrast at the letter's edge and survive any background.
+                  </p>
+                </div>
                 <Slider
-                  label="Active Word Glow" value={subtitles.activeGlow} min={0} max={1.5} step={0.05}
+                  label="Glow Strength" value={subtitles.activeGlow} min={0} max={1.5} step={0.05}
                   onChange={(v) => setSubtitles({ activeGlow: v })}
                   format={(v) => (v === 0 ? "off" : `${v.toFixed(2)}x`)}
                 />

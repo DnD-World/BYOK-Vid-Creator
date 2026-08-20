@@ -29,6 +29,7 @@ import {
 import type { Puppet } from "../../src/store/puppetTypes";
 import { puppetAssetPaths, validatePuppet } from "../../src/lib/puppets/puppetAssets";
 import { ensureFont } from "../net/fonts";
+import { joinCards } from "./joinCards";
 
 export interface RenderJob {
   musicWaveform: RenderProps["musicWaveform"];
@@ -83,6 +84,25 @@ export interface RenderJob {
    *  a batch can trade size against quality per row — a social cut and an LMS
    *  master do not want the same file. */
   crf?: number;
+  /** A short card welded onto the front and the back after rendering.
+   *
+   *  JOINED AFTERWARDS, NOT PLACED INSIDE. A card in the composition would move
+   *  the narration, every subtitle cue and every viseme by its own length, and
+   *  a two-frame error there breaks lip-sync for the whole lesson. See
+   *  joinCards.ts. Any video ffmpeg can read; it is scaled and padded to the
+   *  frame and given a silent track if it has none. */
+  introPath?: string | null;
+  outroPath?: string | null;
+  /** A logo over the video. The file is copied into the render's public dir
+   *  like the faces and the audio, because the composition runs in a browser
+   *  and cannot read the disk. */
+  logo?: {
+    filePath?: string | null;
+    position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "watermark";
+    size: number;
+    opacity: number;
+    margin: number;
+  } | null;
 }
 
 export interface RenderContext {
@@ -390,6 +410,30 @@ export async function renderVideo(
     });
 
     onProgress(STAGE.bundle.from, "Building render bundle…");
+    // The logo travels the same road as every other asset, and it has to be
+    // copied in BEFORE bundle() runs — the bundler copies the public directory
+    // into what it serves, so anything written afterwards is never served. It
+    // was written afterwards first time and the render died with "Error loading
+    // image", which is at least loud; the same mistake with the spectrum failed
+    // silently and cost a day.
+    let logoProps: RenderProps["logo"] = null;
+    if (job.logo?.filePath) {
+      try {
+        const ext = path.extname(job.logo.filePath) || ".png";
+        const fileName = `logo${ext}`;
+        await fsp.copyFile(job.logo.filePath, path.join(publicDir, fileName));
+        logoProps = {
+          fileName,
+          position: job.logo.position,
+          size: job.logo.size,
+          opacity: job.logo.opacity,
+          margin: job.logo.margin,
+        };
+      } catch {
+        warnings.push(`[byok] the logo could not be read and was left off: ${job.logo.filePath}`);
+      }
+    }
+
     const serveUrl = await bundle({
       entryPoint,
       publicDir,
@@ -423,6 +467,7 @@ export async function renderVideo(
       backgrounds,
       backgroundDim: job.backgroundDim ?? 0,
       backgroundBlur: job.backgroundBlur ?? 0,
+      logo: logoProps,
       glass: job.glass ?? null,
       backgroundCrossfadeMs: job.backgroundCrossfadeMs ?? 0,
       subtitles: job.subtitles,
@@ -432,6 +477,49 @@ export async function renderVideo(
       narrationSegments: job.narrationSegments ?? [],
       narrationPauses: job.narrationPauses ?? [],
     };
+
+    // ASKED FOR, AND NEVER FORWARDED.
+    //
+    // This project's failure is not the crash. It is the render that reports
+    // success while quietly leaving something out, and it has happened four
+    // times: the spectrum 404, `backgroundBlur`, subtitle surfaces, and
+    // transitions. Every one was the same shape — a setting arrived on the job,
+    // nothing carried it into `inputProps`, and the composition drew a video
+    // that was subtly not the one that was asked for.
+    //
+    // A console message inside the composition cannot catch that class, because
+    // the composition never hears about the setting at all. So the check is
+    // here, where both sides are in scope: anything set on the job that is not
+    // in `inputProps` and is not consumed by this file is named out loud.
+    //
+    // Keeping this list current is the price. A new job field either reaches
+    // the composition or it is listed below as deliberately handled here —
+    // there is no third option that passes quietly.
+    const HANDLED_HERE = new Set([
+      "audioFilePath",      // copied in, forwarded as audioFileName
+      "musicFilePath",      // same
+      "speakers",           // sheets and puppets are copied in and rewritten
+      "sfx",                // copied in, rewritten to file names
+      "backgrounds",        // clips copied in, rewritten to file names
+      "subtitleFont",       // fetched and forwarded as files
+      "crf",                // encoder setting, never reaches the composition
+      "introPath",          // joined on after the render, see joinCards.ts
+      "outroPath",
+      "logo",               // copied in and forwarded as `logo` in inputProps
+      "projectRoot",
+      "outputDir",
+      "outputName",
+      "jobId",
+    ]);
+    for (const [key, value] of Object.entries(job)) {
+      if (value === undefined || value === null) continue;
+      if (key in inputProps) continue;
+      if (HANDLED_HERE.has(key)) continue;
+      warnings.push(
+        `[byok] the render was given "${key}" and nothing carried it into the ` +
+          `composition — it had NO EFFECT on this video.`
+      );
+    }
 
     const composition = await selectComposition({
       serveUrl,
@@ -499,9 +587,23 @@ export async function renderVideo(
       100,
       warnings.length ? `Done, with ${warnings.length} thing(s) left out — see above` : "Done"
     );
+    // The cards go on last, once the lesson is finished and timed.
+    const joined = await joinCards({
+      mainPath: outputPath,
+      introPath: job.introPath,
+      outroPath: job.outroPath,
+      width: job.width,
+      height: job.height,
+      fps: job.fps,
+      crf: job.crf ?? 23,
+      tempDir: path.join(path.dirname(outputPath), `cards-${Date.now()}`),
+    });
+    warnings.push(...joined.warnings);
+    for (const w of joined.warnings) onProgress(99, w);
+
     return {
-      outputPath,
-      durationSec: job.durationSec,
+      outputPath: joined.outputPath,
+      durationSec: job.durationSec + joined.introSec + joined.outroSec,
       frames: composition.durationInFrames,
       warnings,
     };

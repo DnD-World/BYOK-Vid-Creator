@@ -36,6 +36,11 @@ const NAMED_NOISE_ENGLISH = ["sigh", "gasp", "cough", "chuckle"];
 const ALLOWED_PHONETIC = /^(hahaha|hehehe|haha|hehe|mmmm|ahhh|ugh|woooo)$/i;
 
 const CUE_LINE = /^\[\s*(?:SFX|ΗΧΟΣ)\s*:\s*([^\]]+?)\s*\]$/iu;
+const VOICE_LINE = /^\[\s*(?:VOICE|ΦΩΝΗ)\s*:\s*([^\]]+?)\s*\]$/iu;
+/** A bracket line written directly above the speech with no blank line between
+ *  — the natural way to write it, and how the first real script came back.
+ *  Stripped before a block is judged, so the block underneath is still found. */
+const LEADING_BRACKET = /^(?:\[\s*(?:SFX|ΗΧΟΣ|VOICE|ΦΩΝΗ)\s*:[^\]]*\]\s*)+/iu;
 
 export function checkScript(script: string, openingPhrases: string[]): ScriptProblem[] {
   const problems: ScriptProblem[] = [];
@@ -63,10 +68,13 @@ export function checkScript(script: string, openingPhrases: string[]): ScriptPro
 
   for (const block of blocks) {
     const n = block.startLine;
-    const text = block.text.replace(/\s+/g, " ").trim();
-    const short = text.length > 90 ? text.slice(0, 90) + "…" : text;
+    const whole = block.text.replace(/\s+/g, " ").trim();
+    if (CUE_LINE.test(whole) || VOICE_LINE.test(whole)) continue;
 
-    if (CUE_LINE.test(text)) continue;
+    // Peel any cue or settings lines off the front, then judge what is left.
+    const text = whole.replace(LEADING_BRACKET, "").trim();
+    if (!text) continue;
+    const short = text.length > 90 ? text.slice(0, 90) + "…" : text;
 
     const lower = text.toLowerCase();
     if (!phrases.some((p) => lower.startsWith(p))) {
@@ -124,7 +132,10 @@ export function checkScript(script: string, openingPhrases: string[]): ScriptPro
       // Everything after the first span should continue with a pronoun.
       const continuation = text.slice(spans[0].index! + spans[0][0].length).trim();
       const firstWord = continuation.split(/\s+/)[0]?.replace(/[^A-Za-z]/g, "");
-      if (firstWord && !/^(she|he|they|and|then)$/i.test(firstWord)) {
+      // POSSESSIVES COUNT. "His voice rises with fury" is the prompting guide's
+      // own pattern for anger and is what docs/SCRIPT-GEM.md tells the writer to
+      // use — flagging it sent a correct script back for a fix it did not need.
+      if (firstWord && !/^(she|he|they|his|her|their|its|and|then)$/i.test(firstWord)) {
         problems.push({
           line: n, text: short,
           problem: `After the first piece of speech the block continues with "${firstWord}" instead of She or He.`,

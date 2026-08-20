@@ -17,6 +17,7 @@
 // identically in both, since both are Chromium on Windows.
 // ---------------------------------------------------------------------------
 
+import type { CSSProperties } from "react";
 import type { Surface, SubtitleConfig, SubtitleTransition } from "../../store/types";
 import { cueAt, type SubtitleCue } from "../../lib/subtitles/wordTiming";
 import { emojiFor } from "../../lib/subtitles/emoji";
@@ -146,6 +147,77 @@ function toUpperGreek(s: string): string {
     .normalize("NFC");
 }
 
+/** How the word being spoken is marked out from the rest of the line.
+ *
+ *  Everything here is applied to the WORD, over a line that already has the
+ *  configured stroke and colour. Each option is a whole treatment rather than a
+ *  dial, because they are not variations of one idea: a halo adds light, a box
+ *  removes it, and a lift does not touch colour at all. */
+function emphasisStyle(
+  kind: "glow" | "stroke" | "halo" | "box" | "lift",
+  active: boolean,
+  activeColor: string,
+  restColor: string,
+  glowPx: number,
+  strokePx: number
+): CSSProperties {
+  if (!active) {
+    // The unspoken words. `box` and `lift` put a shadow under everything so the
+    // line does not change weight as the highlight moves along it.
+    const settled: CSSProperties = { color: restColor };
+    if (kind === "box" || kind === "lift" || kind === "stroke") {
+      settled.textShadow = `0 ${(strokePx * 0.35).toFixed(1)}px ${(strokePx * 0.6).toFixed(1)}px rgba(0,0,0,.85)`;
+    }
+    return settled;
+  }
+
+  switch (kind) {
+    case "stroke":
+      return {
+        color: activeColor,
+        textShadow: `0 ${(strokePx * 0.4).toFixed(1)}px ${(strokePx * 0.55).toFixed(1)}px rgba(0,0,0,.85)`,
+      };
+    case "halo":
+      return {
+        color: activeColor,
+        textShadow: [
+          `0 0 ${(glowPx * 0.5).toFixed(1)}px ${activeColor}`,
+          `0 0 ${glowPx.toFixed(1)}px ${activeColor}`,
+          `0 0 ${(glowPx * 2.2).toFixed(1)}px ${activeColor}`,
+          `0 ${(strokePx * 0.35).toFixed(1)}px ${(strokePx * 0.6).toFixed(1)}px rgba(0,0,0,.9)`,
+        ].join(", "),
+      };
+    case "box":
+      return {
+        // Dark ink on the accent, because accent-on-accent is unreadable and
+        // white on a mid-orange fails contrast at subtitle sizes.
+        color: "#171310",
+        background: activeColor,
+        borderRadius: "0.12em",
+        padding: "0 0.16em",
+        // The block IS the contrast; a stroke on top of it only muddies the
+        // letterforms.
+        WebkitTextStrokeWidth: 0,
+        textShadow: "none",
+      };
+    case "lift":
+      return {
+        color: activeColor,
+        // Scaled about its own centre so the line does not reflow. inline-block
+        // is required for a transform to apply to an inline element at all.
+        display: "inline-block",
+        transform: "translateY(-0.06em) scale(1.14)",
+        textShadow: `0 ${(strokePx * 0.45).toFixed(1)}px ${strokePx.toFixed(1)}px rgba(0,0,0,.9), 0 0 ${(glowPx * 0.8).toFixed(1)}px ${activeColor}`,
+      };
+    case "glow":
+    default:
+      return {
+        color: activeColor,
+        textShadow: glowPx > 0 ? `0 0 ${glowPx}px ${activeColor}` : "none",
+      };
+  }
+}
+
 export function SubtitleScene({
   cues, config, width, height, timeMs, speakerColors, glass, externalPane,
 }: SubtitleSceneProps) {
@@ -253,11 +325,14 @@ export function SubtitleScene({
             <span
               key={i}
               style={{
-                color: isActive ? activeColor : config.color,
-                textShadow:
-                  isActive && glowPx > 0
-                    ? `0 0 ${glowPx}px ${activeColor}`
-                    : "none",
+                ...emphasisStyle(
+                  config.activeEmphasis ?? "glow",
+                  isActive,
+                  activeColor,
+                  config.color,
+                  glowPx,
+                  strokePx
+                ),
                 // A trailing space inside the span, rather than a gap between
                 // flex items, so the line wraps like ordinary text does.
                 whiteSpace: "pre-wrap",

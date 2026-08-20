@@ -40,3 +40,9 @@ dramabox-audition/*.wav
 dramabox-audition/*.pcm
 voice-refs/*.wav
 voice-refs/work/
+
+# Google OAuth client secrets and the token they produce. These are
+# credentials: the repository is not where they live, and one committed by
+# accident is one that has to be revoked in the Google console.
+client_secret*.json
+youtube-token.json

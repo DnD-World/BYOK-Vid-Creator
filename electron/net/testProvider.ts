@@ -50,6 +50,32 @@ export async function testProvider(
 
   try {
     switch (providerId) {
+      case "elevenlabs": {
+        // The cheapest call that proves the key: who am I, and how much is left.
+        const res = await fetch("https://api.elevenlabs.io/v1/user/subscription", {
+          headers: { "xi-api-key": key },
+        });
+        if (!res.ok) {
+          return { ok: false, message: `ElevenLabs said ${res.status} ${res.statusText}.` };
+        }
+        const b = (await res.json()) as {
+          tier?: string;
+          character_count?: number;
+          character_limit?: number;
+        };
+        const used = b.character_count ?? 0;
+        const cap = b.character_limit ?? 0;
+        const left = Math.max(0, cap - used);
+        // Said in lessons as well as credits, because credits mean nothing until
+        // they are turned into work.
+        return {
+          ok: true,
+          message:
+            `${b.tier ?? "unknown"} tier — ${left.toLocaleString()} of ` +
+            `${cap.toLocaleString()} credits left, about ${Math.floor(left / 4640)} lessons.`,
+        };
+      }
+
       case "nvidia": {
         const r = await request("https://integrate.api.nvidia.com/v1/models", {
           headers: { Authorization: `Bearer ${key}` },

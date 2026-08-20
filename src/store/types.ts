@@ -1,3 +1,6 @@
+import type { DramaboxParams } from "../lib/narration/dramaboxParams";
+import type { ExpressionOptions } from "../lib/narration/expression";
+
 export type AspectRatio = "9:16" | "16:9";
 export type Engine = "remotion" | "ffmpeg";
 export type Fps = 10 | 24 | 30;
@@ -31,8 +34,19 @@ export interface RenderSettings {
  *  "ribbon", "boil", "particles", "sparks" and "bloomBars" are DERIVED FROM
  *  TIME, not accumulated frame to frame — see src/lib/waveform/emitters.ts for
  *  why that is not optional in a renderer that draws frames out of order. */
+// "lines" is gone, removed 18 Aug 2026. It and "wave" were the same drawing
+// code and differed by one boolean — whether the points were joined with
+// straight segments or a smooth curve. That is not two looks, it is one look
+// and a worse version of it, and offering both only ever cost a decision.
+// "rings" went on 19 Aug 2026 and the four "orbits" that replaced it went the
+// same day. Both were attempts at the loops in "inspiration looks/look just at
+// the waveforms.jpeg" and neither came close. Two failures at one picture is
+// enough: the look is not being chased again before the 72 lessons are made.
+//
+// "mesh" stays. It is the other half of that picture, it landed nearer, and it
+// is worth returning to — but nothing uses it yet.
 export const WAVEFORM_STYLES = [
-  "bars", "lines", "wave", "mirror", "dots", "rings",
+  "bars", "wave", "mirror", "dots", "mesh",
   "ribbon", "particles", "sparks", "bloomBars", "boil",
 ] as const;
 
@@ -152,6 +166,9 @@ export function migrateSurface(sp: {
 export interface WaveformConfig {
   position: "circular" | "top" | "bottom" | "left" | "right";
   behavior: "single" | "single-colorshift" | "dual" | "dual-plus-music" | "triple";
+  /** Still names "lines" because this type exists to READ files written when
+   *  it was a choice. migrateTrack turns it into "wave", which is what it
+   *  always drew, only smoothed. */
   style: "bars" | "lines" | "wave" | "mirror" | "dots" | "rings";
   colorA: string;
   colorB: string;
@@ -164,6 +181,35 @@ export interface WaveformConfig {
   ringSize: number;     // 0.5–1.5, overall ring cluster scale
   ringX: number;        // 0–1, ring cluster center (fraction of frame)
   ringY: number;        // 0–1
+}
+
+/** Short videos welded onto the front and back of the finished lesson.
+ *
+ *  Paths on disk, not files copied into the project — the same convention the
+ *  music bed and the puppets use. Two or three seconds each, sound optional. */
+export interface Cards {
+  introPath?: string | null;
+  outroPath?: string | null;
+}
+
+/** A logo sitting over the video.
+ *
+ *  Four corners or a centred watermark. Width is a fraction of the FRAME's
+ *  width, like everything else placed here, so a logo sized on the preview is
+ *  the same size in a 1080p render. */
+export interface LogoConfig {
+  filePath?: string | null;
+  position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "watermark";
+  /** 0.02–0.5 of frame width. */
+  size: number;
+  opacity: number;
+  /** Distance from the frame edge, as a fraction of frame width. Ignored by
+   *  the centred watermark. */
+  margin: number;
+}
+
+export function defaultLogo(): LogoConfig {
+  return { filePath: null, position: "bottom-right", size: 0.12, opacity: 0.85, margin: 0.04 };
 }
 
 export interface SubtitleConfig {
@@ -180,6 +226,20 @@ export interface SubtitleConfig {
   strokeWidth: number;
   /** Glow strength on the active word, 0 = off. */
   activeGlow: number;
+  /** HOW the spoken word is marked, not how brightly.
+   *
+   *  Glow alone was the only option and it is the weakest of these: it is the
+   *  letter's own colour spread outwards, so over bright or busy footage it has
+   *  nothing to push against and the word only looks slightly blurred. The
+   *  others all work by CONTRAST at the letter's edge, which survives any
+   *  background. `activeGlow` still sets the strength of the ones that glow.
+   *
+   *  - `glow`      the original: colour plus a halo
+   *  - `stroke`    a hard black edge and one offset shadow
+   *  - `halo`      the glow, several times over, on a black bed
+   *  - `box`       a solid block behind the spoken word
+   *  - `lift`      the word grows and rises — reads with the sound off */
+  activeEmphasis?: "glow" | "stroke" | "halo" | "box" | "lift";
   /** Take the active word's colour and glow from whoever is speaking, instead
    *  of `activeColor`. Ties the caption to the speaker without a second set of
    *  controls to keep in sync — the same rule the waveform already follows. */
@@ -209,6 +269,18 @@ export interface SubtitleConfig {
 export interface SpeakerConfig {
   id: string;
   label: string;         // "Male Dog" / "Female"
+  /** The phrase this character's script blocks open with — "A grave man".
+   *  How a block finds its voice; see parseDramaboxScript. */
+  openingPhrase?: string;
+  /** File name of their DramaBox reference clip — "tsika.wav". */
+  voiceRef?: string;
+  /** Engine settings for this voice, and ONLY what has been changed from the
+   *  defaults. Storing the whole set would freeze today's defaults into every
+   *  project saved today. See src/lib/narration/dramaboxParams.ts. */
+  dramabox?: Partial<DramaboxParams>;
+  /** Whether the app may add expression this character's lines were written
+   *  without — a flat verb lifted, a laugh spelled so it is actually heard. */
+  expression?: ExpressionOptions;
   /** Absolute path on disk to the 3072x3072 viseme sheet — the source of truth,
    *  and what templates save. Deliberately NOT directly loadable by either
    *  renderer: the preview turns it into a blob URL over IPC, and the render
@@ -253,12 +325,26 @@ export interface SpeakerConfig {
   // resolution-independent: preview and render each multiply by their own
   // width and agree by construction.
   size: number;
-  /** Which engine speaks this speaker's lines. Per-speaker, not global, so a
-   *  fast Piper voice and a cloned Chatterbox voice can share one script. */
-  ttsEngine?: "chatterbox" | "piper";
-  voiceId?: string;      // assigned Piper voice's onnxPath, if any (test-tier engine)
-  chatterboxVoiceMode?: "predefined" | "clone"; // production-tier engine voice assignment
-  chatterboxVoiceRef?: string; // predefined_voice_id or reference_audio_filename, depending on mode above
+  /** Which engine speaks this speaker's lines.
+   *
+   *  Two engines, not three. Chatterbox was tried, rejected and removed on
+   *  18 Aug 2026 — every extra engine multiplies what can break, and it was
+   *  doing nothing DramaBox or Piper does not do better.
+   *
+   *  `dramabox` generates on a rented GPU rather than here, so the app writes
+   *  its two files and the audio comes back as WAVs; `piper` runs locally. */
+  ttsEngine?: "dramabox" | "piper" | "elevenlabs";
+  voiceId?: string;      // assigned Piper voice's onnxPath, if any
+  /** The voice id from the ElevenLabs library or a clone. An id, not a name. */
+  elevenVoiceId?: string;
+  /** Per-character voice settings. `speed` is the nearest thing to DramaBox's
+   *  pace; `stability` low wanders and is expressive, high is steady and flat. */
+  eleven?: {
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    speed?: number;
+  };
 }
 
 /** Per-band spectrum for every analysis frame — the data that lets bars move
@@ -386,6 +472,9 @@ export interface ProjectState {
    *  doesn't take turns the way speakers do. */
   musicWaveform: TrackWaveform;
   musicColor: string;
+  /** Intro and outro cards, joined on after the render. */
+  cards: Cards;
+  logo: LogoConfig;
   subtitles: SubtitleConfig;
   /** Silence inserted before a line by the same speaker — a breath. */
   pauseSameMs: number;

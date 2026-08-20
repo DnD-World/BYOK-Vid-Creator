@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { useMemo } from "react";
-import { AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { WaveformScene } from "../src/components/canvas/WaveformScene";
 import { SubtitleScene } from "../src/components/canvas/SubtitleScene";
 import { SpeakerAvatar } from "../src/components/canvas/SpeakerAvatar";
@@ -78,6 +78,7 @@ export function VideoComposition({
   idleMotion,
   narrationSegments,
   narrationPauses = [],
+  logo = null,
 }: RenderProps) {
   const frame = useCurrentFrame();
   const { width, height, fps, durationInFrames } = useVideoConfig();
@@ -410,6 +411,34 @@ export function VideoComposition({
         glass={glass}
         externalPane={!!captionGlass}
       />
+
+      {/* ABOVE EVERYTHING, including the subtitles. A logo that a caption can
+          cover is not a logo — the one thing it has to do is be present in
+          every frame it is asked for. */}
+      {logo && (
+        <Img
+          src={staticFile(logo.fileName)}
+          style={{
+            position: "absolute",
+            width: width * logo.size,
+            opacity: logo.opacity,
+            // A watermark sits in the middle and is meant to be ignored; the
+            // four corners are meant to be read.
+            ...(logo.position === "watermark"
+              ? {
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                }
+              : {
+                  [logo.position.startsWith("top") ? "top" : "bottom"]:
+                    width * logo.margin,
+                  [logo.position.endsWith("left") ? "left" : "right"]:
+                    width * logo.margin,
+                }),
+          }}
+        />
+      )}
     </AbsoluteFill>
   );
 }

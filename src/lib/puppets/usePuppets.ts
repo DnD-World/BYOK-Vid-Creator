@@ -23,6 +23,10 @@ export interface LoadedPuppet {
   puppet: Puppet;
   /** layer file name -> blob URL, exactly the map PuppetAvatar wants. */
   urls: Record<string, string>;
+  /** Every layer has arrived. Until this is true a missing URL means "not read
+   *  off disk yet", not "the file is gone" — and PuppetAvatar needs to be told
+   *  which, or it reports a whole healthy face as missing on first paint. */
+  ready: boolean;
 }
 
 /**
@@ -104,11 +108,12 @@ export function usePuppets(paths: (string | undefined)[]): {
     const out: Record<string, LoadedPuppet> = {};
     for (const [path, puppet] of Object.entries(defs)) {
       const map: Record<string, string> = {};
-      for (const [file, abs] of Object.entries(assetPaths[path] ?? {})) {
+      const wanted = Object.entries(assetPaths[path] ?? {});
+      for (const [file, abs] of wanted) {
         const url = urls[abs];
         if (url) map[file] = url;
       }
-      out[path] = { puppet, urls: map };
+      out[path] = { puppet, urls: map, ready: Object.keys(map).length === wanted.length };
     }
     return out;
   }, [defs, assetPaths, urls]);

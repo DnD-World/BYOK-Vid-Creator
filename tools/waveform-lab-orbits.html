@@ -1,0 +1,242 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Waveform lab — orbits &amp; mesh</title>
+<!--
+  ROUND 3. Two looks from "inspiration looks/look just at the waveforms.jpeg":
+
+    ORBITS  — glowing ellipses crossing at angles round a bright core. What
+              `rings` was aiming at and never reached. Hard rule from Ak: an
+              orbit must never touch the avatar, so every point is pushed back
+              out if it would fall inside an inner circle.
+    MESH    — audio topography. The waveform's HISTORY laid back in
+              perspective, so the last few seconds are a landscape.
+
+  Judge A–D against each other, then E against F. Say which, and only that one
+  gets built into the app.
+-->
+<style>
+  body { margin:0; background:#0b0b0d; color:#eee; font:13px system-ui; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:4px; }
+  .cell { position:relative; aspect-ratio:1; background:#111318; border-radius:6px; overflow:hidden; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .lab { position:absolute; left:6px; top:6px; background:#000b; padding:3px 6px;
+         border-radius:4px; font-size:11px; line-height:1.35; pointer-events:none; }
+  .lab b { color:#ff9a3c; }
+  .hint { padding:6px 10px; color:#999; font-size:12px; }
+</style>
+
+<div class="grid" id="grid"></div>
+<div class="hint">Faint circle = the avatar. Nothing may cross it.</div>
+
+<script>
+const N = 24, ACCENT = "#ff9a3c", COOL = "#3cb4ff", WARM = "#ffd66b";
+const avg = new Float32Array(N).fill(0.2);
+let bands = new Float32Array(N), dev = new Float32Array(N);
+let syllable = 0, nextSyl = 0, energy = 0, amp = 0.3;
+
+// Same fake voice as round 2, so a look judged here behaves the same there.
+function tick(t) {
+  if (t > nextSyl) { syllable = 1; nextSyl = t + 120 + Math.random() * 260; }
+  syllable *= 0.90;
+  let sum = 0;
+  for (let i = 0; i < N; i++) {
+    const formant = Math.exp(-Math.pow((i-5)/5,2))*0.55 + Math.exp(-Math.pow((i-14)/6,2))*0.3;
+    const noise = 0.06*Math.sin(t/190 + i*1.7) + 0.05*Math.random();
+    bands[i] = Math.min(1, formant*(0.45 + syllable*0.9) + noise);
+    avg[i] += (bands[i]-avg[i])*0.06;
+    dev[i] = Math.max(0, bands[i]-avg[i])*3.2;
+    sum += dev[i];
+  }
+  energy = sum / N;
+  amp += (Math.min(1, energy*2.2) - amp) * 0.05;
+  pushHistory();
+}
+
+// ---------------------------------------------------------------------------
+// ORBITS
+//
+// Each orbit is an ellipse with its own tilt, its own speed, and a radius that
+// swells with the voice. The near half is drawn brighter than the far half —
+// that is the whole trick that makes a flat ellipse read as a loop in space
+// rather than an oval on glass.
+//
+// THE INNER CIRCLE IS NOT NEGOTIABLE. `inner` is the avatar's radius. Every
+// point that would land inside it is pushed back out to it, so a loud moment
+// makes an orbit BIGGER and can never make it eat the face.
+// ---------------------------------------------------------------------------
+function orbit(c, cx, cy, inner, outer, tilt, phase, t, opts) {
+  const o = opts || {};
+  const speed = o.speed || 1;
+  const wob = o.wobble === undefined ? 0.12 : o.wobble;
+  const rx = inner + (outer - inner) * (0.55 + amp * 0.45);
+  // Animating the squash is what spins the loop.
+  const squash = Math.cos(t / 900 * speed + phase) * (1 - wob);
+  const steps = 90;
+  c.save();
+  c.translate(cx, cy);
+  c.rotate(tilt);
+  for (let pass = 0; pass < 2; pass++) {
+    c.beginPath();
+    let started = false;
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      const half = Math.sin(a) > 0 ? 1 : 0;
+      if (half !== pass) { started = false; continue; }
+      // Per-point swell, so the loop answers the voice where the voice is loud
+      // instead of breathing as one perfect ellipse.
+      const band = dev[Math.floor((((a/(Math.PI*2))*N) + phase*3) % N)] || 0;
+      const r = rx * (1 + band * 0.10);
+      let x = Math.cos(a) * r, y = Math.sin(a) * r * squash;
+      const d = Math.hypot(x, y) || 1;
+      if (d < inner) { const k = inner / d; x *= k; y *= k; }
+      if (!started) { c.moveTo(x, y); started = true; } else c.lineTo(x, y);
+    }
+    c.strokeStyle = o.color || ACCENT;
+    c.globalAlpha = pass ? 0.95 : 0.28;
+    c.lineWidth = (pass ? 2.2 : 1.2) * (o.weight || 1);
+    c.shadowBlur = pass ? 18 * (o.glow === undefined ? 1 : o.glow) : 0;
+    c.shadowColor = o.color || ACCENT;
+    c.stroke();
+  }
+  c.restore();
+  c.globalAlpha = 1; c.shadowBlur = 0;
+}
+
+function core(c, cx, cy, r, color) {
+  const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, color + "cc");
+  g.addColorStop(0.5, color + "33");
+  g.addColorStop(1, color + "00");
+  c.fillStyle = g;
+  c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill();
+}
+
+// ---------------------------------------------------------------------------
+// MESH — the last few seconds of voice, laid back in perspective.
+// ---------------------------------------------------------------------------
+const ROWS = 26;
+const hist = [];
+let lastPush = 0;
+function pushHistory() {
+  const now = performance.now();
+  if (now - lastPush < 55) return;
+  lastPush = now;
+  hist.unshift(Float32Array.from(dev));
+  if (hist.length > ROWS) hist.pop();
+}
+
+function mesh(c, w, h, opts) {
+  const o = opts || {};
+  const cols = N;
+  const horizon = h * (o.horizon || 0.34);
+  const front = h * 0.92;
+  const spread = o.spread || 0.9;
+  const lift = h * (o.lift || 0.22);
+
+  const project = (row, col) => {
+    const p = row / ROWS;                        // 0 = nearest, 1 = furthest
+    const depth = Math.pow(p, o.curve || 1.5);   // perspective compression
+    const y0 = front + (horizon - front) * depth;
+    const wide = w * spread * (1 - depth * 0.72);
+    const x = w/2 + ((col / (cols-1)) - 0.5) * wide;
+    const v = (hist[row] || dev)[col] || 0;
+    return [x, y0 - v * lift * (1 - depth * 0.5)];
+  };
+
+  // Rows first, then columns — the crosshatch is what makes it read as a
+  // surface rather than a stack of separate lines.
+  for (let r = ROWS - 1; r >= 0; r--) {
+    const fade = 1 - r / ROWS;
+    c.beginPath();
+    for (let i = 0; i < cols; i++) {
+      const p = project(r, i);
+      i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]);
+    }
+    c.strokeStyle = o.color || ACCENT;
+    c.globalAlpha = 0.15 + fade * 0.75;
+    c.lineWidth = 0.6 + fade * 1.1;
+    c.shadowBlur = (o.glow ? 10 : 0) * fade;
+    c.shadowColor = o.color || ACCENT;
+    c.stroke();
+  }
+  if (o.warp !== false) {
+    for (let i = 0; i < cols; i++) {
+      c.beginPath();
+      for (let r = 0; r < ROWS; r++) {
+        const p = project(r, i);
+        r ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]);
+      }
+      c.globalAlpha = 0.16;
+      c.lineWidth = 0.5;
+      c.shadowBlur = 0;
+      c.stroke();
+    }
+  }
+  c.globalAlpha = 1; c.shadowBlur = 0;
+}
+
+const STYLES = [
+  { name: "A · orbits, three", avatar: true,
+    note: "Three loops, one core. The reference.",
+    draw(c,w,h,t){ const cx=w/2, cy=h/2, inner=Math.min(w,h)*0.24, outer=Math.min(w,h)*0.46;
+      core(c,cx,cy,inner*1.1,ACCENT);
+      orbit(c,cx,cy,inner,outer,0.0,0,t,{color:ACCENT});
+      orbit(c,cx,cy,inner,outer,1.1,2.1,t,{color:ACCENT,speed:0.8});
+      orbit(c,cx,cy,inner,outer,2.2,4.2,t,{color:WARM,speed:1.3,weight:0.8}); } },
+
+  { name: "B · orbits, two + cool", avatar: true,
+    note: "Calmer. A second colour on one loop.",
+    draw(c,w,h,t){ const cx=w/2, cy=h/2, inner=Math.min(w,h)*0.24, outer=Math.min(w,h)*0.44;
+      core(c,cx,cy,inner*1.05,ACCENT);
+      orbit(c,cx,cy,inner,outer,0.3,0,t,{color:ACCENT,weight:1.2});
+      orbit(c,cx,cy,inner,outer,1.9,3.0,t,{color:COOL,speed:0.7}); } },
+
+  { name: "C · orbits, five, thin", avatar: true,
+    note: "Busier, more electron-shell.",
+    draw(c,w,h,t){ const cx=w/2, cy=h/2, inner=Math.min(w,h)*0.23, outer=Math.min(w,h)*0.47;
+      core(c,cx,cy,inner*1.15,ACCENT);
+      for(let i=0;i<5;i++) orbit(c,cx,cy,inner,outer,i*0.63,i*1.3,t,
+        {color:i%2?WARM:ACCENT,speed:0.6+i*0.22,weight:0.7,glow:0.7}); } },
+
+  { name: "D · orbits + swell", avatar: true,
+    note: "Two loops, and the core breathes with the voice.",
+    draw(c,w,h,t){ const cx=w/2, cy=h/2, inner=Math.min(w,h)*0.24, outer=Math.min(w,h)*0.45;
+      core(c,cx,cy,inner*(1.05+amp*0.35),ACCENT);
+      orbit(c,cx,cy,inner,outer,0.0,0,t,{color:ACCENT});
+      orbit(c,cx,cy,inner,outer,1.5,2.6,t,{color:WARM,speed:0.9,wobble:0.3}); } },
+
+  { name: "E · mesh, wireframe", avatar: false,
+    note: "Audio topography, crosshatched. As the picture.",
+    draw(c,w,h){ mesh(c,w,h,{color:ACCENT,glow:true}); } },
+
+  { name: "F · mesh, ridges only", avatar: false,
+    note: "No cross-lines. Reads faster at small sizes.",
+    draw(c,w,h){ mesh(c,w,h,{color:WARM,glow:true,warp:false,lift:0.28}); } },
+];
+
+const grid=document.getElementById("grid");
+const cells=STYLES.map(s=>{
+  const d=document.createElement("div"); d.className="cell";
+  const cv=document.createElement("canvas");
+  const lab=document.createElement("div"); lab.className="lab";
+  lab.innerHTML="<b>"+s.name+"</b><br>"+s.note;
+  d.append(cv,lab); grid.append(d);
+  return {s,cv,ctx:cv.getContext("2d")};
+});
+
+function frame(t){
+  tick(t);
+  for (const cell of cells){
+    const s=cell.s, cv=cell.cv, ctx=cell.ctx;
+    const w=cv.width=cv.clientWidth, h=cv.height=cv.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    if (s.avatar) {
+      ctx.strokeStyle="#ffffff18"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(w/2,h/2,Math.min(w,h)*0.22,0,7); ctx.stroke();
+    }
+    s.draw(ctx,w,h,t);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

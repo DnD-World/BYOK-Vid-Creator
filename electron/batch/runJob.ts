@@ -24,7 +24,11 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { parseDramaboxScript } from "../../src/lib/narration/parseDramaboxScript";
+import type { DramaboxParams } from "../../src/lib/narration/dramaboxParams";
+import type { ExpressionOptions } from "../../src/lib/narration/expression";
 import { checkScript } from "../tts/checkScript";
+import { analyzeNarration } from "../audio/analyzeNarration";
+import { listMusic, pickMusic, BACKGROUND_VOLUME } from "../audio/musicLibrary";
 import { defaultProject } from "../../src/store/defaults";
 import { defaultTrackWaveform } from "../../src/lib/waveform/buildTracks";
 import { builtinPresets } from "../../src/store/builtinPresets";
@@ -38,6 +42,9 @@ import {
   WAVEFORM_STYLES,
   type OutlineShape,
   type SpeakerConfig,
+  type SubtitleConfig,
+  type LogoConfig,
+  defaultLogo,
   type TrackWaveform,
 } from "../../src/store/types";
 
@@ -64,11 +71,26 @@ export interface JobSpeaker {
    *  are given — the same precedence the preview and the render already use. */
   sheetPath?: string;
   puppetPath?: string;
-  engine: "piper" | "chatterbox";
+  engine: "piper" | "dramabox" | "elevenlabs";
+  /** ElevenLabs voice id, and this character's settings. */
+  elevenVoiceId?: string;
+  eleven?: { stability?: number; similarityBoost?: number; style?: number; speed?: number };
   piperPythonPath?: string;
   piperOnnxPath?: string;
-  chatterboxVoiceMode?: "predefined" | "clone";
-  chatterboxVoiceRef?: string;
+  /** File name of this character's DramaBox reference clip — "tsika.wav".
+   *  Read by tools/make-blocks.mjs; the clip itself lives in voice-refs/. */
+  voiceRef?: string;
+  /** Engine settings for THIS character. Everything omitted falls back to
+   *  DRAMABOX_DEFAULTS. A `[VOICE: …]` line in the script overrides these for
+   *  one block.
+   *
+   *  These exist because a cast is not one voice: Τσίκα wants more
+   *  expressiveness and less time per word than Σερίφης, and until this field
+   *  existed there was nowhere to say so. */
+  dramabox?: Partial<DramaboxParams>;
+  /** Whether the app may add expression this character's lines were written
+   *  without. Off unless asked for, and every change it makes is reported. */
+  expression?: ExpressionOptions;
   /** Outline and waveform colour — they are the same value by construction. */
   borderColor?: string;
 }
@@ -101,7 +123,13 @@ export interface BatchJob {
    *  over the flat background, which is faster and needs no API keys — the
    *  right choice when you are testing timing rather than looks. */
   backgrounds?: "auto" | "none";
+  /** A music bed. A path to one file, or "auto" to take one from the library
+   *  in `music/` — which is what a batch wants, since it gives every lesson a
+   *  bed without naming one 72 times. "none" or absent is silence. */
   musicPath?: string;
+  music?: "auto" | "none";
+  /** 0–1. Absent means the background level, which is deliberately low. */
+  musicVolume?: number;
   language?: string;
   /** Overrides the preset. Present because orientation is the one thing a
    *  batch is likely to vary per row — the same lesson, wide for the LMS and
@@ -159,6 +187,20 @@ export interface BatchJob {
   dumpNarrationMeta?: string;
   subtitleFont?: string;
   subtitleFontWeight?: number;
+  /** How the spoken word is marked — see SubtitleConfig.activeEmphasis.
+   *  Here for the same reason waveformStyle is: comparing two looks must not
+   *  mean editing a preset in source between renders. */
+  subtitleEmphasis?: SubtitleConfig["activeEmphasis"];
+  /** Two- or three-second cards welded on after the render. Any video ffmpeg
+   *  can read; scaled to fit the frame. A card with no sound is fine. */
+  introPath?: string;
+  outroPath?: string;
+  /** A logo over every frame. Just a path uses the defaults — bottom right,
+   *  12% of the frame's width. */
+  logoPath?: string;
+  logoPosition?: LogoConfig["position"];
+  logoSize?: number;
+  logoOpacity?: number;
 }
 
 export interface JobResult {
@@ -245,8 +287,6 @@ export async function runBatchJob(
       size: s?.size ?? fromPreset?.size ?? 0.34,
       ttsEngine: c.engine,
       voiceId: c.piperOnnxPath,
-      chatterboxVoiceMode: c.chatterboxVoiceMode,
-      chatterboxVoiceRef: c.chatterboxVoiceRef,
     } as SpeakerConfig;
   });
 
@@ -335,16 +375,38 @@ export async function runBatchJob(
       speakerLabel: seg.speakerLabel,
       text: seg.text,
       language,
-      engine: c.engine,
+      engine: c.engine === "elevenlabs" ? ("elevenlabs" as const) : ("piper" as const),
       piperPythonPath: c.piperPythonPath,
       piperOnnxPath: c.piperOnnxPath,
-      voiceMode: c.chatterboxVoiceMode,
-      predefinedVoiceId:
-        c.chatterboxVoiceMode === "predefined" ? c.chatterboxVoiceRef : undefined,
-      referenceAudioFilename:
-        c.chatterboxVoiceMode === "clone" ? c.chatterboxVoiceRef : undefined,
+      elevenVoiceId: c.elevenVoiceId,
+      eleven: c.eleven,
     } as NarrationInput;
   });
+
+  // ---- music bed -------------------------------------------------------
+  // Chosen from the lesson's own script path, so re-rendering it tomorrow
+  // gives it the same loop and the course does not drift halfway through.
+  let musicFile: string | null = job.musicPath ?? null;
+  let musicAnalysis: RenderJob["musicAnalysis"] = null;
+  if (!musicFile && job.music === "auto") {
+    const tracks = await listMusic(path.join(ctx.projectRoot, "music"));
+    const chosen = pickMusic(tracks, job.scriptPath);
+    if (chosen) {
+      musicFile = chosen.filePath;
+      onProgress(3, `Music: ${chosen.name}`);
+    } else {
+      onProgress(3, "Music: asked for auto, and music/ has no .wav files — silent");
+    }
+  }
+  if (musicFile) {
+    try {
+      musicAnalysis = analyzeNarration(await fsp.readFile(musicFile), [], []);
+    } catch (e) {
+      // Said out loud: an unanalysed bed plays once and then stops, which is
+      // four silent minutes nobody notices until the end of the lesson.
+      onProgress(3, `Music could not be analysed and will not repeat: ${String(e)}`);
+    }
+  }
 
   onProgress(4, `Synthesising ${segments.length} lines…`);
   const narration = job.dramaboxWavDir
@@ -550,9 +612,15 @@ export async function runBatchJob(
     durationSec,
     audioFilePath: narration.filePath,
     analysis: narration.analysis,
-    musicFilePath: job.musicPath ?? null,
-    musicAnalysis: null,
-    musicVolume: defaultProject.musicVolume,
+    musicFilePath: musicFile,
+    // ANALYSED, OR IT PLAYS ONCE AND STOPS. The composition repeats a bed by
+    // counting frames against the track's own length, and without an analysis
+    // it has no length to count against — so it plays the file from the top
+    // and leaves silence for the rest of the lesson. These loops are twelve to
+    // eighty-five seconds against lessons of five minutes, so that is not an
+    // edge case, it is every single row.
+    musicAnalysis: musicAnalysis,
+    musicVolume: job.musicVolume ?? BACKGROUND_VOLUME,
     musicDuck: defaultProject.musicDuck,
     sfx: sfxClips,
     backgrounds,
@@ -570,6 +638,7 @@ export async function runBatchJob(
       ...preset.subtitles,
       ...(job.subtitleFont ? { fontFamily: job.subtitleFont } : {}),
       ...(job.subtitleFontWeight ? { fontWeight: job.subtitleFontWeight } : {}),
+      ...(job.subtitleEmphasis ? { activeEmphasis: job.subtitleEmphasis } : {}),
     },
     musicWaveform: { ...defaultProject.musicWaveform, ...preset.musicWaveform },
     visemeFadeMs: defaultProject.visemeFadeMs,
@@ -577,6 +646,17 @@ export async function runBatchJob(
     narrationSegments: narration.segments,
     narrationPauses: narration.pauses ?? [],
     crf: job.crf,
+    introPath: job.introPath,
+    outroPath: job.outroPath,
+    logo: job.logoPath
+      ? {
+          ...defaultLogo(),
+          filePath: job.logoPath,
+          ...(job.logoPosition ? { position: job.logoPosition } : {}),
+          ...(job.logoSize !== undefined ? { size: job.logoSize } : {}),
+          ...(job.logoOpacity !== undefined ? { opacity: job.logoOpacity } : {}),
+        }
+      : null,
     glass: job.glass ?? null,
   } as RenderJob;
 
