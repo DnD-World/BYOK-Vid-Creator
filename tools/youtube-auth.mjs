@@ -213,8 +213,13 @@ const server = http.createServer(async (req, res) => {
     server.close();
     done(dest);
   } catch (e) {
-    say("Signed in, but the token could not be saved. See the terminal.");
-    failed(e);
+    // The reason goes in the TAB as well as the terminal. "See the terminal"
+    // sent someone to a window that had scrolled, and the actual cause — an
+    // address reused from an earlier attempt — was never read.
+    const why = e instanceof Error ? e.message : String(e);
+    say(`Signed in, but the token could not be saved.<br><br>${why.split("\n").join("<br>")}`);
+    console.error(`\n${why}`);
+    console.error(`Still listening. Approve again in the browser to try once more.\n`);
   }
 });
 
@@ -261,7 +266,12 @@ rl.on("line", async (line) => {
     server.close();
     done(dest);
   } catch (e) {
-    failed(e);
+    // A BAD PASTE MUST NOT END THE SESSION. The first version exited here, so
+    // pasting the address from an earlier attempt — the easy mistake, since it
+    // is sitting right there in another tab — killed a sign-in that was still
+    // perfectly good and forced the whole thing to start again.
+    console.error(`\n${e instanceof Error ? e.message : String(e)}`);
+    console.error(`Still listening. Approve in the browser, or paste the new address here.\n`);
   }
 });
 
